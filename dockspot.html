@@ -342,7 +342,9 @@ nav{background:var(--navy);position:sticky;top:0;z-index:100;box-shadow:0 2px 8p
 .team-section{background:var(--bg2);padding:80px 24px}
 .team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:36px}
 .team-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;text-align:center}
-.team-avatar{width:80px;height:80px;border-radius:50%;object-fit:cover;margin:0 auto 16px;border:3px solid var(--border)}
+.team-avatar{width:120px;height:120px;border-radius:50%;object-fit:cover;margin:0 auto 16px;border:3px solid var(--border)}
+.founder-card{max-width:420px;margin:0 auto;text-align:center}
+.founder-avatar{width:160px;height:160px;border-radius:50%;object-fit:cover;object-position:center 22%;display:block;margin:0 auto 18px;border:4px solid rgba(13,148,136,.35);box-shadow:0 10px 24px rgba(0,0,0,.16)}
 .team-name{font-weight:700;font-size:1.05rem;margin-bottom:4px}
 .team-role{font-size:.85rem;color:var(--teal);font-weight:600;margin-bottom:10px}
 .team-bio{font-size:.86rem;color:var(--text2);line-height:1.6}
@@ -594,7 +596,7 @@ footer{background:var(--navy);color:rgba(255,255,255,.7);padding:48px 24px 24px}
       </div>
       <div class="footer-bottom">
         <span>© 2026 Båtplats.nu · båtplats.nu</span>
-        <span>Made with ♥ in Göteborg, Sweden</span>
+        <span>Made with ♥ in STOCKHOLM, Sweden</span>
       </div>
     </div>
   </footer>
@@ -818,23 +820,11 @@ footer{background:var(--navy);color:rgba(255,255,255,.7);padding:48px 24px 24px}
         <h2 class="section-title">Built by sailors, for sailors</h2>
       </div>
       <div class="team-grid fade-in">
-        <div class="team-card">
-          <img src="https://picsum.photos/seed/captain1/160/160" alt="CEO" class="team-avatar">
-          <div class="team-name">Erik Sandström</div>
-          <div class="team-role">Co-founder & CEO</div>
-          <div class="team-bio">Former harbour master at Gothenburg with 20 years on the water. Erik has sailed from Göteborg to the Azores twice.</div>
-        </div>
-        <div class="team-card">
-          <img src="https://picsum.photos/seed/sailor2/160/160" alt="CTO" class="team-avatar">
-          <div class="team-name">Maja Bergström</div>
-          <div class="team-role">Co-founder & CTO</div>
-          <div class="team-bio">Full-stack engineer and avid dinghy racer. Maja previously built fintech platforms in Stockholm and loves windy Sundays on Mälaren.</div>
-        </div>
-        <div class="team-card">
-          <img src="https://picsum.photos/seed/marina3/160/160" alt="Head of Partnerships" class="team-avatar">
-          <div class="team-name">Jonas Lindqvist</div>
-          <div class="team-role">Head of Partnerships</div>
-          <div class="team-bio">Maritim branschveteran med nätverk i 80+ svenska hamnar. Jonas ser till att varje partnerhamn känner sig hemma på Båtplats.nu.</div>
+        <div class="team-card founder-card">
+          <img src="/carl-lagerberg.jpg" alt="Carl Lagerberg" class="founder-avatar">
+          <div class="team-name">Carl Lagerberg</div>
+          <div class="team-role">Grundare & VD / Founder & CEO</div>
+          <div class="team-bio" id="aboutFounderBio">Carl grundade Båtplats.nu med visionen att göra det enkelt att hitta långtidshyra av båtplatser i Sverige — ett problem han stött på själv som båtägare i Stockholm.</div>
         </div>
       </div>
     </div>
@@ -875,7 +865,7 @@ footer{background:var(--navy);color:rgba(255,255,255,.7);padding:48px 24px 24px}
         <div class="footer-col"><h4>Company</h4><a href="#" onclick="navigate('about')">About us</a><a href="#">Blog</a><a href="#">Careers</a></div>
         <div class="footer-col"><h4>Support</h4><a href="#">Help centre</a><a href="mailto:kontakt@båtplats.nu">kontakt@båtplats.nu</a><a href="#">Privacy</a></div>
       </div>
-      <div class="footer-bottom"><span>© 2026 Båtplats.nu · båtplats.nu</span><span>Made with ♥ in Göteborg, Sweden</span></div>
+      <div class="footer-bottom"><span>© 2026 Båtplats.nu · båtplats.nu</span><span>Made with ♥ in STOCKHOLM, Sweden</span></div>
     </div>
   </footer>
 </div>
@@ -891,7 +881,14 @@ const amenityMeta={electricity:{icon:'zap',label:'Electricity'},water:{icon:'dro
 let currentPage='home',filteredListings=[...listings],currentDetailId=null,mapVisible=false,currentLang='sv',marinaUser=null,buyerUser=null,listingsMap=null,mapMarkers=[];
 const protectedPages={'harbour-dashboard':true};
 
-function toggleLanguage(){currentLang=currentLang==='sv'?'en':'sv'; if(currentPage==='listing-detail'&&currentDetailId)renderDetail(currentDetailId);}
+function updateAboutLanguage(){
+  const bio=document.getElementById('aboutFounderBio');
+  if(!bio) return;
+  bio.textContent=currentLang==='sv'
+    ? 'Carl grundade Båtplats.nu med visionen att göra det enkelt att hitta långtidshyra av båtplatser i Sverige — ett problem han stött på själv som båtägare i Stockholm.'
+    : 'Carl founded Båtplats.nu with the vision of making it simple to find long-term boat berths in Sweden — a problem he encountered himself as a boat owner in Stockholm.';
+}
+function toggleLanguage(){currentLang=currentLang==='sv'?'en':'sv'; updateAboutLanguage(); if(currentPage==='listing-detail'&&currentDetailId)renderDetail(currentDetailId);}
 function updateNavState(){document.querySelectorAll('.guest-only').forEach(el=>el.style.display=(!marinaUser&&!buyerUser)?'':'none');document.querySelectorAll('.marina-only').forEach(el=>el.style.display=marinaUser?'':'none');document.querySelectorAll('.buyer-only').forEach(el=>el.style.display=buyerUser?'':'none');const n=document.getElementById('buyerNavName'); if(n&&buyerUser)n.textContent=buyerUser.firstName;}
 function ensureMarinaAuth(page){if(protectedPages[page]&&!marinaUser){showToast('Logga in som hamnagare', 'error'); navigate('login'); return false;} return true;}
 function listingOnclick(id){const safeId=String(id).replace(/'/g,"\\'"); return `navigate('listing-detail','${safeId}')`;}
@@ -986,7 +983,7 @@ function showToast(msg,type='success'){const c=document.getElementById('toast-co
 function toggleTheme(){const html=document.documentElement;const isDark=html.getAttribute('data-theme')==='dark';html.setAttribute('data-theme',isDark?'light':'dark');const icon=document.querySelectorAll('.theme-toggle i')[1];if(icon){icon.setAttribute('data-lucide',isDark?'sun':'moon');lucide.createIcons();}}
 function toggleMobile(){document.getElementById('mobileMenu').classList.toggle('open');}
 function setupScrollAnimation(){const els=document.querySelectorAll('.fade-in');const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}})},{threshold:0.1});els.forEach(el=>{if(!el.classList.contains('visible'))obs.observe(el);});}
-function init(){renderFeatured();renderMarinas();renderListings(listings);updateNavState();const hash=window.location.hash.slice(1);if(hash){const parts=hash.split('-');if(parts[0]==='listing'&&parts[1]==='detail'&&parts.length>2)navigate('listing-detail',parts.slice(2).join('-'));else navigate(parts.join('-'));}else navigate('home');lucide.createIcons();setupScrollAnimation();}
+function init(){renderFeatured();renderMarinas();renderListings(listings);updateNavState();updateAboutLanguage();const hash=window.location.hash.slice(1);if(hash){const parts=hash.split('-');if(parts[0]==='listing'&&parts[1]==='detail'&&parts.length>2)navigate('listing-detail',parts.slice(2).join('-'));else navigate(parts.join('-'));}else navigate('home');lucide.createIcons();setupScrollAnimation();}
 window.addEventListener('popstate',e=>{if(e.state)navigate(e.state.page,e.state.listingId);});
 document.addEventListener('DOMContentLoaded',init);
 </script>
