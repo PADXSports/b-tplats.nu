@@ -1,0 +1,4 @@
+cd ..
+rm package-lock.json
+cd batplats
+npm run dev
