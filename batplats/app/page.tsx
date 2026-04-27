@@ -87,18 +87,24 @@ export default function Home() {
           console.error(featured.error);
         } else if (featured.data) {
           setFeaturedListings(
-            featured.data.map((listing) => ({
-              id: listing.id,
-              marina: listing.harbours?.name ?? "Hamn",
-              title: listing.title,
-              city: listing.harbours?.city ?? "Okänd stad",
-              specs: [
-                listing.max_boat_length ? `${listing.max_boat_length}m längd` : "Längd ej angiven",
-                listing.max_boat_width ? `${listing.max_boat_width}m bredd` : "Bredd ej angiven",
-              ],
-              price: listing.price_per_season.toLocaleString("sv-SE"),
-              imageSrc: DEFAULT_LISTING_IMAGE,
-            })),
+            featured.data.map((listing) => {
+              const harbour = Array.isArray(listing.harbours)
+                ? listing.harbours[0]
+                : listing.harbours;
+
+              return {
+                id: listing.id,
+                marina: harbour?.name ?? "Hamn",
+                title: listing.title,
+                city: harbour?.city ?? "Okänd stad",
+                specs: [
+                  listing.max_boat_length ? `${listing.max_boat_length}m längd` : "Längd ej angiven",
+                  listing.max_boat_width ? `${listing.max_boat_width}m bredd` : "Bredd ej angiven",
+                ],
+                price: listing.price_per_season.toLocaleString("sv-SE"),
+                imageSrc: DEFAULT_LISTING_IMAGE,
+              };
+            }),
           );
         }
 

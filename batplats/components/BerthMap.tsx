@@ -24,7 +24,7 @@ const MAP_STYLE = [{ featureType: "all", stylers: [{ saturation: -60 }] }];
 
 declare global {
   interface Window {
-    google?: typeof google;
+    google?: any;
   }
 }
 
@@ -32,8 +32,8 @@ export default function BerthMap({ height = "480px" }: BerthMapProps) {
   const supabase = useMemo(() => createClient(), []);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const initializedRef = useRef(false);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const mapRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
   const [isApiReady, setIsApiReady] = useState(false);
   const [listings, setListings] = useState<MapListing[]>([]);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -99,7 +99,7 @@ export default function BerthMap({ height = "480px" }: BerthMapProps) {
     const map = new googleMaps.Map(mapElementRef.current, {
       center: STOCKHOLM_CENTER,
       zoom: 11,
-      styles: MAP_STYLE as google.maps.MapTypeStyle[],
+      styles: MAP_STYLE as any[],
       mapId: "DEMO_MAP_ID",
       mapTypeControl: false,
       streetViewControl: false,
@@ -121,7 +121,7 @@ export default function BerthMap({ height = "480px" }: BerthMapProps) {
 
     const drawMarkers = async () => {
       const markerLib = await googleMaps.importLibrary("marker");
-      const { AdvancedMarkerElement } = markerLib as google.maps.MarkerLibrary;
+      const { AdvancedMarkerElement } = markerLib as any;
       if (!mounted) return;
 
       listings.forEach((listing) => {

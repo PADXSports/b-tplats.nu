@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import AuthNavbar from "@/components/auth-navbar";
@@ -51,7 +51,7 @@ const normalizeStatus = (status: string) => {
   return { label: status, classes: "bg-[#e2e8f0] text-[#475569]" };
 };
 
-export default function RenterDashboardPage() {
+function RenterDashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
@@ -92,7 +92,43 @@ export default function RenterDashboardPage() {
         return;
       }
 
-      setBookings((data ?? []) as RenterBooking[]);
+      const normalizedBookings: RenterBooking[] = ((data ?? []) as Array<Record<string, unknown>>).map(
+        (booking) => {
+          const listingRelation = Array.isArray(booking.listings)
+            ? (booking.listings[0] as Record<string, unknown> | undefined)
+            : (booking.listings as Record<string, unknown> | null | undefined);
+          const harbourRelation = listingRelation
+            ? (Array.isArray(listingRelation.harbours)
+                ? (listingRelation.harbours[0] as Record<string, unknown> | undefined)
+                : (listingRelation.harbours as Record<string, unknown> | null | undefined))
+            : null;
+
+          return {
+            id: booking.id as number | string,
+            listing_id: booking.listing_id as number | string,
+            status: (booking.status as string) ?? "pending",
+            start_date: (booking.start_date as string | null) ?? null,
+            end_date: (booking.end_date as string | null) ?? null,
+            listings: listingRelation
+              ? {
+                  id: listingRelation.id as number | string,
+                  title: (listingRelation.title as string) ?? "Okänd annons",
+                  price_per_season: (listingRelation.price_per_season as number | null) ?? null,
+                  season_start: (listingRelation.season_start as string | null) ?? null,
+                  season_end: (listingRelation.season_end as string | null) ?? null,
+                  harbours: harbourRelation
+                    ? {
+                        name: (harbourRelation.name as string) ?? "Okänd hamn",
+                        city: (harbourRelation.city as string) ?? "Okänd stad",
+                      }
+                    : null,
+                }
+              : null,
+          };
+        },
+      );
+
+      setBookings(normalizedBookings);
       setLoadingBookings(false);
     },
     [supabase],
@@ -506,5 +542,22 @@ export default function RenterDashboardPage() {
         </div>
       ) : null}
     </main>
+  );
+}
+
+export default function RenterDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-[#f8fafc] text-[#1e293b]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#cbd5e1] border-t-[#0d9488]" />
+            <p className="text-sm font-medium text-[#64748b]">Laddar dashboard...</p>
+          </div>
+        </main>
+      }
+    >
+      <RenterDashboardContent />
+    </Suspense>
   );
 }

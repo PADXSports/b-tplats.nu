@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import AuthNavbar from "@/components/auth-navbar";
@@ -85,7 +85,7 @@ const formatDate = (value: string | null) => {
   return date.toLocaleDateString("sv-SE");
 };
 
-export default function HostDashboardPage() {
+function HostDashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
@@ -1600,5 +1600,22 @@ export default function HostDashboardPage() {
         </div>
       ) : null}
     </main>
+  );
+}
+
+export default function HostDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-[#f8fafc] text-[#1e293b]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#cbd5e1] border-t-[#0d9488]" />
+            <p className="text-sm font-medium text-[#64748b]">Laddar dashboard...</p>
+          </div>
+        </main>
+      }
+    >
+      <HostDashboardContent />
+    </Suspense>
   );
 }

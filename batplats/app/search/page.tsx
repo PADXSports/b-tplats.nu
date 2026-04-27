@@ -56,7 +56,26 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   }
 
   const { data, error } = await query;
-  const listings = (data ?? []) as SearchResultListing[];
+  const listings: SearchResultListing[] = ((data ?? []) as Array<Record<string, unknown>>).map(
+    (listing) => {
+      const harbour = Array.isArray(listing.harbours)
+        ? (listing.harbours[0] as Record<string, unknown> | undefined)
+        : (listing.harbours as Record<string, unknown> | null | undefined);
+
+      return {
+        id: listing.id as string | number,
+        title: (listing.title as string) ?? "Okänd båtplats",
+        price_per_season: Number(listing.price_per_season ?? 0),
+        max_boat_length: Number(listing.max_boat_length ?? 0),
+        harbours: harbour
+          ? {
+              name: (harbour.name as string) ?? "Okänd hamn",
+              city: (harbour.city as string) ?? "Okänd stad",
+            }
+          : null,
+      };
+    },
+  );
   const hasActiveFilters = Boolean(location || !Number.isNaN(boatLength) || selectedDate);
 
   const formatDate = (value: string) => {

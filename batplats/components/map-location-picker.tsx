@@ -13,7 +13,7 @@ const STOCKHOLM_CENTER = { lat: 59.3293, lng: 18.0686 };
 
 declare global {
   interface Window {
-    google?: typeof google;
+    google?: any;
   }
 }
 
@@ -24,8 +24,8 @@ export default function MapLocationPicker({
   height = "300px",
 }: MapLocationPickerProps) {
   const mapElementRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.Marker | null>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
   const [isApiReady, setIsApiReady] = useState(false);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -77,7 +77,7 @@ export default function MapLocationPicker({
       });
     }
 
-    map.addListener("click", async (event: google.maps.MapMouseEvent) => {
+    map.addListener("click", async (event: any) => {
       if (!event.latLng) return;
       const pickedLat = Number(event.latLng.lat().toFixed(6));
       const pickedLng = Number(event.latLng.lng().toFixed(6));

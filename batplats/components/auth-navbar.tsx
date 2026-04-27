@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -12,7 +12,6 @@ type AuthNavbarProps = {
 
 export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [email, setEmail] = useState<string | null>(null);
@@ -96,7 +95,8 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
   const isSearchActive =
     currentPage === "search" || pathname?.startsWith("/search") || pathname?.startsWith("/kajplatser");
   const isProfileActive = currentPage === "profile" || pathname?.startsWith("/profile");
-  const activeHostTab = searchParams.get("tab");
+  const activeHostTab =
+    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tab") : null;
   const isHost = role === "host" && Boolean(email);
   const isRenter = role === "renter" && Boolean(email);
 
