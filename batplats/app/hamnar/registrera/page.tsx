@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
-import { createSupabaseClient } from "@/lib/supabase-client";
+import Footer from "@/components/footer";
+import { createClient } from "@/lib/supabase/client";
 
 export default function HarbourSignupPage() {
   const router = useRouter();
@@ -18,47 +19,60 @@ export default function HarbourSignupPage() {
     event.preventDefault();
     setLoading(true);
     setError(null);
-
-    const supabase = createSupabaseClient();
-    const { data, error: signupError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name,
-        },
-      },
-    });
-
-    if (signupError) {
-      setError(signupError.message);
+    const timeoutId = setTimeout(() => {
       setLoading(false);
-      return;
-    }
+      setError("Registreringen tog för lång tid, försök igen");
+    }, 5000);
 
-    const userId = data.user?.id;
-    if (userId) {
-      const { error: profileError } = await supabase.from("profiles").upsert({
-        id: userId,
-        role: "owner",
-        full_name: name,
+    try {
+      const supabase = createClient();
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name,
+          },
+        },
       });
 
-      if (profileError) {
-        setError(profileError.message);
-        setLoading(false);
+      if (signupError) {
+        setError(signupError.message);
         return;
       }
-    }
 
-    router.push("/dashboard");
-    router.refresh();
+      const userId = data.user?.id;
+      if (userId) {
+        const { error: profileError } = await supabase.from("profiles").upsert({
+          id: userId,
+          role: "host",
+          full_name: name,
+        });
+
+        if (profileError) {
+          setError(profileError.message);
+          return;
+        }
+      }
+
+      router.push("/dashboard/host");
+      router.refresh();
+    } finally {
+      clearTimeout(timeoutId);
+      setLoading(false);
+    }
   };
 
   return (
     <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
       <section className="bg-gradient-to-br from-[#0a2342] via-[#0d3060] to-[#0a4a6b] px-6 py-16 text-white">
         <div className="mx-auto w-full max-w-[520px]">
+          <Link
+            href="/"
+            className="mb-4 inline-flex rounded-full border border-white/20 bg-white/10 px-[14px] py-[6px] text-[0.85rem] font-medium text-white transition hover:bg-white/20"
+          >
+            ← Startsidan
+          </Link>
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a8]">
             För hamnägare
           </p>
@@ -116,12 +130,13 @@ export default function HarbourSignupPage() {
 
           <p className="mt-5 text-center text-sm text-[#64748b]">
             Har du redan konto?{" "}
-            <Link href="/login" className="font-semibold text-[#0d9488] hover:underline">
+            <Link href="/hamnar/logga-in" className="font-semibold text-[#0d9488] hover:underline">
               Logga in som hamnägare
             </Link>
           </p>
         </div>
       </section>
+      <Footer />
     </main>
   );
 }

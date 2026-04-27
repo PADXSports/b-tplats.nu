@@ -1,11 +1,63 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import AuthNavbar from "@/components/auth-navbar";
+import Footer from "@/components/footer";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ForHamnarPage() {
+  const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const checkRole = async () => {
+      try {
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (error || !user?.id) {
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (profile?.role === "host" || profile?.role === "owner") {
+          router.replace("/dashboard/host");
+        }
+      } finally {
+        if (mounted) {
+          setCheckingAuth(false);
+        }
+      }
+    };
+
+    void checkRole();
+
+    return () => {
+      mounted = false;
+    };
+  }, [router, supabase]);
+
   return (
     <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
       <AuthNavbar currentPage="home" />
+      {checkingAuth ? (
+        <div className="fixed right-4 top-20 z-40 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#cbd5e1] border-t-[#0d9488]" />
+        </div>
+      ) : null}
 
       <section className="bg-gradient-to-br from-[#0a2342] via-[#0d3060] to-[#0a4a6b] px-6 py-24 text-white">
         <div className="mx-auto w-full max-w-[980px] text-center">
@@ -21,7 +73,7 @@ export default function ForHamnarPage() {
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="/login"
+              href="/hamnar/logga-in"
               className="rounded-lg border-2 border-[#14b8a8] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8]"
             >
               Logga in som hamnägare
@@ -151,6 +203,7 @@ export default function ForHamnarPage() {
           </div>
         </div>
       </section>
+      <Footer />
     </main>
   );
 }

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 
-import { createSupabaseClient } from "@/lib/supabase-client";
+import Footer from "@/components/footer";
+import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,54 +15,70 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const nextPath = searchParams.get("next") || "/";
-
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     setError(null);
-
-    const supabase = createSupabaseClient();
-    const { data, error: loginError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (loginError) {
-      setError(loginError.message);
+    const timeoutId = setTimeout(() => {
       setLoading(false);
-      return;
-    }
+      setError("Inloggning tog för lång tid, försök igen");
+    }, 5000);
 
-    const userId = data.user?.id;
-    if (!userId) {
-      router.push("/");
+    try {
+      const supabase = createClient();
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (loginError) {
+        setError(loginError.message);
+        return;
+      }
+
+      const user = data.user;
+      if (!user) {
+        setError("Ingen användare returnerades från inloggningen.");
+        return;
+      }
+
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        setError(profileError.message);
+        return;
+      }
+
+      const normalizedRole = profileData?.role === "host" || profileData?.role === "owner" ? "host" : "renter";
+      localStorage.setItem("userRole", normalizedRole);
+      const redirectPath = searchParams.get("redirect");
+      if (redirectPath) {
+        router.push(redirectPath);
+      } else {
+        router.push(normalizedRole === "host" ? "/dashboard/host" : "/dashboard/renter");
+      }
       router.refresh();
-      return;
+    } finally {
+      clearTimeout(timeoutId);
+      setLoading(false);
     }
-
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", userId)
-      .maybeSingle();
-
-    const role = profileData?.role === "owner" ? "owner" : "renter";
-
-    if (nextPath && nextPath !== "/") {
-      router.push(nextPath);
-    } else {
-      router.push(role === "owner" ? "/dashboard" : "/profile");
-    }
-    router.refresh();
   };
 
   return (
     <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
       <section className="bg-gradient-to-br from-[#0a2342] via-[#0d3060] to-[#0a4a6b] px-6 py-16 text-white">
         <div className="mx-auto w-full max-w-[520px]">
+          <Link
+            href="/"
+            className="mb-4 inline-flex rounded-full border border-white/20 bg-white/10 px-[14px] py-[6px] text-[0.85rem] font-medium text-white transition hover:bg-white/20"
+          >
+            ← Startsidan
+          </Link>
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a8]">
-            Välkommen tillbaka
+            Logga in som båtägare
           </p>
           <h1 className="mt-2 text-[2rem] font-extrabold">Logga in</h1>
         </div>
@@ -109,8 +126,19 @@ export default function LoginPage() {
               Skapa konto
             </Link>
           </p>
+
+          <div className="my-5 border-t border-[#e2e8f0]" />
+
+          <p className="text-center text-sm text-[#64748b]">Är du hamnägare?</p>
+          <Link
+            href="/hamnar/logga-in"
+            className="mt-3 inline-flex w-full items-center justify-center rounded-lg border-2 border-[#0d9488] px-4 py-2.5 text-sm font-semibold text-[#0d9488] transition hover:bg-[#0d9488] hover:text-white"
+          >
+            Logga in som hamnägare
+          </Link>
         </div>
       </section>
+      <Footer />
     </main>
   );
 }

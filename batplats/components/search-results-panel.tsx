@@ -78,11 +78,11 @@ export default function SearchResultsPanel({ listings }: SearchResultsPanelProps
             </div>
             <div className="p-4">
               <p className="mb-1 text-[0.78rem] font-semibold uppercase tracking-[0.5px] text-[#0d9488]">
-                {listing.harbours?.name ?? "Unknown harbour"}
+                {listing.harbours?.name ?? "Okänd hamn"}
               </p>
               <h2 className="mb-1 text-base font-bold">{listing.title}</h2>
               <p className="mb-3 text-[0.83rem] text-[#64748b]">
-                {listing.harbours?.city ?? "Unknown city"}
+                {listing.harbours?.city ?? "Okänd stad"}
               </p>
 
               <div className="mb-3 flex flex-wrap gap-2">
@@ -90,14 +90,14 @@ export default function SearchResultsPanel({ listings }: SearchResultsPanelProps
                   Max {listing.max_boat_length}m
                 </span>
                 <span className="rounded-full border border-[#e2e8f0] bg-[#f1f5f9] px-2.5 py-1 text-[0.76rem] text-[#64748b]">
-                  Available
+                  Tillgänglig
                 </span>
               </div>
 
               <div className="flex items-center justify-between border-t border-[#e2e8f0] pt-3">
                 <p className="text-[1.1rem] font-extrabold text-[#0a2342]">
                   {listing.price_per_season.toLocaleString("sv-SE")} SEK
-                  <span className="ml-0.5 text-xs font-normal text-[#64748b]">/season</span>
+                  <span className="ml-0.5 text-xs font-normal text-[#64748b]">/säsong</span>
                 </p>
               </div>
             </div>

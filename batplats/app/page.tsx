@@ -2,16 +2,38 @@
 
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AuthNavbar from "@/components/auth-navbar";
 import BerthMap from "@/components/BerthMap";
-import { mockBerths } from "@/lib/mock-berths";
+import Footer from "@/components/footer";
+import { createClient } from "@/lib/supabase/client";
+
+const DEFAULT_LISTING_IMAGE =
+  "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=600&h=300&fit=crop";
 
 export default function Home() {
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const [location, setLocation] = useState("");
   const [boatLength, setBoatLength] = useState("");
   const [date, setDate] = useState("");
+  const [featuredListings, setFeaturedListings] = useState<
+    {
+      id: number | string;
+      marina: string;
+      title: string;
+      city: string;
+      specs: string[];
+      price: string;
+      imageSrc: string;
+    }[]
+  >([]);
+  const [stats, setStats] = useState({
+    marinas: "0",
+    listings: "0",
+    cities: "0",
+    bookings: "0",
+  });
 
   const handleSearch = () => {
     const params = new URLSearchParams();
@@ -32,34 +54,87 @@ export default function Home() {
     router.push(queryString ? `/search?${queryString}` : "/search");
   };
 
-  const featuredListings = mockBerths.slice(0, 3).map((berth) => ({
-    marina: berth.marinaName,
-    title: berth.name,
-    city: berth.city,
-    specs: berth.specs,
-    price: berth.pricePerMonth.toLocaleString("sv-SE"),
-    imageSrc: berth.imageSrc,
-  }));
+  useEffect(() => {
+    const loadHomepageData = async () => {
+      try {
+        const [listingsResult, availableResult, bookingsResult, featured] = await Promise.all([
+          supabase.from("listings").select("harbour_name, city"),
+          supabase.from("listings").select("*", { count: "exact", head: true }).eq("is_available", true),
+          supabase.from("bookings").select("*", { count: "exact", head: true }),
+          supabase
+            .from("listings")
+            .select("id, title, price_per_season, max_boat_length, max_boat_width, harbours(name, city)")
+            .eq("is_available", true)
+            .limit(3),
+        ]);
+
+        if (listingsResult.error) console.error(listingsResult.error);
+        if (availableResult.error) console.error(availableResult.error);
+        if (bookingsResult.error) console.error(bookingsResult.error);
+
+        const uniqueHarbours = new Set(
+          listingsResult.data?.map((listing) => listing.harbour_name).filter(Boolean),
+        ).size;
+
+        const uniqueCities = new Set(
+          listingsResult.data?.map((listing) => listing.city).filter(Boolean),
+        ).size;
+
+        const availableCount = availableResult.count || 0;
+        const bookingsCount = bookingsResult.count || 0;
+
+        if (featured.error) {
+          console.error(featured.error);
+        } else if (featured.data) {
+          setFeaturedListings(
+            featured.data.map((listing) => ({
+              id: listing.id,
+              marina: listing.harbours?.name ?? "Hamn",
+              title: listing.title,
+              city: listing.harbours?.city ?? "Okänd stad",
+              specs: [
+                listing.max_boat_length ? `${listing.max_boat_length}m längd` : "Längd ej angiven",
+                listing.max_boat_width ? `${listing.max_boat_width}m bredd` : "Bredd ej angiven",
+              ],
+              price: listing.price_per_season.toLocaleString("sv-SE"),
+              imageSrc: DEFAULT_LISTING_IMAGE,
+            })),
+          );
+        }
+
+        setStats({
+          marinas: uniqueHarbours.toLocaleString("sv-SE"),
+          listings: availableCount.toLocaleString("sv-SE"),
+          cities: uniqueCities.toLocaleString("sv-SE"),
+          bookings: bookingsCount.toLocaleString("sv-SE"),
+        });
+      } catch (loadError) {
+        console.error(loadError);
+      }
+    };
+
+    void loadHomepageData();
+  }, [supabase]);
 
   const marinas = [
     {
       name: "Goteborg Maritim",
-      spots: "18 berths available",
+      spots: "18 platser tillgängliga",
       imageSrc: "https://picsum.photos/seed/dock12/600/400",
     },
     {
       name: "Stockholms Segelsallskap",
-      spots: "14 berths available",
+      spots: "14 platser tillgängliga",
       imageSrc: "https://picsum.photos/seed/dock34/600/400",
     },
     {
       name: "Bockholmen Marin",
-      spots: "6 berths available",
+      spots: "6 platser tillgängliga",
       imageSrc: "/Bockholmen/IMG_1603-2048x1536.jpeg",
     },
     {
       name: "Nynäshamn Hamn",
-      spots: "10 berths available",
+      spots: "10 platser tillgängliga",
       imageSrc: "/Bockholmen/IMG_1601-1536x1152.jpeg",
     },
   ];
@@ -92,11 +167,11 @@ export default function Home() {
           <div className="mx-auto flex max-w-[900px] flex-wrap gap-2 rounded-xl bg-white p-2 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
             <div className="flex min-w-[140px] flex-1 flex-col px-3 py-[6px]">
               <label className="mb-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.5px] text-[#64748b]">
-                Location
+                Plats
               </label>
               <input
                 type="text"
-                placeholder="City or marina…"
+                placeholder="Stad eller hamn..."
                 value={location}
                 onChange={(event) => setLocation(event.target.value)}
                 className="w-full bg-transparent text-[0.9rem] text-[#1e293b] outline-none"
@@ -105,15 +180,15 @@ export default function Home() {
             <div className="my-2 hidden w-px bg-[#e2e8f0] md:block" />
             <div className="flex min-w-[140px] flex-1 flex-col px-3 py-[6px]">
               <label className="mb-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.5px] text-[#64748b]">
-                Boat Length
+                Båtlängd
               </label>
               <select
                 value={boatLength}
                 onChange={(event) => setBoatLength(event.target.value)}
                 className="w-full bg-transparent text-[0.9rem] text-[#1e293b] outline-none"
               >
-                <option value="">Any size</option>
-                <option value="8">Up to 8m</option>
+                <option value="">Valfri storlek</option>
+                <option value="8">Upp till 8m</option>
                 <option value="12">8m – 12m</option>
                 <option value="16">12m – 16m</option>
                 <option value="17">16m+</option>
@@ -122,7 +197,7 @@ export default function Home() {
             <div className="my-2 hidden w-px bg-[#e2e8f0] md:block" />
             <div className="flex min-w-[140px] flex-1 flex-col px-3 py-[6px]">
               <label className="mb-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.5px] text-[#64748b]">
-                Available From
+                Tillgänglig från
               </label>
               <input
                 type="date"
@@ -135,7 +210,7 @@ export default function Home() {
               onClick={handleSearch}
               className="rounded-lg bg-[#0d9488] px-7 py-3 text-base font-semibold text-white transition hover:bg-[#14b8a8]"
             >
-              Search
+              Sök
             </button>
           </div>
         </div>
@@ -144,10 +219,10 @@ export default function Home() {
       <section className="border-y border-white/10 bg-[#0d2d54] px-6 py-7">
         <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-center gap-14">
           {[
-            ["4", "Partner Marinas"],
-            ["48", "Available Berths"],
-            ["3", "Countries"],
-            ["1,200+", "Bookings Made"],
+            [stats.marinas, "Partnerhamnar"],
+            [stats.listings, "Tillgängliga båtplatser"],
+            [stats.cities, "Städer"],
+            [stats.bookings, "Bokningar gjorda"],
           ].map(([value, label]) => (
             <div key={label} className="text-center">
               <p className="text-[2rem] font-black text-white">{value}</p>
@@ -181,14 +256,14 @@ export default function Home() {
               </h2>
             </div>
             <button className="rounded-lg border-2 border-[#0d9488] px-5 py-2.5 text-[0.9rem] font-semibold text-[#0d9488] transition hover:bg-[#0d9488] hover:text-white">
-              View all listings
+              Visa alla båtplatser
             </button>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {featuredListings.map((item) => (
               <article
-                key={item.title}
+                key={item.id}
                 className="cursor-pointer overflow-hidden rounded-xl border border-[#e2e8f0] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_15px_rgba(0,0,0,0.08),0_4px_6px_rgba(0,0,0,0.05)]"
               >
                 <div className="relative h-[200px] bg-[#f1f5f9]">
@@ -220,11 +295,11 @@ export default function Home() {
                     <p className="text-[1.1rem] font-extrabold text-[#0a2342]">
                       {item.price} SEK
                       <span className="ml-0.5 text-xs font-normal text-[#64748b]">
-                        /month
+                        /månad
                       </span>
                     </p>
                     <span className="rounded-full bg-[#dcfce7] px-2.5 py-1 text-[0.74rem] font-semibold text-[#15803d]">
-                      Available
+                      Tillgänglig
                     </span>
                   </div>
                 </div>
@@ -237,9 +312,9 @@ export default function Home() {
       <section className="bg-[#f1f5f9] px-6 py-20">
         <div className="mx-auto max-w-[1280px] text-center">
           <p className="mb-2.5 text-[0.8rem] font-bold uppercase tracking-[1px] text-[#0d9488]">
-            Marinas
+            Hamnar
           </p>
-          <h2 className="text-[2rem] font-extrabold">Browse by Marina</h2>
+          <h2 className="text-[2rem] font-extrabold">Utforska hamnar</h2>
           <p className="mx-auto mt-3 max-w-[560px] text-base text-[#64748b]">
             Utforska hamnar och båtplatser över hela landet — med tydliga priser
             och enkel bokning via båtplats.nu.
@@ -272,27 +347,27 @@ export default function Home() {
         <div className="mx-auto max-w-[1280px]">
           <div className="text-center">
             <p className="mb-2.5 text-[0.8rem] font-bold uppercase tracking-[1px] text-[#0d9488]">
-              How it works
+              Så fungerar det
             </p>
-            <h2 className="text-[2rem] font-extrabold">Simple. Fast. Reliable.</h2>
+            <h2 className="text-[2rem] font-extrabold">Enkelt. Snabbt. Tryggt.</h2>
           </div>
           <div className="relative mt-12 grid gap-10 md:grid-cols-3">
             <div className="pointer-events-none absolute left-[calc(16.67%+40px)] right-[calc(16.67%+40px)] top-8 hidden h-0.5 bg-gradient-to-r from-[#0d9488] to-[#14b8a8] md:block" />
             {[
               [
                 "1",
-                "List your spot",
-                "Harbours create a free listing with photos, dimensions, amenities, and pricing in minutes.",
+                "Lista din plats",
+                "Hamnar skapar en annons med bilder, mått och pris på bara några minuter.",
               ],
               [
                 "2",
-                "Find your dock",
-                "Boat owners browse and filter listings by size, location, amenities, and price.",
+                "Hitta din kajplats",
+                "Båtägare söker och filtrerar efter storlek, plats och pris.",
               ],
               [
                 "3",
-                "Book & confirm",
-                "Send an inquiry directly to the marina. Confirm your berth and set sail with confidence.",
+                "Boka & bekräfta",
+                "Skicka en förfrågan direkt till hamnen och bekräfta din plats smidigt.",
               ],
             ].map(([step, title, copy]) => (
               <article key={title} className="relative z-10 text-center">
@@ -309,56 +384,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="bg-[#0a2342] px-6 pb-6 pt-12 text-white/70">
-        <div className="mx-auto max-w-[1280px]">
-          <div className="mb-10 grid gap-10 md:grid-cols-2 lg:grid-cols-4">
-            <div className="lg:col-span-1">
-              <p className="text-xl font-bold text-white">Båtplats.nu</p>
-              <p className="mt-3 text-[0.88rem] leading-relaxed text-white/50">
-                Sveriges självklara mötesplats för båtägare och hamnar. Hitta,
-                jämför och boka båtplats — alltid via båtplats.nu.
-              </p>
-            </div>
-            <div>
-              <h4 className="mb-3.5 text-[0.85rem] font-bold uppercase tracking-[0.5px] text-white/90">
-                Platform
-              </h4>
-              <div className="space-y-2 text-[0.87rem] text-white/55">
-                <p>Browse Listings</p>
-                <p>List your spot</p>
-                <p>Pricing</p>
-                <p>Map view</p>
-              </div>
-            </div>
-            <div>
-              <h4 className="mb-3.5 text-[0.85rem] font-bold uppercase tracking-[0.5px] text-white/90">
-                Company
-              </h4>
-              <div className="space-y-2 text-[0.87rem] text-white/55">
-                <p>About us</p>
-                <p>Blog</p>
-                <p>Press</p>
-                <p>Careers</p>
-              </div>
-            </div>
-            <div>
-              <h4 className="mb-3.5 text-[0.85rem] font-bold uppercase tracking-[0.5px] text-white/90">
-                Support
-              </h4>
-              <div className="space-y-2 text-[0.87rem] text-white/55">
-                <p>Help centre</p>
-                <p>kontakt@båtplats.nu</p>
-                <p>Privacy policy</p>
-                <p>Terms of service</p>
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-5 text-[0.82rem]">
-            <span>© 2026 Båtplats.nu · båtplats.nu</span>
-            <span>Made with ♥ in STOCKHOLM, Sweden</span>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </main>
   );
 }

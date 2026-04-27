@@ -1,4 +1,7 @@
+import Image from "next/image";
+
 import AuthNavbar from "@/components/auth-navbar";
+import Footer from "@/components/footer";
 
 export default function OmOssPage() {
   return (
@@ -80,21 +83,22 @@ export default function OmOssPage() {
           </div>
 
           <div className="mx-auto mt-8 max-w-[420px] rounded-xl border border-[#e2e8f0] bg-white p-7 text-center shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
-            <img
-              src="/carl-lagerberg.jpg"
-              alt="Carl Lagerberg"
+            <div
+              className="relative mx-auto mb-[18px] h-[160px] w-[160px] overflow-hidden rounded-full"
               style={{
-                width: "160px",
-                height: "160px",
-                borderRadius: "50%",
-                objectFit: "cover",
-                objectPosition: "center 22%",
-                display: "block",
-                margin: "0 auto 18px",
                 border: "4px solid rgba(13, 148, 136, 0.35)",
                 boxShadow: "0 10px 24px rgba(0,0,0,0.16)",
               }}
-            />
+            >
+              <Image
+                src="/carl-lagerberg.jpg"
+                alt="Carl Lagerberg"
+                fill
+                sizes="160px"
+                className="object-cover"
+                style={{ objectPosition: "center 22%" }}
+              />
+            </div>
             <p className="text-[1.05rem] font-bold text-[#0a2342]">Carl Lagerberg</p>
             <p className="mb-2.5 text-[0.85rem] font-semibold text-[#0d9488]">Grundare & VD</p>
             <p className="text-[0.9rem] leading-relaxed text-[#64748b]">
@@ -104,6 +108,7 @@ export default function OmOssPage() {
           </div>
         </div>
       </section>
+      <Footer />
     </main>
   );
 }

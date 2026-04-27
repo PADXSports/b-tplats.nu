@@ -7,55 +7,60 @@ import { FormEvent, useState } from "react";
 import Footer from "@/components/footer";
 import { createClient } from "@/lib/supabase/client";
 
-export default function SignupPage() {
+export default function HarbourLoginPage() {
   const router = useRouter();
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSignup = async (event: FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     setError(null);
     const timeoutId = setTimeout(() => {
       setLoading(false);
-      setError("Registreringen tog för lång tid, försök igen");
+      setError("Inloggning tog för lång tid, försök igen");
     }, 5000);
 
     try {
       const supabase = createClient();
-      const { data, error: signupError } = await supabase.auth.signUp({
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
-        options: {
-          data: {
-            name,
-          },
-        },
       });
 
-      if (signupError) {
-        setError(signupError.message);
+      if (loginError) {
+        setError(loginError.message);
         return;
       }
 
-      const userId = data.user?.id;
-      if (userId) {
-        const { error: profileError } = await supabase.from("profiles").upsert({
-          id: userId,
-          role: "renter",
-          full_name: name,
-        });
-
-        if (profileError) {
-          setError(profileError.message);
-          return;
-        }
+      const user = data.user;
+      if (!user) {
+        setError("Ingen användare returnerades från inloggningen.");
+        return;
       }
 
-      router.push("/dashboard/renter");
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError) {
+        setError(profileError.message);
+        return;
+      }
+
+      if (profile?.role === "host" || profile?.role === "owner") {
+        localStorage.setItem("userRole", "host");
+        router.push("/dashboard/host");
+      } else {
+        localStorage.setItem("userRole", "renter");
+        router.push(
+          `/dashboard/renter?message=${encodeURIComponent("Du är inloggad som båtägare")}`,
+        );
+      }
       router.refresh();
     } finally {
       clearTimeout(timeoutId);
@@ -74,26 +79,15 @@ export default function SignupPage() {
             ← Startsidan
           </Link>
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a8]">
-            Bli medlem
+            Logga in som hamnägare
           </p>
-          <h1 className="mt-2 text-[2rem] font-extrabold">Skapa konto</h1>
+          <h1 className="mt-2 text-[2rem] font-extrabold">Logga in</h1>
         </div>
       </section>
 
       <section className="px-6 py-10">
         <div className="mx-auto w-full max-w-[520px] rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
-          <form onSubmit={handleSignup} className="space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Namn</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                required
-                className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
-              />
-            </div>
-
+          <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-semibold text-[#0a2342]">E-post</label>
               <input
@@ -112,7 +106,6 @@ export default function SignupPage() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
-                minLength={6}
                 className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
               />
             </div>
@@ -124,14 +117,14 @@ export default function SignupPage() {
               disabled={loading}
               className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:opacity-60"
             >
-              {loading ? "Skapar konto..." : "Skapa konto"}
+              {loading ? "Loggar in..." : "Logga in som hamnägare"}
             </button>
           </form>
 
           <p className="mt-5 text-center text-sm text-[#64748b]">
-            Har du redan konto?{" "}
-            <Link href="/login" className="font-semibold text-[#0d9488] hover:underline">
-              Logga in
+            Inte registrerad?{" "}
+            <Link href="/hamnar/registrera" className="font-semibold text-[#0d9488] hover:underline">
+              Registrera din hamn
             </Link>
           </p>
         </div>

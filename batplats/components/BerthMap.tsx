@@ -1,21 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { mockBerths } from "@/lib/mock-berths";
+import { createClient } from "@/lib/supabase/client";
 
 type BerthMapProps = {
   height?: string;
 };
 
+type MapListing = {
+  id: number | string;
+  title: string;
+  harbour_name: string | null;
+  city: string | null;
+  price_per_season: number | null;
+  is_available: boolean;
+  lat: number;
+  lng: number;
+};
+
 const STOCKHOLM_CENTER = { lat: 59.3293, lng: 18.0686 };
 const MAP_STYLE = [{ featureType: "all", stylers: [{ saturation: -60 }] }];
-
-const availabilityMeta = {
-  available: { label: "Available", color: "#15803d", bg: "#dcfce7" },
-  limited: { label: "Limited", color: "#854d0e", bg: "#fef9c3" },
-  booked: { label: "Booked", color: "#b91c1c", bg: "#fee2e2" },
-} as const;
 
 declare global {
   interface Window {
@@ -24,23 +29,44 @@ declare global {
 }
 
 export default function BerthMap({ height = "480px" }: BerthMapProps) {
+  const supabase = useMemo(() => createClient(), []);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const initializedRef = useRef(false);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const [isApiReady, setIsApiReady] = useState(false);
+  const [listings, setListings] = useState<MapListing[]>([]);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  useEffect(() => {
+    const loadListings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("listings")
+          .select("id, title, harbour_name, city, price_per_season, is_available, lat, lng")
+          .not("lat", "is", null)
+          .not("lng", "is", null);
+
+        if (error) {
+          console.error(error);
+          return;
+        }
+
+        setListings((data ?? []) as MapListing[]);
+      } catch (loadError) {
+        console.error(loadError);
+      }
+    };
+
+    void loadListings();
+  }, [supabase]);
 
   useEffect(() => {
     if (!apiKey) return;
 
-    if (window.google) {
-      setIsApiReady(true);
-      return;
-    }
-
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-    if (!existingScript) {
+    if (!document.querySelector('script[src*="maps.googleapis.com"]')) {
       const script = document.createElement("script");
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=marker`;
       script.async = true;
       script.defer = true;
       const handleLoad = () => setIsApiReady(true);
@@ -51,9 +77,15 @@ export default function BerthMap({ height = "480px" }: BerthMapProps) {
       };
     }
 
+    if (window.google) {
+      setTimeout(() => setIsApiReady(true), 0);
+      return;
+    }
+
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
     const handleScriptReady = () => setIsApiReady(true);
-    existingScript.addEventListener("load", handleScriptReady);
-    return () => existingScript.removeEventListener("load", handleScriptReady);
+    existingScript?.addEventListener("load", handleScriptReady);
+    return () => existingScript?.removeEventListener("load", handleScriptReady);
   }, [apiKey]);
 
   useEffect(() => {
@@ -68,52 +100,69 @@ export default function BerthMap({ height = "480px" }: BerthMapProps) {
       center: STOCKHOLM_CENTER,
       zoom: 11,
       styles: MAP_STYLE as google.maps.MapTypeStyle[],
+      mapId: "DEMO_MAP_ID",
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
     });
+    mapRef.current = map;
+  }, [isApiReady]);
 
-    const pinSvg = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="42" viewBox="0 0 34 42"><path fill="#0d9488" d="M17 0c-9.4 0-17 7.6-17 17 0 12.8 17 25 17 25s17-12.2 17-25C34 7.6 26.4 0 17 0z"/><circle cx="17" cy="17" r="6.5" fill="#ffffff"/></svg>`,
-    )}`;
+  useEffect(() => {
+    if (!mapRef.current || !window.google) return;
+    const map = mapRef.current;
+    const googleMaps = window.google.maps;
+    let mounted = true;
 
-    mockBerths.forEach((berth) => {
-      const marker = new googleMaps.Marker({
-        position: { lat: berth.lat, lng: berth.lng },
-        map,
-        title: berth.name,
-        icon: {
-          url: pinSvg,
-          scaledSize: new googleMaps.Size(34, 42),
-        },
-      });
+    markersRef.current.forEach((marker) => {
+      marker.map = null;
+    });
+    markersRef.current = [];
 
-      const availability = availabilityMeta[berth.availability];
-      const infoWindow = new googleMaps.InfoWindow({
-        content: `
-          <div style="font-family: Arial, sans-serif; min-width: 240px; padding: 2px 2px 0;">
-            <p style="margin: 0 0 4px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #0d9488;">
-              ${berth.marinaName}
-            </p>
-            <h3 style="margin: 0 0 6px; font-size: 16px; font-weight: 700; color: #0a2342;">${berth.name}</h3>
-            <p style="margin: 0 0 10px; font-size: 13px; color: #64748b;">${berth.pricePerMonth.toLocaleString("sv-SE")} SEK / month</p>
-            <span style="display: inline-block; margin-bottom: 10px; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; background: ${availability.bg}; color: ${availability.color};">
-              ${availability.label}
-            </span>
-            <div>
-              <a href="/listings/${berth.id}" style="font-size: 13px; color: #0d9488; text-decoration: none; font-weight: 600;">
+    const drawMarkers = async () => {
+      const markerLib = await googleMaps.importLibrary("marker");
+      const { AdvancedMarkerElement } = markerLib as google.maps.MarkerLibrary;
+      if (!mounted) return;
+
+      listings.forEach((listing) => {
+        const marker = new AdvancedMarkerElement({
+          position: { lat: listing.lat, lng: listing.lng },
+          map,
+          title: listing.title,
+        });
+
+        const infoWindow = new googleMaps.InfoWindow({
+          content: `
+            <div style="padding:8px;min-width:200px">
+              <h3 style="margin:0 0 4px;color:#0f172a">${listing.title}</h3>
+              <p style="margin:0 0 4px;color:#64748b;font-size:13px">${listing.harbour_name ?? listing.city ?? "Hamn"}</p>
+              <p style="margin:0 0 8px;font-weight:600">${(listing.price_per_season ?? 0).toLocaleString("sv-SE")} SEK / säsong</p>
+              <span style="background:${listing.is_available ? "#dcfce7" : "#f1f5f9"};
+                color:${listing.is_available ? "#16a34a" : "#64748b"};
+                padding:2px 8px;border-radius:999px;font-size:12px">
+                ${listing.is_available ? "Tillgänglig" : "Ej tillgänglig"}
+              </span>
+              <br/><br/>
+              <a href="/listings/${listing.id}" 
+                style="color:#0d9488;font-weight:600;text-decoration:none">
                 Visa mer →
               </a>
             </div>
-          </div>
-        `,
-      });
+          `,
+        });
 
-      marker.addListener("click", () => {
-        infoWindow.open({ anchor: marker, map });
+        marker.addListener("click", () => {
+          infoWindow.open({ anchor: marker, map });
+        });
+        markersRef.current.push(marker);
       });
-    });
-  }, [isApiReady]);
+    };
+
+    void drawMarkers();
+    return () => {
+      mounted = false;
+    };
+  }, [listings]);
 
   if (!apiKey) {
     return (
