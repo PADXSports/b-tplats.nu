@@ -4,7 +4,7 @@ import Link from "next/link";
 import AuthNavbar from "@/components/auth-navbar";
 import BookBerthButton from "@/components/book-berth-button";
 import Footer from "@/components/footer";
-import { createClient } from "@/supabase/utils/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 
 type ListingPageProps = {
   params: Promise<{
@@ -198,6 +198,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
               <p className="text-sm text-[#64748b]">per säsong</p>
               <BookBerthButton
                 listingId={resolvedListing.id}
+                pricePerSeason={resolvedListing.price_per_season}
                 isAvailable={resolvedListing.is_available}
                 className="mt-5 w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
               />
@@ -209,6 +210,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#e2e8f0] bg-white/95 p-4 backdrop-blur md:hidden">
         <BookBerthButton
           listingId={resolvedListing.id}
+          pricePerSeason={resolvedListing.price_per_season}
           isAvailable={resolvedListing.is_available}
           className="w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
         />
