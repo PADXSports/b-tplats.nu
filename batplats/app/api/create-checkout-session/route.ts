@@ -66,9 +66,14 @@ export async function POST(request: NextRequest) {
       customer_email: guestEmail || undefined,
     });
 
+    if (!session.url) {
+      throw new Error("Stripe session URL is missing");
+    }
+
     return NextResponse.json({ url: session.url });
-  } catch (error) {
-    console.error("Stripe error:", error);
-    return NextResponse.json({ error: "Payment failed" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Checkout error details:", error);
+    console.error("Stripe checkout error:", error?.message);
+    return NextResponse.json({ error: error?.message ?? "Payment failed" }, { status: 500 });
   }
 }
