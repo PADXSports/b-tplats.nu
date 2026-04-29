@@ -19,7 +19,7 @@ const formatDate = (value: string | null) => {
 };
 
 export default async function BookingSuccessPage({ searchParams }: SuccessPageProps) {
-  const { session_id: sessionId, listing_id: listingId } = await searchParams;
+  const { session_id: sessionId } = await searchParams;
   const supabase = await createClient();
 
   let booking:
@@ -35,13 +35,13 @@ export default async function BookingSuccessPage({ searchParams }: SuccessPagePr
     | null = null;
 
   if (sessionId) {
-    const query = supabase
+    const bookingQuery = supabase
       .from("bookings")
       .select("start_date, end_date, guest_email, listings(title, harbours(name, city))")
       .eq("stripe_session_id", sessionId)
       .maybeSingle();
 
-    const { data } = listingId ? await query.eq("listing_id", listingId) : await query;
+    const { data } = await bookingQuery;
 
     const row = data as Record<string, unknown> | null;
     const listingRelation =
