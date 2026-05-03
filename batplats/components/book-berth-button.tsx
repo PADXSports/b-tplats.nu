@@ -79,6 +79,7 @@ export default function BookBerthButton({
   className,
   bookedRanges,
 }: BookBerthButtonProps) {
+  console.log("BookBerthButton received ranges:", bookedRanges);
   const supabase = useMemo(() => createClient(), []);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isOpen, setIsOpen] = useState(false);
@@ -94,6 +95,7 @@ export default function BookBerthButton({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmedRanges, setConfirmedRanges] = useState<BookingRange[]>(bookedRanges ?? []);
+  console.log("Confirmed ranges state:", confirmedRanges);
   const now = new Date();
   const [calendarView, setCalendarView] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [bookedTooltipYmd, setBookedTooltipYmd] = useState<string | null>(null);
@@ -405,6 +407,8 @@ export default function BookBerthButton({
 
                     <div className="mt-1 grid grid-cols-7 gap-1">
                       {calendarCells.map(({ ymd, day, inMonth }) => {
+                        const date = ymd;
+                        console.log("Checking date:", date, "against ranges:", confirmedRanges);
                         const isBooked = bookedDates.has(ymd);
                         const isToday = ymd === today;
                         const hasRange = Boolean(startDate && endDate && startDate < endDate);

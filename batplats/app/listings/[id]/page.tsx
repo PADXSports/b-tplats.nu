@@ -125,6 +125,8 @@ export default async function ListingPage({ params }: ListingPageProps) {
     .eq("status", "confirmed");
 
   const bookedRanges = (existingBookings ?? []) as BookingRange[];
+  console.log("Listing ID:", id);
+  console.log("Booked ranges from DB:", bookedRanges);
 
   const bookedPeriodLines =
     bookedRanges
