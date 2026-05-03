@@ -66,9 +66,38 @@ export default function OmOssPage() {
           </p>
           <p className="mt-4 text-sm">
             E-post:{" "}
-            <a href="mailto:kontakt@båtplats.nu" className="font-semibold text-[#5eead4] hover:underline">
-              kontakt@båtplats.nu
+            <a href="mailto:kontakt@batplats.nu" className="font-semibold text-[#5eead4] hover:underline">
+              kontakt@batplats.nu
             </a>
+          </p>
+        </div>
+      </section>
+
+      <section id="integritet" className="scroll-mt-24 px-6 py-16">
+        <div className="mx-auto max-w-[980px] rounded-xl border border-[#e2e8f0] bg-white p-8 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#0d9488]">Integritet</p>
+          <h2 className="mt-2 text-[1.5rem] font-extrabold text-[#0a2342]">Integritetspolicy</h2>
+          <p className="mt-4 text-[0.98rem] leading-relaxed text-[#475569]">
+            Vi behandlar personuppgifter enligt gällande dataskyddsregler. Kontakta oss på{" "}
+            <a href="mailto:kontakt@batplats.nu" className="font-semibold text-[#0d9488] hover:underline">
+              kontakt@batplats.nu
+            </a>{" "}
+            för frågor om hur vi hanterar dina uppgifter.
+          </p>
+        </div>
+      </section>
+
+      <section id="villkor" className="scroll-mt-24 bg-[#f1f5f9] px-6 py-16">
+        <div className="mx-auto max-w-[980px] rounded-xl border border-[#e2e8f0] bg-white p-8 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#0d9488]">Villkor</p>
+          <h2 className="mt-2 text-[1.5rem] font-extrabold text-[#0a2342]">Användarvillkor</h2>
+          <p className="mt-4 text-[0.98rem] leading-relaxed text-[#475569]">
+            Genom att använda Båtplats.nu godkänner du våra villkor för plattformen. Vid tvister gäller
+            svensk lag. Vid frågor, kontakta{" "}
+            <a href="mailto:kontakt@batplats.nu" className="font-semibold text-[#0d9488] hover:underline">
+              kontakt@batplats.nu
+            </a>
+            .
           </p>
         </div>
       </section>

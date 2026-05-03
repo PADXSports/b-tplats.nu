@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+
+const DATE_CLASH_MESSAGE = "Dessa datum är redan bokade. Välj andra datum.";
 
 type BookBerthButtonProps = {
   listingId: string | number;
@@ -14,6 +15,59 @@ type BookBerthButtonProps = {
   isAvailable?: boolean;
   className?: string;
 };
+
+function ymdFromDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function todayYmd(): string {
+  return ymdFromDate(new Date());
+}
+
+function expandRangeToSet(startYmd: string, endYmd: string, out: Set<string>) {
+  const [ys, ms, ds] = startYmd.split("-").map(Number);
+  const [ye, me, de] = endYmd.split("-").map(Number);
+  if (!ys || !ms || !ds || !ye || !me || !de) return;
+  let cur = new Date(ys, ms - 1, ds);
+  const end = new Date(ye, me - 1, de);
+  while (cur <= end) {
+    out.add(ymdFromDate(cur));
+    cur.setDate(cur.getDate() + 1);
+  }
+}
+
+function rangeIncludesBookedDay(startYmd: string, endYmd: string, booked: Set<string>): boolean {
+  const [ys, ms, ds] = startYmd.split("-").map(Number);
+  const [ye, me, de] = endYmd.split("-").map(Number);
+  if (!ys || !ms || !ds || !ye || !me || !de) return true;
+  let cur = new Date(ys, ms - 1, ds);
+  const end = new Date(ye, me - 1, de);
+  while (cur <= end) {
+    if (booked.has(ymdFromDate(cur))) return true;
+    cur.setDate(cur.getDate() + 1);
+  }
+  return false;
+}
+
+function getCalendarCells(viewYear: number, viewMonth: number): { ymd: string; day: number; inMonth: boolean }[] {
+  const first = new Date(viewYear, viewMonth, 1);
+  const startPad = (first.getDay() + 6) % 7;
+  const cells: { ymd: string; day: number; inMonth: boolean }[] = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(viewYear, viewMonth, 1 - startPad + i);
+    cells.push({
+      ymd: ymdFromDate(d),
+      day: d.getDate(),
+      inMonth: d.getMonth() === viewMonth,
+    });
+  }
+  return cells;
+}
+
+type BookingRange = { start_date: string | null; end_date: string | null };
 
 export default function BookBerthButton({
   listingId,
@@ -37,6 +91,10 @@ export default function BookBerthButton({
   const [boatLength, setBoatLength] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmedRanges, setConfirmedRanges] = useState<BookingRange[]>([]);
+  const now = new Date();
+  const [calendarView, setCalendarView] = useState({ y: now.getFullYear(), m: now.getMonth() });
+  const [bookedTooltipYmd, setBookedTooltipYmd] = useState<string | null>(null);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -48,6 +106,35 @@ export default function BookBerthButton({
 
     void loadSession();
   }, [supabase]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadBookings = async () => {
+      const { data: bookedPeriods, error: fetchError } = await supabase
+        .from("bookings")
+        .select("start_date, end_date")
+        .eq("listing_id", listingId)
+        .eq("status", "confirmed");
+      if (!cancelled && !fetchError) {
+        setConfirmedRanges((bookedPeriods ?? []) as BookingRange[]);
+      }
+    };
+    void loadBookings();
+    return () => {
+      cancelled = true;
+    };
+  }, [listingId, supabase]);
+
+  const bookedDates = useMemo(() => {
+    const set = new Set<string>();
+    confirmedRanges.forEach((booking) => {
+      const s = booking.start_date;
+      const e = booking.end_date;
+      if (!s || !e) return;
+      expandRangeToSet(s, e, set);
+    });
+    return set;
+  }, [confirmedRanges]);
 
   const isLoggedIn = Boolean(userEmail);
   const redirectPath = `/listings/${listingId}`;
@@ -64,11 +151,65 @@ export default function BookBerthButton({
     setPhone("");
     setBoatName("");
     setBoatLength("");
+    setBookedTooltipYmd(null);
+    const n = new Date();
+    setCalendarView({ y: n.getFullYear(), m: n.getMonth() });
   };
 
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
   const hasValidDateRange =
     Boolean(startDate) && Boolean(endDate) && new Date(endDate).getTime() > new Date(startDate).getTime();
+
+  const hasDateConflict = useMemo(() => {
+    if (!startDate || !endDate || !hasValidDateRange) return false;
+    return confirmedRanges.some((b) => {
+      const s = b.start_date;
+      const e = b.end_date;
+      return Boolean(s && e && startDate <= e && s <= endDate);
+    });
+  }, [startDate, endDate, hasValidDateRange, confirmedRanges]);
+
+  const calendarCells = useMemo(
+    () => getCalendarCells(calendarView.y, calendarView.m),
+    [calendarView.y, calendarView.m],
+  );
+
+  const monthTitle = useMemo(() => {
+    const d = new Date(calendarView.y, calendarView.m, 1);
+    return d.toLocaleDateString("sv-SE", { month: "long", year: "numeric" });
+  }, [calendarView.y, calendarView.m]);
+
+  const handleDayClick = useCallback(
+    (ymd: string) => {
+      setError(null);
+      setBookedTooltipYmd(null);
+
+      if (!startDate || (startDate && endDate)) {
+        setStartDate(ymd);
+        setEndDate("");
+        return;
+      }
+
+      if (ymd < startDate) {
+        setStartDate(ymd);
+        setEndDate("");
+        return;
+      }
+
+      if (rangeIncludesBookedDay(startDate, ymd, bookedDates)) {
+        setError(DATE_CLASH_MESSAGE);
+        return;
+      }
+
+      setEndDate(ymd);
+    },
+    [startDate, endDate, bookedDates],
+  );
+
+  const showBookedTooltip = useCallback((ymd: string) => {
+    setBookedTooltipYmd(ymd);
+    window.setTimeout(() => setBookedTooltipYmd(null), 2000);
+  }, []);
 
   const handleBook = () => {
     if (!isAvailable) return;
@@ -84,6 +225,10 @@ export default function BookBerthButton({
     }
     if (!hasValidDateRange) {
       setError("Slutdatum måste vara efter startdatum");
+      return;
+    }
+    if (hasDateConflict) {
+      setError(DATE_CLASH_MESSAGE);
       return;
     }
     setStep(2);
@@ -107,6 +252,11 @@ export default function BookBerthButton({
       return;
     }
 
+    if (hasDateConflict) {
+      setError(DATE_CLASH_MESSAGE);
+      return;
+    }
+
     setStep(3);
   };
 
@@ -116,6 +266,12 @@ export default function BookBerthButton({
 
     if (!hasValidDateRange) {
       setError("Kontrollera att datumen är korrekta");
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (hasDateConflict) {
+      setError(DATE_CLASH_MESSAGE);
       setIsSubmitting(false);
       return;
     }
@@ -163,6 +319,16 @@ export default function BookBerthButton({
     return date.toLocaleDateString("sv-SE");
   };
 
+  const shiftMonth = (delta: number) => {
+    setCalendarView(({ y, m }) => {
+      const d = new Date(y, m + delta, 1);
+      return { y: d.getFullYear(), m: d.getMonth() };
+    });
+  };
+
+  const today = todayYmd();
+  const weekdayLabels = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
+
   return (
     <>
       <button
@@ -178,7 +344,7 @@ export default function BookBerthButton({
 
       {isOpen ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0a2342]/60 p-4">
-          <div className="w-full max-w-lg rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_10px_25px_rgba(0,0,0,0.15)]">
+          <div className="max-h-[min(90vh,720px)] w-full max-w-xl overflow-y-auto rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_10px_25px_rgba(0,0,0,0.15)]">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <p className="text-[0.75rem] font-bold uppercase tracking-[0.5px] text-[#0d9488]">
@@ -187,6 +353,7 @@ export default function BookBerthButton({
                 <h3 className="mt-1 text-xl font-extrabold text-[#0a2342]">Boka båtplats</h3>
               </div>
               <button
+                type="button"
                 onClick={closeModal}
                 className="rounded-md px-2 py-1 text-sm text-[#64748b] transition hover:bg-[#f1f5f9] hover:text-[#0a2342]"
               >
@@ -197,32 +364,126 @@ export default function BookBerthButton({
             <form className="space-y-4">
               {step === 1 ? (
                 <>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Startdatum</label>
-                      <input
-                        type="date"
-                        value={startDate}
-                        onChange={(event) => setStartDate(event.target.value)}
-                        required
-                        className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
-                      />
+                  <p className="text-sm text-[#64748b]">
+                    Välj in- och utcheckningsdatum. Grå dagar är redan bokade.
+                  </p>
+
+                  <div className="relative rounded-xl border border-[#e2e8f0] bg-white p-3">
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => shiftMonth(-1)}
+                        className="rounded-lg border border-[#e2e8f0] px-3 py-1.5 text-sm font-semibold text-[#0a2342] transition hover:bg-[#f8fafc]"
+                        aria-label="Föregående månad"
+                      >
+                        ←
+                      </button>
+                      <span className="text-center text-sm font-bold capitalize text-[#0a2342]">{monthTitle}</span>
+                      <button
+                        type="button"
+                        onClick={() => shiftMonth(1)}
+                        className="rounded-lg border border-[#e2e8f0] px-3 py-1.5 text-sm font-semibold text-[#0a2342] transition hover:bg-[#f8fafc]"
+                        aria-label="Nästa månad"
+                      >
+                        →
+                      </button>
                     </div>
-                    <div>
-                      <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Slutdatum</label>
-                      <input
-                        type="date"
-                        value={endDate}
-                        onChange={(event) => setEndDate(event.target.value)}
-                        required
-                        className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
-                      />
+
+                    <div className="grid grid-cols-7 gap-1 text-center text-[0.65rem] font-semibold uppercase tracking-wide text-[#64748b]">
+                      {weekdayLabels.map((w) => (
+                        <div key={w} className="py-1">
+                          {w}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-1 grid grid-cols-7 gap-1">
+                      {calendarCells.map(({ ymd, day, inMonth }) => {
+                        const isBooked = bookedDates.has(ymd);
+                        const isToday = ymd === today;
+                        const hasRange = Boolean(startDate && endDate && startDate < endDate);
+                        const isRangeFill =
+                          hasRange && ymd >= startDate && ymd <= endDate && !(ymd === startDate || ymd === endDate);
+                        const isEndpoint =
+                          (startDate && ymd === startDate) || (endDate && ymd === endDate && hasValidDateRange);
+
+                        let cellClass =
+                          "relative flex h-9 items-center justify-center rounded-lg text-sm font-medium transition ";
+
+                        if (!inMonth) {
+                          cellClass += "text-[#cbd5e1] ";
+                        } else if (isBooked) {
+                          cellClass +=
+                            "cursor-not-allowed bg-[#f1f5f9] text-[#94a3b8] line-through decoration-[#94a3b8] ";
+                        } else if (isEndpoint) {
+                          cellClass += "bg-[#0d9488] text-white shadow-sm ";
+                        } else if (isRangeFill) {
+                          cellClass += "bg-[#ccfbf1] text-[#0a2342] ";
+                        } else {
+                          cellClass += "cursor-pointer bg-white text-[#0a2342] hover:bg-[#0d9488]/15 ";
+                        }
+
+                        if (isToday && !isBooked && inMonth) {
+                          cellClass += "ring-2 ring-[#0d9488] ring-offset-1 ";
+                        }
+
+                        if (!inMonth) {
+                          return (
+                            <div key={ymd} className="flex h-9 items-center justify-center text-sm text-[#cbd5e1]">
+                              {day}
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div key={ymd} className="relative">
+                            <button
+                              type="button"
+                              title={isBooked ? "Redan bokad" : undefined}
+                              onClick={() => {
+                                if (isBooked) {
+                                  showBookedTooltip(ymd);
+                                  return;
+                                }
+                                handleDayClick(ymd);
+                              }}
+                              className={cellClass + "h-9 w-full"}
+                            >
+                              {day}
+                            </button>
+                            {bookedTooltipYmd === ymd ? (
+                              <span className="absolute -bottom-7 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-[#0a2342] px-2 py-0.5 text-[0.7rem] text-white shadow">
+                                Redan bokad
+                              </span>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#e2e8f0] pt-3 text-xs text-[#64748b]">
+                      <span>⬜ Tillgänglig</span>
+                      <span>🟩 Vald</span>
+                      <span className="inline-flex items-center gap-1">
+                        ⬜
+                        <span>Bokad (grå)</span>
+                      </span>
                     </div>
                   </div>
+
+                  {(startDate || endDate) && (
+                    <p className="text-sm text-[#0a2342]">
+                      <span className="font-semibold">Vald period: </span>
+                      {startDate ? formatDate(startDate) : "—"} — {endDate ? formatDate(endDate) : "—"}
+                    </p>
+                  )}
+
+                  {hasDateConflict ? <p className="text-sm text-[#be123c]">{DATE_CLASH_MESSAGE}</p> : null}
                   <button
                     type="button"
                     onClick={handleContinueFromDates}
-                    className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8]"
+                    disabled={hasDateConflict}
+                    className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Fortsätt
                   </button>
@@ -347,7 +608,8 @@ export default function BookBerthButton({
                   <button
                     type="button"
                     onClick={handleContinueFromBooker}
-                    className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8]"
+                    disabled={hasDateConflict}
+                    className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Fortsätt till betalning
                   </button>
@@ -370,11 +632,12 @@ export default function BookBerthButton({
                     </p>
                     <p className="text-sm text-[#64748b]">per säsong</p>
                   </div>
+                  {hasDateConflict ? <p className="text-sm text-[#be123c]">{DATE_CLASH_MESSAGE}</p> : null}
                   <button
                     type="button"
-                    disabled={isSubmitting}
+                    disabled={isSubmitting || hasDateConflict}
                     onClick={() => void submitBooking()}
-                    className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:opacity-60"
+                    className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {isSubmitting ? "Skickar..." : "Gå till betalning"}
                   </button>

@@ -15,6 +15,10 @@ type CheckoutPayload = {
   boatLength?: string;
 };
 
+function dateRangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
+  return aStart <= bEnd && bStart <= aEnd;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { listingId, startDate, endDate, guestEmail, firstName, lastName, phone, boatName, boatLength } =
@@ -36,6 +40,29 @@ export async function POST(request: NextRequest) {
 
     if (listingError || !listing) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
+    }
+
+    const { data: existingBookings, error: bookingsCheckError } = await supabase
+      .from("bookings")
+      .select("start_date, end_date")
+      .eq("listing_id", listingId)
+      .eq("status", "confirmed");
+
+    if (bookingsCheckError) {
+      return NextResponse.json({ error: "Could not verify availability" }, { status: 500 });
+    }
+
+    const hasConflict = (existingBookings ?? []).some((row) => {
+      const s = row.start_date as string | null;
+      const e = row.end_date as string | null;
+      return Boolean(s && e && dateRangesOverlap(startDate, endDate, s, e));
+    });
+
+    if (hasConflict) {
+      return NextResponse.json(
+        { error: "Dessa datum är redan bokade. Välj andra datum." },
+        { status: 409 },
+      );
     }
 
     let harbourName = "Hamn";

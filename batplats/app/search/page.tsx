@@ -36,12 +36,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const boatLength = Number.parseFloat(boatLengthParam);
   const selectedDate = getParam(resolvedSearchParams.date);
 
-  let query = supabase
-    .from("listings")
-    .select(
-      "id, title, price_per_season, max_boat_length, season_start, season_end, harbours!inner(name, city)",
-    )
-    .eq("is_available", true);
+  let query = supabase.from("listings").select(
+    "id, title, price_per_season, max_boat_length, season_start, season_end, harbours!inner(name, city)",
+  );
 
   if (location) {
     query = query.ilike("harbours.city", `%${location}%`);

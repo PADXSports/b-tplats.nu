@@ -42,6 +42,13 @@ const formatDate = (value: string | null) => {
   return date.toLocaleDateString("sv-SE");
 };
 
+const formatBookingRangeLine = (start: string | null, end: string | null) => {
+  const a = formatDate(start);
+  const b = formatDate(end);
+  if (a === "-" && b === "-") return null;
+  return `${a} — ${b} (Bokad)`;
+};
+
 export default async function ListingPage({ params }: ListingPageProps) {
   const { id } = await params;
   const supabase = await createClient();
@@ -106,9 +113,31 @@ export default async function ListingPage({ params }: ListingPageProps) {
     harbours: harbourData,
   };
 
+  const { data: existingBookings } = await supabase
+    .from("bookings")
+    .select("start_date, end_date")
+    .eq("listing_id", id)
+    .eq("status", "confirmed");
+
+  const bookedPeriodLines =
+    (existingBookings ?? [])
+      .map((row) => formatBookingRangeLine(row.start_date as string | null, row.end_date as string | null))
+      .filter(Boolean) as string[];
+
   return (
     <main className="min-h-screen bg-[#f8fafc] pb-24 text-[#1e293b] md:pb-0">
       <AuthNavbar currentPage="listing" />
+
+      <div className="border-b border-[#e2e8f0] bg-white px-6 py-3">
+        <div className="mx-auto w-full max-w-[1280px]">
+          <Link
+            href="/kajplatser"
+            className="inline-flex cursor-pointer items-center gap-1 text-sm font-semibold text-[#0d9488] transition hover:text-[#14b8a8] hover:underline"
+          >
+            ← Tillbaka till alla båtplatser
+          </Link>
+        </div>
+      </div>
 
       <section className="bg-gradient-to-br from-[#0a2342] via-[#0d3060] to-[#0a4a6b] px-6 py-12 text-white">
         <div className="mx-auto w-full max-w-[1280px]">
@@ -132,7 +161,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
                 sizes="(max-width: 1024px) 100vw, 900px"
               />
               <span className="absolute left-4 top-4 rounded-full bg-[#dcfce7] px-3 py-1 text-[0.74rem] font-semibold text-[#15803d]">
-                {resolvedListing.is_available ? "Tillgänglig" : "Bokad"}
+                Tillgänglig
               </span>
             </div>
 
@@ -184,6 +213,19 @@ export default async function ListingPage({ params }: ListingPageProps) {
                   <p className="mt-1 font-semibold">{formatDate(resolvedListing.season_end)}</p>
                 </div>
               </div>
+
+              <div className="mt-6 rounded-xl border border-[#e2e8f0] bg-[#fffbeb] p-5">
+                <h3 className="text-lg font-extrabold text-[#0a2342]">Bokade perioder</h3>
+                {bookedPeriodLines.length === 0 ? (
+                  <p className="mt-2 text-sm text-[#64748b]">Inga bekräftade bokningar för denna plats ännu.</p>
+                ) : (
+                  <ul className="mt-3 list-inside list-disc space-y-1.5 text-sm text-[#92400e]">
+                    {bookedPeriodLines.map((line, idx) => (
+                      <li key={`${idx}-${line}`}>{line}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
 
@@ -201,7 +243,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
                 listingTitle={resolvedListing.title}
                 harbourName={resolvedListing.harbours?.name ?? "Hamn"}
                 pricePerSeason={resolvedListing.price_per_season}
-                isAvailable={resolvedListing.is_available}
+                isAvailable
                 className="mt-5 w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
               />
             </div>
@@ -215,7 +257,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
           listingTitle={resolvedListing.title}
           harbourName={resolvedListing.harbours?.name ?? "Hamn"}
           pricePerSeason={resolvedListing.price_per_season}
-          isAvailable={resolvedListing.is_available}
+          isAvailable
           className="w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
         />
       </div>

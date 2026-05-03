@@ -53,9 +53,11 @@ export default function HarbourLoginPage() {
       }
 
       if (profile?.role === "host" || profile?.role === "owner") {
+        localStorage.setItem("userEmail", user.email ?? "");
         localStorage.setItem("userRole", "host");
         router.push("/dashboard/host");
       } else {
+        localStorage.setItem("userEmail", user.email ?? "");
         localStorage.setItem("userRole", "renter");
         router.push(
           `/dashboard/renter?message=${encodeURIComponent("Du är inloggad som båtägare")}`,

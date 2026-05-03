@@ -1,5 +1,6 @@
 "use client";
 
+import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -13,6 +14,7 @@ type RenterBooking = {
   status: string;
   start_date: string | null;
   end_date: string | null;
+  stripe_session_id: string | null;
   listings: {
     title: string;
     harbour_name: string | null;
@@ -60,6 +62,7 @@ function RenterDashboardContent() {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState("");
+  const [authUser, setAuthUser] = useState<User | null>(null);
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
@@ -73,26 +76,29 @@ function RenterDashboardContent() {
   const showError = (message: string) => setToast({ type: "error", message });
 
   const fetchBookings = useCallback(
-    async (renterId: string, email: string) => {
-      const trimmedEmail = email.trim();
+    async (userId: string, userEmail: string) => {
+      const trimmedEmail = userEmail.trim();
       const orFilter =
         trimmedEmail.length > 0
-          ? `renter_id.eq.${renterId},guest_email.eq."${trimmedEmail.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
-          : `renter_id.eq.${renterId}`;
+          ? `renter_id.eq.${userId},guest_email.eq."${trimmedEmail.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
+          : `renter_id.eq.${userId}`;
 
-      const { data, error: bookingsError } = await supabase
+      const { data: bookings, error } = await supabase
         .from("bookings")
         .select("*, listings(title, harbour_name, city, price_per_season, image_url)")
         .or(orFilter)
         .order("created_at", { ascending: false });
 
-      if (bookingsError) {
-        setError(bookingsError.message);
+      console.log("Bookings query result:", bookings, error);
+      console.log("Query params:", userId, userEmail);
+
+      if (error) {
+        setError(error.message);
         setLoadingBookings(false);
         return;
       }
 
-      const normalizedBookings: RenterBooking[] = ((data ?? []) as Array<Record<string, unknown>>).map(
+      const normalizedBookings: RenterBooking[] = ((bookings ?? []) as Array<Record<string, unknown>>).map(
         (booking) => {
           const listingRelation = Array.isArray(booking.listings)
             ? (booking.listings[0] as Record<string, unknown> | undefined)
@@ -104,6 +110,7 @@ function RenterDashboardContent() {
             status: (booking.status as string) ?? "pending",
             start_date: (booking.start_date as string | null) ?? null,
             end_date: (booking.end_date as string | null) ?? null,
+            stripe_session_id: (booking.stripe_session_id as string | null) ?? null,
             listings: listingRelation
               ? {
                   title: (listingRelation.title as string) ?? "Okänd annons",
@@ -129,9 +136,14 @@ function RenterDashboardContent() {
         .from("profiles")
         .select("full_name, phone")
         .eq("id", id)
-        .maybeSingle();
+        .single();
 
       if (profileError) {
+        if (profileError.code === "PGRST116") {
+          setFullName("");
+          setPhone("");
+          return;
+        }
         throw profileError;
       }
 
@@ -229,22 +241,43 @@ function RenterDashboardContent() {
           router.replace("/login?redirect=/dashboard/renter");
           return;
         }
+        console.log("Current user:", user.id, user.email);
         setUserId(user.id);
         setUserEmail(user.email ?? "");
+        setAuthUser(user);
 
-        const [{ data: profileData, error: profileError }] = await Promise.all([
-          supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-        ]);
+        let { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
 
         if (profileError) {
           throw profileError;
         }
 
+        if (!profileData) {
+          const { error: insertError } = await supabase.from("profiles").insert({
+            id: user.id,
+            role: "renter",
+            full_name:
+              user.user_metadata?.full_name ||
+              user.user_metadata?.name ||
+              "",
+          });
+          if (insertError) {
+            throw insertError;
+          }
+          profileData = { role: "renter" };
+        }
+
         if (profileData?.role === "owner" || profileData?.role === "host") {
+          localStorage.setItem("userEmail", user.email ?? "");
           localStorage.setItem("userRole", "host");
           router.replace("/dashboard/host");
           return;
         }
+        localStorage.setItem("userEmail", user.email ?? "");
         localStorage.setItem("userRole", profileData?.role ?? "renter");
 
         await Promise.all([fetchBookings(user.id, user.email ?? ""), fetchProfile(user.id)]);
@@ -268,6 +301,17 @@ function RenterDashboardContent() {
     };
   }, [fetchBookings, fetchProfile, router, supabase]);
 
+  const greetingName = useMemo(() => {
+    const meta = authUser?.user_metadata as { full_name?: string; name?: string } | undefined;
+    return (
+      fullName.trim() ||
+      meta?.full_name ||
+      meta?.name ||
+      authUser?.email?.split("@")[0] ||
+      "du"
+    );
+  }, [fullName, authUser]);
+
   const filteredBookings = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -289,12 +333,15 @@ function RenterDashboardContent() {
     <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
       <AuthNavbar currentPage="profile" />
 
-      <section className="bg-gradient-to-br from-[#0a2342] via-[#0d3060] to-[#0a4a6b] px-4 py-10 text-white sm:px-6 sm:py-12">
+      <section className="bg-[#0f172a] px-4 py-10 text-white sm:px-6 sm:py-12">
         <div className="mx-auto w-full max-w-[1280px]">
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a8]">
-            Min dashboard
+            Välkommen tillbaka
           </p>
-          <h1 className="mt-2 text-[1.7rem] font-extrabold leading-tight sm:text-[2rem]">Mina bokningar</h1>
+          <h1 className="mt-2 text-[1.7rem] font-extrabold leading-tight sm:text-[2rem]">
+            Hej, {greetingName}!
+          </h1>
+          <p className="mt-2 text-sm text-white/80">Här är dina bokningar och kontoinformation</p>
         </div>
       </section>
 
@@ -331,7 +378,7 @@ function RenterDashboardContent() {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id as DashboardTab)}
-                className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
                   activeTab === tab.id
                     ? "bg-[#0d9488] text-white"
                     : "bg-white text-[#334155] hover:bg-[#f1f5f9]"
@@ -357,7 +404,7 @@ function RenterDashboardContent() {
               <p className="mt-3 text-sm text-[#64748b]">Du har inga bokningar ännu</p>
               <Link
                 href="/kajplatser"
-                className="mt-4 inline-flex rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8]"
+                className="mt-4 inline-flex cursor-pointer rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] hover:shadow-md"
               >
                 Hitta en båtplats
               </Link>
@@ -403,16 +450,27 @@ function RenterDashboardContent() {
                           : "Pris ej angivet"}
                       </p>
                     </div>
-                    <span
-                      className={`h-fit rounded-full px-2.5 py-1 text-xs font-semibold ${normalizeStatus(booking.status).classes}`}
-                    >
-                      {normalizeStatus(booking.status).label}
-                    </span>
+                    <div className="flex h-fit flex-wrap items-center gap-2">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${normalizeStatus(booking.status).classes}`}
+                      >
+                        {normalizeStatus(booking.status).label}
+                      </span>
+                      {booking.stripe_session_id ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#dcfce7] px-2.5 py-1 text-xs font-semibold text-[#16a34a]">
+                          <span aria-hidden>✓</span> Betald
+                        </span>
+                      ) : (
+                        <span className="rounded-full bg-[#fef9c3] px-2.5 py-1 text-xs font-semibold text-[#ca8a04]">
+                          Ej betald
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Link
                       href={`/listings/${booking.listing_id}`}
-                      className="inline-flex rounded-lg border border-[#0d9488] px-3 py-2 text-sm font-semibold text-[#0d9488] transition hover:bg-[#0d9488] hover:text-white"
+                      className="inline-flex cursor-pointer rounded-lg border border-[#0d9488] px-3 py-2 text-sm font-semibold text-[#0d9488] transition hover:bg-[#0d9488] hover:text-white hover:shadow-md"
                     >
                       Visa annons
                     </Link>

@@ -76,11 +76,11 @@ export default function Footer() {
                 kontakt@batplats.nu
               </a>
               <br />
-              <Link href="/integritet" className={linkClass}>
+              <Link href="/om-oss#integritet" className={linkClass}>
                 Integritetspolicy
               </Link>
               <br />
-              <Link href="/villkor" className={linkClass}>
+              <Link href="/om-oss#villkor" className={linkClass}>
                 Användarvillkor
               </Link>
             </div>

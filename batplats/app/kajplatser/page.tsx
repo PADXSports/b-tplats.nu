@@ -33,6 +33,15 @@ export default function KajplatserPage() {
   const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("view") === "map") {
+        setShowMap(true);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     const loadListings = async () => {
       try {
         const { data, error: listingsError } = await supabase
@@ -105,7 +114,7 @@ export default function KajplatserPage() {
                 <Link
                   key={listing.id}
                   href={`/listings/${listing.id}`}
-                  className="overflow-hidden rounded-xl border border-[#e2e8f0] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition hover:-translate-y-0.5"
+                  className="block cursor-pointer overflow-hidden rounded-xl border border-[#e2e8f0] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition hover:-translate-y-0.5 hover:shadow-lg"
                 >
                   <div className="relative h-44 w-full bg-gradient-to-br from-[#cbd5e1] to-[#e2e8f0]">
                     {listing.image_url ? (

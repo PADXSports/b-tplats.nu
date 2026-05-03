@@ -14,69 +14,71 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
-  const [email, setEmail] = useState<string | null>(null);
-  const [role, setRole] = useState<"renter" | "host" | null>(() => {
-    if (typeof window === "undefined") return null;
-    const cachedRole = localStorage.getItem("userRole");
-    return cachedRole === "host" || cachedRole === "renter" ? cachedRole : null;
+  const [email, setEmail] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("userEmail") || "";
+    }
+    return "";
+  });
+  const [role, setRole] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("userRole") || "";
+    }
+    return "";
   });
 
   useEffect(() => {
     let mounted = true;
-    const normalizeRole = (value: string | null | undefined): "host" | "renter" =>
-      value === "owner" || value === "host" ? "host" : "renter";
 
-    const loadSession = async () => {
+    const syncFromServer = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (mounted) {
-        setEmail(user?.email ?? null);
+      if (!user?.id) {
+        localStorage.removeItem("userEmail");
+        localStorage.removeItem("userRole");
+        if (mounted) {
+          setEmail("");
+          setRole("");
+        }
+        return;
       }
 
-      if (user?.id) {
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (profileError) {
-          console.error(profileError);
-        }
-        const nextRole = normalizeRole(profile?.role);
-        localStorage.setItem("userRole", nextRole);
-        if (mounted) {
-          setRole(nextRole);
-        }
-      } else if (mounted) {
-        localStorage.removeItem("userRole");
-        setRole(null);
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (profileError) {
+        console.error(profileError);
+      }
+
+      const profileRole = profile?.role ?? "renter";
+      localStorage.setItem("userEmail", user.email ?? "");
+      localStorage.setItem("userRole", profileRole);
+
+      if (mounted) {
+        setEmail(user.email ?? "");
+        setRole(profileRole);
       }
     };
 
-    loadSession();
+    void syncFromServer();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setEmail(session?.user?.email ?? null);
-      if (session?.user?.id) {
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", session.user.id)
-          .maybeSingle();
-        if (profileError) {
-          console.error(profileError);
-        }
-        const nextRole = normalizeRole(profile?.role);
-        localStorage.setItem("userRole", nextRole);
-        setRole(nextRole);
-      } else {
+    } = supabase.auth.onAuthStateChange((event, _session) => {
+      if (event === "SIGNED_OUT") {
+        localStorage.removeItem("userEmail");
         localStorage.removeItem("userRole");
-        setRole(null);
+        if (mounted) {
+          setEmail("");
+          setRole("");
+        }
+        return;
       }
+      void syncFromServer();
     });
 
     return () => {
@@ -86,8 +88,10 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
   }, [supabase]);
 
   const handleLogout = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    const client = createClient();
+    localStorage.removeItem("userEmail");
+    localStorage.removeItem("userRole");
+    await client.auth.signOut();
     router.push("/");
     router.refresh();
   };
@@ -97,14 +101,17 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
   const isProfileActive = currentPage === "profile" || pathname?.startsWith("/profile");
   const activeHostTab =
     typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tab") : null;
-  const isHost = role === "host" && Boolean(email);
+  const isHost = (role === "host" || role === "owner") && Boolean(email);
   const isRenter = role === "renter" && Boolean(email);
 
   return (
     <nav className="sticky top-0 z-50 bg-[#0a2342] shadow-[0_2px_8px_rgba(0,0,0,0.2)]">
       <div className="mx-auto flex min-h-16 w-full max-w-[1280px] flex-wrap items-center gap-3 px-4 py-2 sm:px-6">
         <div className="flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-2 font-bold text-white">
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-bold text-white transition hover:opacity-90"
+          >
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0d9488] text-sm">
               ⚓
             </div>
@@ -112,7 +119,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
           </Link>
         </div>
 
-        <div className="ml-auto hidden items-center gap-2 md:flex">
+        <div className="ml-auto hidden items-center gap-2 transition-opacity duration-200 md:flex">
           {isHost ? (
             <>
               <div className="flex items-center gap-1">
@@ -277,8 +284,8 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
           )}
         </div>
 
-        {(isHost || isRenter) ? (
-          <div className="ml-auto flex items-center gap-2 md:hidden">
+        {isHost || isRenter ? (
+          <div className="ml-auto flex items-center gap-2 transition-opacity duration-200 md:hidden">
             <span className="max-w-[140px] truncate rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] font-medium text-white">
               {email}
             </span>

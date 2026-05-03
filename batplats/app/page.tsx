@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import AuthNavbar from "@/components/auth-navbar";
@@ -59,12 +60,11 @@ export default function Home() {
       try {
         const [listingsResult, availableResult, bookingsResult, featured] = await Promise.all([
           supabase.from("listings").select("harbour_name, city"),
-          supabase.from("listings").select("*", { count: "exact", head: true }).eq("is_available", true),
+          supabase.from("listings").select("*", { count: "exact", head: true }),
           supabase.from("bookings").select("*", { count: "exact", head: true }),
           supabase
             .from("listings")
             .select("id, title, price_per_season, max_boat_length, max_boat_width, harbours(name, city)")
-            .eq("is_available", true)
             .limit(3),
         ]);
 
@@ -225,15 +225,19 @@ export default function Home() {
       <section className="border-y border-white/10 bg-[#0d2d54] px-6 py-7">
         <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-center gap-14">
           {[
-            [stats.marinas, "Partnerhamnar"],
-            [stats.listings, "Tillgängliga båtplatser"],
-            [stats.cities, "Städer"],
-            [stats.bookings, "Bokningar gjorda"],
-          ].map(([value, label]) => (
-            <div key={label} className="text-center">
+            [stats.marinas, "Partnerhamnar", "/kajplatser"],
+            [stats.listings, "Tillgängliga båtplatser", "/kajplatser"],
+            [stats.cities, "Städer", "/kajplatser"],
+            [stats.bookings, "Bokningar gjorda", "/dashboard/renter"],
+          ].map(([value, label, href]) => (
+            <Link
+              key={label}
+              href={href}
+              className="block cursor-pointer rounded-xl px-3 py-2 text-center transition hover:bg-white/5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
+            >
               <p className="text-[2rem] font-black text-white">{value}</p>
               <p className="mt-0.5 text-[0.83rem] text-white/60">{label}</p>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
@@ -261,55 +265,61 @@ export default function Home() {
                 Utvalda båtplatser
               </h2>
             </div>
-            <button className="rounded-lg border-2 border-[#0d9488] px-5 py-2.5 text-[0.9rem] font-semibold text-[#0d9488] transition hover:bg-[#0d9488] hover:text-white">
+            <Link
+              href="/kajplatser"
+              className="inline-flex rounded-lg border-2 border-[#0d9488] px-5 py-2.5 text-[0.9rem] font-semibold text-[#0d9488] transition hover:bg-[#0d9488] hover:text-white"
+            >
               Visa alla båtplatser
-            </button>
+            </Link>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {featuredListings.map((item) => (
-              <article
+              <Link
                 key={item.id}
-                className="cursor-pointer overflow-hidden rounded-xl border border-[#e2e8f0] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_15px_rgba(0,0,0,0.08),0_4px_6px_rgba(0,0,0,0.05)]"
+                href={`/listings/${item.id}`}
+                className="block cursor-pointer overflow-hidden rounded-xl border border-[#e2e8f0] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition hover:-translate-y-0.5 hover:shadow-lg"
               >
-                <div className="relative h-[200px] bg-[#f1f5f9]">
-                  <Image
-                    src={item.imageSrc}
-                    alt={`${item.title} at ${item.marina}`}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  />
-                </div>
-                <div className="p-4">
-                  <p className="mb-1 text-[0.78rem] font-semibold uppercase tracking-[0.5px] text-[#0d9488]">
-                    {item.marina}
-                  </p>
-                  <h3 className="mb-1 text-base font-bold">{item.title}</h3>
-                  <p className="mb-3 text-[0.83rem] text-[#64748b]">{item.city}</p>
-                  <div className="mb-3 flex flex-wrap gap-2">
-                    {item.specs.map((spec) => (
-                      <span
-                        key={spec}
-                        className="rounded-full border border-[#e2e8f0] bg-[#f1f5f9] px-2.5 py-1 text-[0.76rem] text-[#64748b]"
-                      >
-                        {spec}
-                      </span>
-                    ))}
+                <article>
+                  <div className="relative h-[200px] bg-[#f1f5f9]">
+                    <Image
+                      src={item.imageSrc}
+                      alt={`${item.title} at ${item.marina}`}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    />
                   </div>
-                  <div className="flex items-center justify-between border-t border-[#e2e8f0] pt-3">
-                    <p className="text-[1.1rem] font-extrabold text-[#0a2342]">
-                      {item.price} SEK
-                      <span className="ml-0.5 text-xs font-normal text-[#64748b]">
-                        /månad
-                      </span>
+                  <div className="p-4">
+                    <p className="mb-1 text-[0.78rem] font-semibold uppercase tracking-[0.5px] text-[#0d9488]">
+                      {item.marina}
                     </p>
-                    <span className="rounded-full bg-[#dcfce7] px-2.5 py-1 text-[0.74rem] font-semibold text-[#15803d]">
-                      Tillgänglig
-                    </span>
+                    <h3 className="mb-1 text-base font-bold">{item.title}</h3>
+                    <p className="mb-3 text-[0.83rem] text-[#64748b]">{item.city}</p>
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {item.specs.map((spec) => (
+                        <span
+                          key={spec}
+                          className="rounded-full border border-[#e2e8f0] bg-[#f1f5f9] px-2.5 py-1 text-[0.76rem] text-[#64748b]"
+                        >
+                          {spec}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between border-t border-[#e2e8f0] pt-3">
+                      <p className="text-[1.1rem] font-extrabold text-[#0a2342]">
+                        {item.price} SEK
+                        <span className="ml-0.5 text-xs font-normal text-[#64748b]">
+                          /månad
+                        </span>
+                      </p>
+                      <span className="rounded-full bg-[#dcfce7] px-2.5 py-1 text-[0.74rem] font-semibold text-[#15803d]">
+                        Tillgänglig
+                      </span>
+                    </div>
                   </div>
-                </div>
-              </article>
+                </article>
+              </Link>
             ))}
           </div>
         </div>
@@ -328,9 +338,10 @@ export default function Home() {
 
           <div className="mt-9 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {marinas.map((marina) => (
-              <div
+              <Link
                 key={marina.name}
-                className="cursor-pointer rounded-xl border border-[#e2e8f0] bg-white p-6 text-center transition hover:-translate-y-0.5 hover:border-[#0d9488] hover:shadow-[0_4px_6px_rgba(0,0,0,0.07),0_2px_4px_rgba(0,0,0,0.05)]"
+                href="/kajplatser"
+                className="block cursor-pointer rounded-xl border border-[#e2e8f0] bg-white p-6 text-center transition hover:-translate-y-0.5 hover:border-[#0d9488] hover:shadow-lg"
               >
                 <div className="relative mx-auto mb-3 h-16 w-16 overflow-hidden rounded-full border-2 border-[#e2e8f0] bg-[#f1f5f9]">
                   <Image
@@ -343,7 +354,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-[0.95rem] font-bold">{marina.name}</h3>
                 <p className="mt-1 text-[0.82rem] text-[#64748b]">{marina.spots}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </div>

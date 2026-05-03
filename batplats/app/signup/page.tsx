@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 import Footer from "@/components/footer";
+import { AuthOAuthDivider, GoogleOAuthButton } from "@/components/google-oauth-button";
 import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
@@ -82,6 +83,10 @@ export default function SignupPage() {
 
       <section className="px-6 py-10">
         <div className="mx-auto w-full max-w-[520px] rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+          <GoogleOAuthButton newUserRole="renter" />
+          <div className="my-4">
+            <AuthOAuthDivider />
+          </div>
           <form onSubmit={handleSignup} className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Namn</label>

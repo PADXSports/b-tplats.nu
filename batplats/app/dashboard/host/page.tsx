@@ -348,12 +348,19 @@ function HostDashboardContent() {
       throw profileError;
     }
 
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+    const cachedEmail = authUser?.email ?? "";
+
     if (profileData?.role !== "host" && profileData?.role !== "owner") {
+      localStorage.setItem("userEmail", cachedEmail);
       localStorage.setItem("userRole", "renter");
       router.replace("/dashboard/renter");
       return null;
     }
 
+    localStorage.setItem("userEmail", cachedEmail);
     localStorage.setItem("userRole", "host");
     setHostName(profileData.full_name || "Hamnägare");
     setProfileName(profileData.full_name || "");

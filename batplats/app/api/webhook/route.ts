@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
+import { hostNotificationEmail, renterConfirmationEmail } from "@/lib/emails/booking-confirmation";
+import { getResend } from "@/lib/resend";
 import { stripe } from "@/lib/stripe";
 
 function getSupabaseAdmin() {
@@ -50,34 +52,105 @@ export async function POST(request: NextRequest) {
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    const { error: insertError } = await supabaseAdmin.from("bookings").insert({
-      listing_id: listingId,
-      status: "confirmed",
-      start_date: startDate,
-      end_date: endDate,
-      renter_id: renterId || null,
-      guest_email: guestEmail || null,
-      guest_first_name: guestFirstName || null,
-      guest_last_name: guestLastName || null,
-      guest_phone: guestPhone || null,
-      stripe_session_id: session.id,
-      stripe_payment_intent: typeof session.payment_intent === "string" ? session.payment_intent : null,
-      message: guestBoatName ? `Båt: ${guestBoatName}, ${guestBoatLength || ""}m` : null,
-    });
+    const { data: bookingData, error: insertError } = await supabaseAdmin
+      .from("bookings")
+      .insert({
+        listing_id: listingId,
+        status: "confirmed",
+        start_date: startDate,
+        end_date: endDate,
+        renter_id: renterId || null,
+        guest_email: guestEmail || null,
+        guest_first_name: guestFirstName || null,
+        guest_last_name: guestLastName || null,
+        guest_phone: guestPhone || null,
+        stripe_session_id: session.id,
+        stripe_payment_intent: typeof session.payment_intent === "string" ? session.payment_intent : null,
+        message: guestBoatName ? `Båt: ${guestBoatName}, ${guestBoatLength || ""}m` : null,
+      })
+      .select("id")
+      .single();
 
     if (insertError) {
       console.error("Webhook booking insert failed:", insertError);
       return NextResponse.json({ error: "Failed to save booking" }, { status: 500 });
     }
 
-    const { error: updateError } = await supabaseAdmin
-      .from("listings")
-      .update({ is_available: false })
-      .eq("id", listingId);
+    // Do NOT set is_available = false — listing stays bookable for other dates.
 
-    if (updateError) {
-      console.error("Webhook listing update failed:", updateError);
-      return NextResponse.json({ error: "Failed to update listing" }, { status: 500 });
+    try {
+      const { data: listingData, error: listingError } = await supabaseAdmin
+        .from("listings")
+        .select("title, harbour_name, city, price_per_season, owner_id")
+        .eq("id", listingId)
+        .single();
+
+      if (listingError || !listingData) {
+        console.error("Webhook: could not load listing for confirmation emails:", listingError);
+      } else {
+        const { data: hostProfile } = await supabaseAdmin
+          .from("profiles")
+          .select("full_name")
+          .eq("id", listingData.owner_id)
+          .maybeSingle();
+
+        const { data: hostAuth, error: hostUserError } = await supabaseAdmin.auth.admin.getUserById(
+          listingData.owner_id,
+        );
+        if (hostUserError) {
+          console.error("Webhook: could not load host user for email:", hostUserError);
+        }
+
+        const hostUser = hostAuth?.user;
+        const renterEmailAddr = guestEmail || "";
+        const resendClient = getResend();
+
+        if (!resendClient) {
+          console.warn("Webhook: RESEND_API_KEY not set; skipping confirmation emails");
+        } else if (renterEmailAddr) {
+          try {
+            await resendClient.emails.send({
+              from: "Båtplats.nu <onboarding@resend.dev>",
+              to: renterEmailAddr,
+              subject: "Din båtplats är bokad! ⚓",
+              html: renterConfirmationEmail({
+                renterName: guestFirstName || "",
+                listingTitle: listingData.title,
+                harbourName: listingData.harbour_name,
+                city: listingData.city,
+                startDate,
+                endDate,
+                price: listingData.price_per_season,
+                bookingId: bookingData.id,
+              }),
+            });
+          } catch (emailErr) {
+            console.error("Webhook: renter confirmation email failed:", emailErr);
+          }
+        }
+
+        if (resendClient && hostUser?.email) {
+          try {
+            await resendClient.emails.send({
+              from: "Båtplats.nu <onboarding@resend.dev>",
+              to: hostUser.email,
+              subject: "Ny bokning på din båtplats! 🚤",
+              html: hostNotificationEmail({
+                hostName: hostProfile?.full_name || "",
+                listingTitle: listingData.title,
+                renterEmail: renterEmailAddr,
+                startDate,
+                endDate,
+                price: listingData.price_per_season,
+              }),
+            });
+          } catch (emailErr) {
+            console.error("Webhook: host notification email failed:", emailErr);
+          }
+        }
+      }
+    } catch (emailBlockErr) {
+      console.error("Webhook: booking confirmation email block error:", emailBlockErr);
     }
   }
 
