@@ -32,6 +32,11 @@ type ListingRecord = {
   } | null;
 };
 
+type BookingRange = {
+  start_date: string | null;
+  end_date: string | null;
+};
+
 const DEFAULT_HERO_IMAGE =
   "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=1400&h=700&fit=crop";
 
@@ -119,8 +124,10 @@ export default async function ListingPage({ params }: ListingPageProps) {
     .eq("listing_id", id)
     .eq("status", "confirmed");
 
+  const bookedRanges = (existingBookings ?? []) as BookingRange[];
+
   const bookedPeriodLines =
-    (existingBookings ?? [])
+    bookedRanges
       .map((row) => formatBookingRangeLine(row.start_date as string | null, row.end_date as string | null))
       .filter(Boolean) as string[];
 
@@ -243,6 +250,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
                 listingTitle={resolvedListing.title}
                 harbourName={resolvedListing.harbours?.name ?? "Hamn"}
                 pricePerSeason={resolvedListing.price_per_season}
+                bookedRanges={bookedRanges}
                 isAvailable
                 className="mt-5 w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
               />
@@ -257,6 +265,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
           listingTitle={resolvedListing.title}
           harbourName={resolvedListing.harbours?.name ?? "Hamn"}
           pricePerSeason={resolvedListing.price_per_season}
+          bookedRanges={bookedRanges}
           isAvailable
           className="w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
         />

@@ -14,6 +14,7 @@ type BookBerthButtonProps = {
   pricePerSeason: number;
   isAvailable?: boolean;
   className?: string;
+  bookedRanges?: BookingRange[];
 };
 
 function ymdFromDate(d: Date): string {
@@ -76,6 +77,7 @@ export default function BookBerthButton({
   pricePerSeason,
   isAvailable = true,
   className,
+  bookedRanges,
 }: BookBerthButtonProps) {
   const supabase = useMemo(() => createClient(), []);
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -91,7 +93,7 @@ export default function BookBerthButton({
   const [boatLength, setBoatLength] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmedRanges, setConfirmedRanges] = useState<BookingRange[]>([]);
+  const [confirmedRanges, setConfirmedRanges] = useState<BookingRange[]>(bookedRanges ?? []);
   const now = new Date();
   const [calendarView, setCalendarView] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [bookedTooltipYmd, setBookedTooltipYmd] = useState<string | null>(null);
@@ -108,6 +110,10 @@ export default function BookBerthButton({
   }, [supabase]);
 
   useEffect(() => {
+    if (bookedRanges) {
+      setConfirmedRanges(bookedRanges);
+      return;
+    }
     let cancelled = false;
     const loadBookings = async () => {
       const { data: bookedPeriods, error: fetchError } = await supabase
@@ -123,7 +129,7 @@ export default function BookBerthButton({
     return () => {
       cancelled = true;
     };
-  }, [listingId, supabase]);
+  }, [bookedRanges, listingId, supabase]);
 
   const bookedDates = useMemo(() => {
     const set = new Set<string>();

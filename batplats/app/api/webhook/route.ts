@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         } else if (renterEmailAddr) {
           try {
             await resendClient.emails.send({
-              from: "Båtplats.nu <onboarding@resend.dev>",
+              from: "Båtplats <bokningar@batplats.app>",
               to: renterEmailAddr,
               subject: "Din båtplats är bokad! ⚓",
               html: renterConfirmationEmail({
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
         if (resendClient && hostUser?.email) {
           try {
             await resendClient.emails.send({
-              from: "Båtplats.nu <onboarding@resend.dev>",
+              from: "Båtplats <bokningar@batplats.app>",
               to: hostUser.email,
               subject: "Ny bokning på din båtplats! 🚤",
               html: hostNotificationEmail({
