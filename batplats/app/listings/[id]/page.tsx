@@ -1,10 +1,11 @@
 import Image from "next/image";
 import Link from "next/link";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import AuthNavbar from "@/components/auth-navbar";
 import BookBerthButton from "@/components/book-berth-button";
 import Footer from "@/components/footer";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 type ListingPageProps = {
   params: Promise<{
@@ -56,15 +57,13 @@ const formatBookingRangeLine = (start: string | null, end: string | null) => {
 
 export default async function ListingPage({ params }: ListingPageProps) {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = await createServerClient();
 
   const { data: listing, error } = await supabase
     .from("listings")
     .select("*")
     .eq("id", id)
     .maybeSingle();
-
-  console.log("Listing fetch result:", { listing, error, id });
 
   if (error || !listing) {
     return (
@@ -102,7 +101,6 @@ export default async function ListingPage({ params }: ListingPageProps) {
       .eq("id", listing.harbour_id)
       .maybeSingle();
 
-    console.log("Harbour fetch result:", { harbour, harbourError, harbour_id: listing.harbour_id });
     if (!harbourError && harbour) {
       harbourData = {
         name: harbour.name,
@@ -118,16 +116,28 @@ export default async function ListingPage({ params }: ListingPageProps) {
     harbours: harbourData,
   };
 
-  const { data: existingBookings } = await supabase
+  const supabasePublic = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
+
+  const { data: bookedRanges, error: bookedRangesError } = await supabasePublic
     .from("bookings")
     .select("start_date, end_date")
     .eq("listing_id", id)
     .eq("status", "confirmed");
 
-  const bookedRanges = (existingBookings ?? []) as BookingRange[];
+  const normalizedBookedRanges = (bookedRanges ?? []) as BookingRange[];
+  const serializedBookedRanges = (normalizedBookedRanges ?? []).map((range) => ({
+    start_date: range.start_date,
+    end_date: range.end_date,
+  }));
+  if (bookedRangesError) {
+    console.error("Failed to fetch bookedRanges:", bookedRangesError);
+  }
 
   const bookedPeriodLines =
-    bookedRanges
+    normalizedBookedRanges
       .map((row) => formatBookingRangeLine(row.start_date as string | null, row.end_date as string | null))
       .filter(Boolean) as string[];
 
@@ -246,11 +256,11 @@ export default async function ListingPage({ params }: ListingPageProps) {
               </p>
               <p className="text-sm text-[#64748b]">per säsong</p>
               <BookBerthButton
-                listingId={resolvedListing.id}
+                listingId={id}
                 listingTitle={resolvedListing.title}
                 harbourName={resolvedListing.harbours?.name ?? "Hamn"}
                 pricePerSeason={resolvedListing.price_per_season}
-                bookedRanges={bookedRanges}
+                bookedRanges={serializedBookedRanges}
                 isAvailable
                 className="mt-5 w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
               />
@@ -261,11 +271,11 @@ export default async function ListingPage({ params }: ListingPageProps) {
 
       <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#e2e8f0] bg-white/95 p-4 backdrop-blur md:hidden">
         <BookBerthButton
-          listingId={resolvedListing.id}
+          listingId={id}
           listingTitle={resolvedListing.title}
           harbourName={resolvedListing.harbours?.name ?? "Hamn"}
           pricePerSeason={resolvedListing.price_per_season}
-          bookedRanges={bookedRanges}
+          bookedRanges={serializedBookedRanges}
           isAvailable
           className="w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
         />

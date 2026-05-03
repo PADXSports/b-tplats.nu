@@ -17,6 +17,12 @@ type BookBerthButtonProps = {
   bookedRanges?: BookingRange[];
 };
 
+function normalizeYmd(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match?.[1] ?? null;
+}
+
 function ymdFromDate(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -134,8 +140,8 @@ export default function BookBerthButton({
   const bookedDates = useMemo(() => {
     const set = new Set<string>();
     confirmedRanges.forEach((booking) => {
-      const s = booking.start_date;
-      const e = booking.end_date;
+      const s = normalizeYmd(booking.start_date);
+      const e = normalizeYmd(booking.end_date);
       if (!s || !e) return;
       expandRangeToSet(s, e, set);
     });
@@ -169,8 +175,8 @@ export default function BookBerthButton({
   const hasDateConflict = useMemo(() => {
     if (!startDate || !endDate || !hasValidDateRange) return false;
     return confirmedRanges.some((b) => {
-      const s = b.start_date;
-      const e = b.end_date;
+      const s = normalizeYmd(b.start_date);
+      const e = normalizeYmd(b.end_date);
       return Boolean(s && e && startDate <= e && s <= endDate);
     });
   }, [startDate, endDate, hasValidDateRange, confirmedRanges]);
