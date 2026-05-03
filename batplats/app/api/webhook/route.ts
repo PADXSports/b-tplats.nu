@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
-import { createClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
+
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceRoleKey) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  }
+  return createClient(url, serviceRoleKey);
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -39,9 +48,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing booking metadata" }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    const supabaseAdmin = getSupabaseAdmin();
 
-    await supabase.from("bookings").insert({
+    const { error: insertError } = await supabaseAdmin.from("bookings").insert({
       listing_id: listingId,
       status: "confirmed",
       start_date: startDate,
@@ -56,7 +65,20 @@ export async function POST(request: NextRequest) {
       message: guestBoatName ? `Båt: ${guestBoatName}, ${guestBoatLength || ""}m` : null,
     });
 
-    await supabase.from("listings").update({ is_available: false }).eq("id", listingId);
+    if (insertError) {
+      console.error("Webhook booking insert failed:", insertError);
+      return NextResponse.json({ error: "Failed to save booking" }, { status: 500 });
+    }
+
+    const { error: updateError } = await supabaseAdmin
+      .from("listings")
+      .update({ is_available: false })
+      .eq("id", listingId);
+
+    if (updateError) {
+      console.error("Webhook listing update failed:", updateError);
+      return NextResponse.json({ error: "Failed to update listing" }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ received: true });
