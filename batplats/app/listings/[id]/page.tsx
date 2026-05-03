@@ -125,8 +125,6 @@ export default async function ListingPage({ params }: ListingPageProps) {
     .eq("status", "confirmed");
 
   const bookedRanges = (existingBookings ?? []) as BookingRange[];
-  console.log("Listing ID:", id);
-  console.log("Booked ranges from DB:", bookedRanges);
 
   const bookedPeriodLines =
     bookedRanges
@@ -141,7 +139,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
         <div className="mx-auto w-full max-w-[1280px]">
           <Link
             href="/kajplatser"
-            className="inline-flex cursor-pointer items-center gap-1 text-sm font-semibold text-[#0d9488] transition hover:text-[#14b8a8] hover:underline"
+            className="hidden cursor-pointer items-center gap-1 text-sm font-semibold text-[#0d9488] transition hover:text-[#14b8a8] hover:underline md:inline-flex"
           >
             ← Tillbaka till alla båtplatser
           </Link>

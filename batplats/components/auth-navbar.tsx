@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -14,6 +14,8 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const mobileCloseButtonRef = useRef<HTMLButtonElement | null>(null);
   const [email, setEmail] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("userEmail") || "";
@@ -92,9 +94,30 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
     localStorage.removeItem("userEmail");
     localStorage.removeItem("userRole");
     await client.auth.signOut();
+    setIsMobileMenuOpen(false);
     router.push("/");
     router.refresh();
   };
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    mobileCloseButtonRef.current?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isMobileMenuOpen]);
 
   const isSearchActive =
     currentPage === "search" || pathname?.startsWith("/search") || pathname?.startsWith("/kajplatser");
@@ -118,6 +141,15 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
             <span className="text-xl tracking-[-0.3px]">Båtplats.nu</span>
           </Link>
         </div>
+
+        <button
+          type="button"
+          aria-label="Öppna meny"
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="ml-auto inline-flex h-12 min-h-12 items-center justify-center rounded-lg px-4 text-2xl text-white transition active:bg-white/10 md:hidden"
+        >
+          ☰
+        </button>
 
         <div className="ml-auto hidden items-center gap-2 transition-opacity duration-200 md:flex">
           {isHost ? (
@@ -284,29 +316,104 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
           )}
         </div>
 
-        {isHost || isRenter ? (
-          <div className="ml-auto flex items-center gap-2 transition-opacity duration-200 md:hidden">
-            <span className="max-w-[140px] truncate rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] font-medium text-white">
-              {email}
-            </span>
-            {isRenter ? (
-              <Link
-                href="/dashboard/renter"
-                className="rounded-lg bg-white/10 px-2.5 py-1.5 text-[11px] font-semibold text-white"
-              >
-                Min profil
-              </Link>
-            ) : null}
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-lg bg-[#0d9488] px-2.5 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#14b8a8]"
-            >
-              Logga ut
-            </button>
-          </div>
-        ) : null}
       </div>
+
+      {isMobileMenuOpen ? (
+        <>
+          <button
+            type="button"
+            aria-label="Stäng meny"
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          />
+          <div className="fixed right-0 top-0 z-[60] h-screen w-full max-w-[360px] bg-[#0a2342] p-4 text-white shadow-2xl md:hidden">
+            <div className="mb-4 flex items-center justify-between">
+              <span className="text-sm font-semibold text-white/80">Meny</span>
+              <button
+                ref={mobileCloseButtonRef}
+                type="button"
+                aria-label="Stäng meny"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="inline-flex h-12 min-h-12 items-center justify-center rounded-lg px-4 text-2xl transition active:bg-white/10"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-5 rounded-xl border border-white/15 bg-white/5 p-3">
+              {email ? (
+                <>
+                  <p className="truncate text-sm font-medium text-white">{email}</p>
+                  <button
+                    type="button"
+                    onClick={() => void handleLogout()}
+                    className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a8]"
+                  >
+                    Logga ut
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a8]"
+                >
+                  Logga in
+                </Link>
+              )}
+            </div>
+
+            <nav className="space-y-1">
+              <Link
+                href="/"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium transition active:bg-white/10"
+              >
+                Hem
+              </Link>
+              <Link
+                href="/kajplatser"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium transition active:bg-white/10"
+              >
+                Kajplatser
+              </Link>
+              <Link
+                href="/for-hamnar"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium transition active:bg-white/10"
+              >
+                För hamnar
+              </Link>
+              <Link
+                href="/om-oss"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium transition active:bg-white/10"
+              >
+                Om oss
+              </Link>
+              {isHost ? (
+                <Link
+                  href="/dashboard/host"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#5eead4] transition active:bg-white/10"
+                >
+                  Host dashboard
+                </Link>
+              ) : null}
+              {isRenter ? (
+                <Link
+                  href="/dashboard/renter"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#5eead4] transition active:bg-white/10"
+                >
+                  Min profil
+                </Link>
+              ) : null}
+            </nav>
+          </div>
+        </>
+      ) : null}
     </nav>
   );
 }

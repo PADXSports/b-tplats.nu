@@ -79,7 +79,6 @@ export default function BookBerthButton({
   className,
   bookedRanges,
 }: BookBerthButtonProps) {
-  console.log("BookBerthButton received ranges:", bookedRanges);
   const supabase = useMemo(() => createClient(), []);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isOpen, setIsOpen] = useState(false);
@@ -95,7 +94,6 @@ export default function BookBerthButton({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmedRanges, setConfirmedRanges] = useState<BookingRange[]>(bookedRanges ?? []);
-  console.log("Confirmed ranges state:", confirmedRanges);
   const now = new Date();
   const [calendarView, setCalendarView] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [bookedTooltipYmd, setBookedTooltipYmd] = useState<string | null>(null);
@@ -351,19 +349,22 @@ export default function BookBerthButton({
       </button>
 
       {isOpen ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0a2342]/60 p-4">
-          <div className="max-h-[min(90vh,720px)] w-full max-w-xl overflow-y-auto rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_10px_25px_rgba(0,0,0,0.15)]">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[#0a2342]/60 p-0 md:items-center md:p-4">
+          <div
+            className="h-[100dvh] w-screen max-w-none overflow-y-auto rounded-none border-0 bg-white p-4 shadow-[0_10px_25px_rgba(0,0,0,0.15)] md:max-h-[min(90vh,720px)] md:w-full md:max-w-xl md:rounded-xl md:border md:border-[#e2e8f0] md:p-6"
+            style={{ animation: "slideUpMobile 220ms ease-out" }}
+          >
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
-                <p className="text-[0.75rem] font-bold uppercase tracking-[0.5px] text-[#0d9488]">
+                <p className="text-[0.68rem] font-bold uppercase tracking-[0.5px] text-[#0d9488] md:text-[0.75rem]">
                   Steg {step} av 3
                 </p>
-                <h3 className="mt-1 text-xl font-extrabold text-[#0a2342]">Boka båtplats</h3>
+                <h3 className="mt-1 text-lg font-extrabold text-[#0a2342] md:text-xl">Boka båtplats</h3>
               </div>
               <button
                 type="button"
                 onClick={closeModal}
-                className="rounded-md px-2 py-1 text-sm text-[#64748b] transition hover:bg-[#f1f5f9] hover:text-[#0a2342]"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-2 py-1 text-lg text-[#64748b] transition active:bg-[#f1f5f9] active:text-[#0a2342]"
               >
                 ✕
               </button>
@@ -381,16 +382,18 @@ export default function BookBerthButton({
                       <button
                         type="button"
                         onClick={() => shiftMonth(-1)}
-                        className="rounded-lg border border-[#e2e8f0] px-3 py-1.5 text-sm font-semibold text-[#0a2342] transition hover:bg-[#f8fafc]"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#e2e8f0] px-3 py-1.5 text-base font-semibold text-[#0a2342] transition active:bg-[#f8fafc] md:min-h-9 md:min-w-9 md:text-sm"
                         aria-label="Föregående månad"
                       >
                         ←
                       </button>
-                      <span className="text-center text-sm font-bold capitalize text-[#0a2342]">{monthTitle}</span>
+                      <span className="text-center text-xl font-bold capitalize text-[#0a2342] md:text-sm">
+                        {monthTitle}
+                      </span>
                       <button
                         type="button"
                         onClick={() => shiftMonth(1)}
-                        className="rounded-lg border border-[#e2e8f0] px-3 py-1.5 text-sm font-semibold text-[#0a2342] transition hover:bg-[#f8fafc]"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#e2e8f0] px-3 py-1.5 text-base font-semibold text-[#0a2342] transition active:bg-[#f8fafc] md:min-h-9 md:min-w-9 md:text-sm"
                         aria-label="Nästa månad"
                       >
                         →
@@ -405,10 +408,8 @@ export default function BookBerthButton({
                       ))}
                     </div>
 
-                    <div className="mt-1 grid grid-cols-7 gap-1">
+                    <div className="mt-1 grid grid-cols-7 gap-2 md:gap-1">
                       {calendarCells.map(({ ymd, day, inMonth }) => {
-                        const date = ymd;
-                        console.log("Checking date:", date, "against ranges:", confirmedRanges);
                         const isBooked = bookedDates.has(ymd);
                         const isToday = ymd === today;
                         const hasRange = Boolean(startDate && endDate && startDate < endDate);
@@ -418,7 +419,7 @@ export default function BookBerthButton({
                           (startDate && ymd === startDate) || (endDate && ymd === endDate && hasValidDateRange);
 
                         let cellClass =
-                          "relative flex h-9 items-center justify-center rounded-lg text-sm font-medium transition ";
+                          "relative flex min-h-11 items-center justify-center rounded-lg text-base font-medium transition md:min-h-9 md:text-sm ";
 
                         if (!inMonth) {
                           cellClass += "text-[#cbd5e1] ";
@@ -439,7 +440,7 @@ export default function BookBerthButton({
 
                         if (!inMonth) {
                           return (
-                            <div key={ymd} className="flex h-9 items-center justify-center text-sm text-[#cbd5e1]">
+                            <div key={ymd} className="flex min-h-11 items-center justify-center text-base text-[#cbd5e1] md:min-h-9 md:text-sm">
                               {day}
                             </div>
                           );
@@ -457,7 +458,7 @@ export default function BookBerthButton({
                                 }
                                 handleDayClick(ymd);
                               }}
-                              className={cellClass + "h-9 w-full"}
+                              className={cellClass + "w-full"}
                             >
                               {day}
                             </button>
@@ -489,14 +490,16 @@ export default function BookBerthButton({
                   )}
 
                   {hasDateConflict ? <p className="text-sm text-[#be123c]">{DATE_CLASH_MESSAGE}</p> : null}
-                  <button
-                    type="button"
-                    onClick={handleContinueFromDates}
-                    disabled={hasDateConflict}
-                    className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Fortsätt
-                  </button>
+                  <div className="sticky bottom-0 z-10 -mx-4 bg-white px-4 pb-2 pt-3 shadow-[0_-8px_20px_rgba(15,23,42,0.12)] md:static md:m-0 md:bg-transparent md:p-0 md:shadow-none">
+                    <button
+                      type="button"
+                      onClick={handleContinueFromDates}
+                      disabled={hasDateConflict}
+                      className="w-full rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a8] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Fortsätt
+                    </button>
+                  </div>
                 </>
               ) : null}
 
@@ -615,14 +618,16 @@ export default function BookBerthButton({
                     </>
                   )}
 
-                  <button
-                    type="button"
-                    onClick={handleContinueFromBooker}
-                    disabled={hasDateConflict}
-                    className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Fortsätt till betalning
-                  </button>
+                  <div className="sticky bottom-0 z-10 -mx-4 bg-white px-4 pb-2 pt-3 shadow-[0_-8px_20px_rgba(15,23,42,0.12)] md:static md:m-0 md:bg-transparent md:p-0 md:shadow-none">
+                    <button
+                      type="button"
+                      onClick={handleContinueFromBooker}
+                      disabled={hasDateConflict}
+                      className="w-full rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a8] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Fortsätt till betalning
+                    </button>
+                  </div>
                 </>
               ) : null}
 
@@ -643,14 +648,16 @@ export default function BookBerthButton({
                     <p className="text-sm text-[#64748b]">per säsong</p>
                   </div>
                   {hasDateConflict ? <p className="text-sm text-[#be123c]">{DATE_CLASH_MESSAGE}</p> : null}
-                  <button
-                    type="button"
-                    disabled={isSubmitting || hasDateConflict}
-                    onClick={() => void submitBooking()}
-                    className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isSubmitting ? "Skickar..." : "Gå till betalning"}
-                  </button>
+                  <div className="sticky bottom-0 z-10 -mx-4 bg-white px-4 pb-2 pt-3 shadow-[0_-8px_20px_rgba(15,23,42,0.12)] md:static md:m-0 md:bg-transparent md:p-0 md:shadow-none">
+                    <button
+                      type="button"
+                      disabled={isSubmitting || hasDateConflict}
+                      onClick={() => void submitBooking()}
+                      className="w-full rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a8] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {isSubmitting ? "Skickar..." : "Gå till betalning"}
+                    </button>
+                  </div>
                 </>
               ) : null}
 
@@ -672,6 +679,18 @@ export default function BookBerthButton({
           </div>
         </div>
       ) : null}
+      <style jsx>{`
+        @keyframes slideUpMobile {
+          from {
+            transform: translateY(100%);
+            opacity: 0.85;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </>
   );
 }

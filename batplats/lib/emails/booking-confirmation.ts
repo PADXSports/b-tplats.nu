@@ -44,7 +44,7 @@ export function renterConfirmationEmail({
           <p style="margin: 0 0 8px; color: #475569;">Pris: ${priceLabel} SEK</p>
           <p style="color: #64748b; font-size: 12px; margin: 16px 0 0;">Bokningsnummer: ${bookingId}</p>
         </div>
-        <a href="${appUrl}/dashboard/renter"
+        <a href="${appUrl}/login?redirect_to=/dashboard/renter"
            style="display: inline-block; background: #0d9488; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600;">
           Se mina bokningar
         </a>

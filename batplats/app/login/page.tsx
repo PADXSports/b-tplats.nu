@@ -56,8 +56,11 @@ function LoginContent() {
       const normalizedRole = profileData?.role === "host" || profileData?.role === "owner" ? "host" : "renter";
       localStorage.setItem("userEmail", user.email ?? "");
       localStorage.setItem("userRole", normalizedRole);
+      const redirectToPath = searchParams.get("redirect_to");
       const redirectPath = searchParams.get("redirect");
-      if (redirectPath) {
+      if (redirectToPath) {
+        router.push(redirectToPath);
+      } else if (redirectPath) {
         router.push(redirectPath);
       } else {
         router.push(normalizedRole === "host" ? "/dashboard/host" : "/dashboard/renter");
