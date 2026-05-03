@@ -348,16 +348,16 @@ export default function BookBerthButton({
         disabled={!isAvailable}
         className={
           className ??
-          "rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8]"
+          "rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6]"
         }
       >
         {isAvailable ? "Boka båtplats" : "Bokad"}
       </button>
 
       {isOpen ? (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[#0a2342]/60 p-0 md:items-center md:p-4">
+        <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[#0f1f3d]/60 p-0 md:items-center md:p-4">
           <div
-            className="h-[100dvh] w-screen max-w-none overflow-y-auto rounded-none border-0 bg-white p-4 shadow-[0_10px_25px_rgba(0,0,0,0.15)] md:max-h-[min(90vh,720px)] md:w-full md:max-w-xl md:rounded-xl md:border md:border-[#e2e8f0] md:p-6"
+            className="h-[100dvh] w-screen max-w-none overflow-y-auto rounded-none border-0 bg-white p-4 shadow-[0_10px_25px_rgba(0,0,0,0.15)] md:max-h-[min(90vh,720px)] md:w-full md:max-w-xl md:rounded-xl md:border md:border-[#dce3ee] md:p-6"
             style={{ animation: "slideUpMobile 220ms ease-out" }}
           >
             <div className="mb-4 flex items-start justify-between gap-4">
@@ -365,12 +365,12 @@ export default function BookBerthButton({
                 <p className="text-[0.68rem] font-bold uppercase tracking-[0.5px] text-[#0d9488] md:text-[0.75rem]">
                   Steg {step} av 3
                 </p>
-                <h3 className="mt-1 text-lg font-extrabold text-[#0a2342] md:text-xl">Boka båtplats</h3>
+                <h3 className="mt-1 text-lg font-extrabold text-[#0f1f3d] md:text-xl">Boka båtplats</h3>
               </div>
               <button
                 type="button"
                 onClick={closeModal}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-2 py-1 text-lg text-[#64748b] transition active:bg-[#f1f5f9] active:text-[#0a2342]"
+                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md px-2 py-1 text-lg text-[#8a96a8] transition active:bg-[#ebe6dc] active:text-[#0f1f3d]"
               >
                 ✕
               </button>
@@ -379,34 +379,34 @@ export default function BookBerthButton({
             <form className="space-y-4">
               {step === 1 ? (
                 <>
-                  <p className="text-sm text-[#64748b]">
+                  <p className="text-sm text-[#8a96a8]">
                     Välj in- och utcheckningsdatum. Grå dagar är redan bokade.
                   </p>
 
-                  <div className="relative rounded-xl border border-[#e2e8f0] bg-white p-3">
+                  <div className="relative rounded-xl border border-[#dce3ee] bg-white p-3">
                     <div className="mb-3 flex items-center justify-between gap-2">
                       <button
                         type="button"
                         onClick={() => shiftMonth(-1)}
-                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#e2e8f0] px-3 py-1.5 text-base font-semibold text-[#0a2342] transition active:bg-[#f8fafc] md:min-h-9 md:min-w-9 md:text-sm"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#dce3ee] px-3 py-1.5 text-base font-semibold text-[#0f1f3d] transition active:bg-[#f5f0e8] md:min-h-9 md:min-w-9 md:text-sm"
                         aria-label="Föregående månad"
                       >
                         ←
                       </button>
-                      <span className="text-center text-xl font-bold capitalize text-[#0a2342] md:text-sm">
+                      <span className="text-center text-xl font-bold capitalize text-[#0f1f3d] md:text-sm">
                         {monthTitle}
                       </span>
                       <button
                         type="button"
                         onClick={() => shiftMonth(1)}
-                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#e2e8f0] px-3 py-1.5 text-base font-semibold text-[#0a2342] transition active:bg-[#f8fafc] md:min-h-9 md:min-w-9 md:text-sm"
+                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#dce3ee] px-3 py-1.5 text-base font-semibold text-[#0f1f3d] transition active:bg-[#f5f0e8] md:min-h-9 md:min-w-9 md:text-sm"
                         aria-label="Nästa månad"
                       >
                         →
                       </button>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-1 text-center text-[0.65rem] font-semibold uppercase tracking-wide text-[#64748b]">
+                    <div className="grid grid-cols-7 gap-1 text-center text-[0.65rem] font-semibold uppercase tracking-wide text-[#8a96a8]">
                       {weekdayLabels.map((w) => (
                         <div key={w} className="py-1">
                           {w}
@@ -428,16 +428,16 @@ export default function BookBerthButton({
                           "relative flex min-h-11 items-center justify-center rounded-lg text-base font-medium transition md:min-h-9 md:text-sm ";
 
                         if (!inMonth) {
-                          cellClass += "text-[#cbd5e1] ";
+                          cellClass += "text-[#c5d0de] ";
                         } else if (isBooked) {
                           cellClass +=
-                            "cursor-not-allowed bg-[#f1f5f9] text-[#94a3b8] line-through decoration-[#94a3b8] ";
+                            "cursor-not-allowed bg-[#ebe6dc] text-[#8a96a8] line-through decoration-[#8a96a8] ";
                         } else if (isEndpoint) {
                           cellClass += "bg-[#0d9488] text-white shadow-sm ";
                         } else if (isRangeFill) {
-                          cellClass += "bg-[#ccfbf1] text-[#0a2342] ";
+                          cellClass += "bg-[#d4f0ec] text-[#0f1f3d] ";
                         } else {
-                          cellClass += "cursor-pointer bg-white text-[#0a2342] hover:bg-[#0d9488]/15 ";
+                          cellClass += "cursor-pointer bg-white text-[#0f1f3d] hover:bg-[#0d9488]/15 ";
                         }
 
                         if (isToday && !isBooked && inMonth) {
@@ -446,7 +446,7 @@ export default function BookBerthButton({
 
                         if (!inMonth) {
                           return (
-                            <div key={ymd} className="flex min-h-11 items-center justify-center text-base text-[#cbd5e1] md:min-h-9 md:text-sm">
+                            <div key={ymd} className="flex min-h-11 items-center justify-center text-base text-[#c5d0de] md:min-h-9 md:text-sm">
                               {day}
                             </div>
                           );
@@ -469,7 +469,7 @@ export default function BookBerthButton({
                               {day}
                             </button>
                             {bookedTooltipYmd === ymd ? (
-                              <span className="absolute -bottom-7 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-[#0a2342] px-2 py-0.5 text-[0.7rem] text-white shadow">
+                              <span className="absolute -bottom-7 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-[#0f1f3d] px-2 py-0.5 text-[0.7rem] text-white shadow">
                                 Redan bokad
                               </span>
                             ) : null}
@@ -478,7 +478,7 @@ export default function BookBerthButton({
                       })}
                     </div>
 
-                    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#e2e8f0] pt-3 text-xs text-[#64748b]">
+                    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#dce3ee] pt-3 text-xs text-[#8a96a8]">
                       <span>⬜ Tillgänglig</span>
                       <span>🟩 Vald</span>
                       <span className="inline-flex items-center gap-1">
@@ -489,19 +489,19 @@ export default function BookBerthButton({
                   </div>
 
                   {(startDate || endDate) && (
-                    <p className="text-sm text-[#0a2342]">
+                    <p className="text-sm text-[#0f1f3d]">
                       <span className="font-semibold">Vald period: </span>
                       {startDate ? formatDate(startDate) : "—"} — {endDate ? formatDate(endDate) : "—"}
                     </p>
                   )}
 
-                  {hasDateConflict ? <p className="text-sm text-[#be123c]">{DATE_CLASH_MESSAGE}</p> : null}
+                  {hasDateConflict ? <p className="text-sm text-[#d64c3b]">{DATE_CLASH_MESSAGE}</p> : null}
                   <div className="sticky bottom-0 z-10 -mx-4 bg-white px-4 pb-2 pt-3 shadow-[0_-8px_20px_rgba(15,23,42,0.12)] md:static md:m-0 md:bg-transparent md:p-0 md:shadow-none">
                     <button
                       type="button"
                       onClick={handleContinueFromDates}
                       disabled={hasDateConflict}
-                      className="w-full rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a8] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a6] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Fortsätt
                     </button>
@@ -512,19 +512,19 @@ export default function BookBerthButton({
               {step === 2 ? (
                 <>
                   {isLoggedIn ? (
-                    <div className="space-y-3 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-4">
-                      <p className="text-sm font-semibold text-[#0a2342]">Du bokar som {userEmail}</p>
+                    <div className="space-y-3 rounded-lg border border-[#dce3ee] bg-[#f5f0e8] p-4">
+                      <p className="text-sm font-semibold text-[#0f1f3d]">Du bokar som {userEmail}</p>
                       <div>
-                        <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Båtnamn (valfritt)</label>
+                        <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Båtnamn (valfritt)</label>
                         <input
                           type="text"
                           value={boatName}
                           onChange={(event) => setBoatName(event.target.value)}
-                          className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                          className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-sm font-semibold text-[#0a2342]">
+                        <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">
                           Båtlängd i meter (valfritt)
                         </label>
                         <input
@@ -533,82 +533,82 @@ export default function BookBerthButton({
                           step="0.1"
                           value={boatLength}
                           onChange={(event) => setBoatLength(event.target.value)}
-                          className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                          className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                         />
                       </div>
                     </div>
                   ) : (
                     <>
-                      <div className="space-y-2 rounded-lg border border-[#e2e8f0] p-4">
-                        <h4 className="font-semibold text-[#0a2342]">Logga in eller skapa konto</h4>
-                        <p className="text-sm text-[#64748b]">Enklare att hantera dina bokningar</p>
+                      <div className="space-y-2 rounded-lg border border-[#dce3ee] p-4">
+                        <h4 className="font-semibold text-[#0f1f3d]">Logga in eller skapa konto</h4>
+                        <p className="text-sm text-[#8a96a8]">Enklare att hantera dina bokningar</p>
                         <div className="flex gap-2">
                           <Link
                             href={`/login?redirect=${encodeURIComponent(redirectPath)}`}
-                            className="rounded-lg bg-[#0a2342] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0d3060]"
+                            className="rounded-lg bg-[#0f1f3d] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0d2252]"
                           >
                             Logga in
                           </Link>
                           <Link
                             href={`/signup?redirect=${encodeURIComponent(redirectPath)}`}
-                            className="rounded-lg border border-[#0a2342] px-4 py-2 text-sm font-semibold text-[#0a2342] transition hover:bg-[#f8fafc]"
+                            className="rounded-lg border border-[#0f1f3d] px-4 py-2 text-sm font-semibold text-[#0f1f3d] transition hover:bg-[#f5f0e8]"
                           >
                             Skapa konto
                           </Link>
                         </div>
                       </div>
 
-                      <div className="space-y-3 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-4">
-                        <h4 className="font-semibold text-[#0a2342]">Fortsätt som gäst</h4>
+                      <div className="space-y-3 rounded-lg border border-[#dce3ee] bg-[#f5f0e8] p-4">
+                        <h4 className="font-semibold text-[#0f1f3d]">Fortsätt som gäst</h4>
                         <div className="grid gap-3 sm:grid-cols-2">
                           <div>
-                            <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Förnamn</label>
+                            <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Förnamn</label>
                             <input
                               type="text"
                               value={firstName}
                               onChange={(event) => setFirstName(event.target.value)}
-                              className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                              className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                             />
                           </div>
                           <div>
-                            <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Efternamn</label>
+                            <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Efternamn</label>
                             <input
                               type="text"
                               value={lastName}
                               onChange={(event) => setLastName(event.target.value)}
-                              className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                              className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                             />
                           </div>
                         </div>
                         <div>
-                          <label className="mb-1 block text-sm font-semibold text-[#0a2342]">E-post</label>
+                          <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">E-post</label>
                           <input
                             type="email"
                             value={guestEmail}
                             onChange={(event) => setGuestEmail(event.target.value)}
-                            className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                            className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Telefon</label>
+                          <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Telefon</label>
                           <input
                             type="tel"
                             value={phone}
                             onChange={(event) => setPhone(event.target.value)}
-                            className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                            className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Båtnamn (valfritt)</label>
+                          <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Båtnamn (valfritt)</label>
                           <input
                             type="text"
                             value={boatName}
                             onChange={(event) => setBoatName(event.target.value)}
-                            className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                            className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-sm font-semibold text-[#0a2342]">
+                          <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">
                             Båtlängd i meter (valfritt)
                           </label>
                           <input
@@ -617,7 +617,7 @@ export default function BookBerthButton({
                             step="0.1"
                             value={boatLength}
                             onChange={(event) => setBoatLength(event.target.value)}
-                            className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                            className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                           />
                         </div>
                       </div>
@@ -629,7 +629,7 @@ export default function BookBerthButton({
                       type="button"
                       onClick={handleContinueFromBooker}
                       disabled={hasDateConflict}
-                      className="w-full rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a8] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a6] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Fortsätt till betalning
                     </button>
@@ -639,27 +639,27 @@ export default function BookBerthButton({
 
               {step === 3 ? (
                 <>
-                  <div className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-4">
+                  <div className="rounded-lg border border-[#dce3ee] bg-[#f5f0e8] p-4">
                     <p className="text-xs font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                       Prissammanfattning
                     </p>
-                    <p className="mt-1 text-base font-bold text-[#0a2342]">{listingTitle}</p>
-                    <p className="text-sm text-[#475569]">{harbourName}</p>
-                    <p className="mt-3 text-sm text-[#0a2342]">
+                    <p className="mt-1 text-base font-bold text-[#0f1f3d]">{listingTitle}</p>
+                    <p className="text-sm text-[#6b7a8f]">{harbourName}</p>
+                    <p className="mt-3 text-sm text-[#0f1f3d]">
                       {formatDate(startDate)} - {formatDate(endDate)}
                     </p>
-                    <p className="mt-3 text-lg font-extrabold text-[#0a2342]">
+                    <p className="mt-3 text-lg font-extrabold text-[#0f1f3d]">
                       {pricePerSeason.toLocaleString("sv-SE")} SEK
                     </p>
-                    <p className="text-sm text-[#64748b]">per säsong</p>
+                    <p className="text-sm text-[#8a96a8]">per säsong</p>
                   </div>
-                  {hasDateConflict ? <p className="text-sm text-[#be123c]">{DATE_CLASH_MESSAGE}</p> : null}
+                  {hasDateConflict ? <p className="text-sm text-[#d64c3b]">{DATE_CLASH_MESSAGE}</p> : null}
                   <div className="sticky bottom-0 z-10 -mx-4 bg-white px-4 pb-2 pt-3 shadow-[0_-8px_20px_rgba(15,23,42,0.12)] md:static md:m-0 md:bg-transparent md:p-0 md:shadow-none">
                     <button
                       type="button"
                       disabled={isSubmitting || hasDateConflict}
                       onClick={() => void submitBooking()}
-                      className="w-full rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a8] disabled:cursor-not-allowed disabled:opacity-60"
+                      className="w-full rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a6] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {isSubmitting ? "Skickar..." : "Gå till betalning"}
                     </button>
@@ -674,13 +674,13 @@ export default function BookBerthButton({
                     setError(null);
                     setStep(step === 3 ? 2 : 1);
                   }}
-                  className="w-full rounded-lg border border-[#cbd5e1] px-4 py-2.5 text-sm font-semibold text-[#0a2342] transition hover:bg-[#f8fafc]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-4 py-2.5 text-sm font-semibold text-[#0f1f3d] transition hover:bg-[#f5f0e8]"
                 >
                   Tillbaka
                 </button>
               ) : null}
 
-              {error ? <p className="text-sm text-[#be123c]">{error}</p> : null}
+              {error ? <p className="text-sm text-[#d64c3b]">{error}</p> : null}
             </form>
           </div>
         </div>

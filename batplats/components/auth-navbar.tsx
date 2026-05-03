@@ -128,17 +128,21 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
   const isRenter = role === "renter" && Boolean(email);
 
   return (
-    <nav className="sticky top-0 z-50 bg-[#0a2342] shadow-[0_2px_8px_rgba(0,0,0,0.2)]">
+    <nav className="sticky top-0 z-50 border-b border-[#0d2252]/40 bg-[#0f1f3d] shadow-[0_1px_4px_rgba(15,31,61,0.18)]">
       <div className="mx-auto flex min-h-16 w-full max-w-[1280px] flex-wrap items-center gap-3 px-4 py-2 sm:px-6">
         <div className="flex items-center gap-3">
           <Link
             href="/"
-            className="flex items-center gap-2 font-bold text-white transition hover:opacity-90"
+            className="flex items-center gap-2.5 font-bold text-white transition hover:opacity-90"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0d9488] text-sm">
-              ⚓
+            <div
+              className="flex h-9 w-9 items-center justify-center gap-0.5 rounded-md bg-[#0d2252]/50 ring-1 ring-[#0d9488]/30"
+              aria-hidden
+            >
+              <span className="h-5 w-1 rounded-sm bg-[#0d9488]" />
+              <span className="h-5 w-1 rounded-sm bg-[#0d9488]/50" />
             </div>
-            <span className="text-xl tracking-[-0.3px]">Båtplats.nu</span>
+            <span className="text-lg font-extrabold tracking-[-0.04em] sm:text-xl">Båtplats.nu</span>
           </Link>
         </div>
 
@@ -189,7 +193,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="rounded-lg bg-[#0d9488] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#14b8a8]"
+                  className="rounded-lg bg-[#0d9488] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#14b8a6]"
                 >
                   Logga ut
                 </button>
@@ -242,7 +246,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="rounded-lg bg-[#0d9488] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#14b8a8]"
+                  className="rounded-lg bg-[#0d9488] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#14b8a6]"
                 >
                   Logga ut
                 </button>
@@ -297,7 +301,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                       <button
                         type="button"
                         onClick={handleLogout}
-                        className="rounded-lg bg-[#0d9488] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#14b8a8]"
+                        className="rounded-lg bg-[#0d9488] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#14b8a6]"
                       >
                         Logga ut
                       </button>
@@ -307,7 +311,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
               ) : (
                 <Link
                   href="/login"
-                  className="ml-2 rounded-lg bg-[#0d9488] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#14b8a8]"
+                  className="ml-2 rounded-lg bg-[#0d9488] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#14b8a6]"
                 >
                   Logga in
                 </Link>
@@ -326,7 +330,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
             onClick={() => setIsMobileMenuOpen(false)}
             className="fixed inset-0 z-40 bg-black/50 md:hidden"
           />
-          <div className="fixed right-0 top-0 z-[60] h-screen w-full max-w-[360px] bg-[#0a2342] p-4 text-white shadow-2xl md:hidden">
+          <div className="fixed right-0 top-0 z-[60] h-screen w-full max-w-[360px] bg-[#0f1f3d] p-4 text-white shadow-2xl md:hidden">
             <div className="mb-4 flex items-center justify-between">
               <span className="text-sm font-semibold text-white/80">Meny</span>
               <button
@@ -347,7 +351,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                   <button
                     type="button"
                     onClick={() => void handleLogout()}
-                    className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a8]"
+                    className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a6]"
                   >
                     Logga ut
                   </button>
@@ -356,7 +360,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                 <Link
                   href="/login"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a8]"
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a6]"
                 >
                   Logga in
                 </Link>
@@ -396,7 +400,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                 <Link
                   href="/dashboard/host"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#5eead4] transition active:bg-white/10"
+                  className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
                 >
                   Host dashboard
                 </Link>
@@ -405,7 +409,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                 <Link
                   href="/dashboard/renter"
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#5eead4] transition active:bg-white/10"
+                  className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
                 >
                   Min profil
                 </Link>

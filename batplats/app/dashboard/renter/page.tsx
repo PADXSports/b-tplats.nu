@@ -35,18 +35,18 @@ const formatDate = (value: string | null) => {
 
 const normalizeStatus = (status: string) => {
   if (status === "confirmed") {
-    return { label: "Bekräftad", classes: "bg-[#dcfce7] text-[#15803d]" };
+    return { label: "Bekräftad", classes: "bg-[#dff5ea] text-[#2d9e6b]" };
   }
   if (status === "pending") {
     return { label: "Väntande", classes: "bg-[#fef9c3] text-[#854d0e]" };
   }
   if (status === "declined") {
-    return { label: "Avböjd", classes: "bg-[#fee2e2] text-[#b91c1c]" };
+    return { label: "Avböjd", classes: "bg-[#fee2e2] text-[#d64c3b]" };
   }
   if (status === "cancelled") {
-    return { label: "Avbokad", classes: "bg-[#e2e8f0] text-[#475569]" };
+    return { label: "Avbokad", classes: "bg-[#dce3ee] text-[#6b7a8f]" };
   }
-  return { label: status, classes: "bg-[#e2e8f0] text-[#475569]" };
+  return { label: status, classes: "bg-[#dce3ee] text-[#6b7a8f]" };
 };
 
 function RenterDashboardContent() {
@@ -330,12 +330,12 @@ function RenterDashboardContent() {
   }, [activeTab, bookings]);
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
+    <main className="min-h-screen bg-[#f5f0e8] text-[#0f1f3d]">
       <AuthNavbar currentPage="profile" />
 
-      <section className="bg-[#0f172a] px-4 py-10 text-white sm:px-6 sm:py-12">
+      <section className="bg-[#0f1f3d] px-4 py-10 text-white sm:px-6 sm:py-12">
         <div className="mx-auto w-full max-w-[1280px]">
-          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a8]">
+          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
             Välkommen tillbaka
           </p>
           <h1 className="mt-2 text-[1.7rem] font-extrabold leading-tight sm:text-[2rem]">
@@ -351,20 +351,20 @@ function RenterDashboardContent() {
             <div
               className={`rounded-xl border p-4 text-sm ${
                 toast.type === "success"
-                  ? "border-[#99f6e4] bg-[#f0fdfa] text-[#0f766e]"
-                  : "border-[#fecaca] bg-[#fff1f2] text-[#9f1239]"
+                  ? "border-[#99f6e4] bg-[#f0fdfa] text-[#0d9488]"
+                  : "border-[#fecaca] bg-[#fff1f2] text-[#d64c3b]"
               }`}
             >
               {toast.message}
             </div>
           ) : null}
           {infoMessage ? (
-            <div className="rounded-xl border border-[#99f6e4] bg-[#f0fdfa] p-4 text-sm text-[#0f766e]">
+            <div className="rounded-xl border border-[#99f6e4] bg-[#f0fdfa] p-4 text-sm text-[#0d9488]">
               {infoMessage}
             </div>
           ) : null}
           {error ? (
-            <div className="rounded-xl border border-[#fecaca] bg-[#fff1f2] p-4 text-sm text-[#9f1239]">
+            <div className="rounded-xl border border-[#fecaca] bg-[#fff1f2] p-4 text-sm text-[#d64c3b]">
               {error}
             </div>
           ) : null}
@@ -381,7 +381,7 @@ function RenterDashboardContent() {
                 className={`cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold transition ${
                   activeTab === tab.id
                     ? "bg-[#0d9488] text-white"
-                    : "bg-white text-[#334155] hover:bg-[#f1f5f9]"
+                    : "bg-white text-[#4a5568] hover:bg-[#ebe6dc]"
                 }`}
               >
                 {tab.label}
@@ -399,18 +399,18 @@ function RenterDashboardContent() {
               ))}
             </div>
           ) : bookings.length === 0 ? (
-            <div className="rounded-xl border border-[#e2e8f0] bg-white p-10 text-center shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+            <div className="rounded-xl border border-[#dce3ee] bg-white p-10 text-center shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
               <p className="text-3xl">⚓</p>
-              <p className="mt-3 text-sm text-[#64748b]">Du har inga bokningar ännu</p>
+              <p className="mt-3 text-sm text-[#8a96a8]">Du har inga bokningar ännu</p>
               <Link
                 href="/kajplatser"
-                className="mt-4 inline-flex cursor-pointer rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] hover:shadow-md"
+                className="mt-4 inline-flex cursor-pointer rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a6] hover:shadow-md"
               >
                 Hitta en båtplats
               </Link>
             </div>
           ) : filteredBookings.length === 0 ? (
-            <div className="rounded-xl border border-[#e2e8f0] bg-white p-6 text-sm text-[#64748b] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+            <div className="rounded-xl border border-[#dce3ee] bg-white p-6 text-sm text-[#8a96a8] shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
               Inga bokningar i vald kategori.
             </div>
           ) : (
@@ -418,10 +418,10 @@ function RenterDashboardContent() {
               {filteredBookings.map((booking) => (
                 <article
                   key={booking.id}
-                  className="rounded-xl border border-[#e2e8f0] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] sm:p-6"
+                  className="rounded-xl border border-[#dce3ee] bg-white p-5 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] sm:p-6"
                 >
                   <div className="flex flex-wrap gap-4">
-                    <div className="relative h-24 w-full overflow-hidden rounded-lg bg-gradient-to-br from-[#cbd5e1] to-[#e2e8f0] sm:w-40 sm:shrink-0">
+                    <div className="relative h-24 w-full overflow-hidden rounded-lg bg-gradient-to-br from-[#c5d0de] to-[#dce3ee] sm:w-40 sm:shrink-0">
                       {booking.listings?.image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -435,16 +435,16 @@ function RenterDashboardContent() {
                       <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                         {booking.listings?.harbour_name ?? "Okänd hamn"}
                       </p>
-                      <h3 className="mt-1 text-base font-bold text-[#0a2342]">
+                      <h3 className="mt-1 text-base font-bold text-[#0f1f3d]">
                         {booking.listings?.title ?? "Okänd plats"}
                       </h3>
-                      <p className="mt-1 text-sm text-[#475569]">
+                      <p className="mt-1 text-sm text-[#6b7a8f]">
                         {booking.listings?.city ?? "Okänd stad"}
                       </p>
-                      <p className="mt-1 text-sm text-[#475569]">
+                      <p className="mt-1 text-sm text-[#6b7a8f]">
                         Bokning: {formatDate(booking.start_date)} - {formatDate(booking.end_date)}
                       </p>
-                      <p className="mt-1 text-sm font-semibold text-[#0a2342]">
+                      <p className="mt-1 text-sm font-semibold text-[#0f1f3d]">
                         {booking.listings?.price_per_season
                           ? `${booking.listings.price_per_season.toLocaleString("sv-SE")} SEK / säsong`
                           : "Pris ej angivet"}
@@ -457,7 +457,7 @@ function RenterDashboardContent() {
                         {normalizeStatus(booking.status).label}
                       </span>
                       {booking.stripe_session_id ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#dcfce7] px-2.5 py-1 text-xs font-semibold text-[#16a34a]">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[#dff5ea] px-2.5 py-1 text-xs font-semibold text-[#16a34a]">
                           <span aria-hidden>✓</span> Betald
                         </span>
                       ) : (
@@ -478,7 +478,7 @@ function RenterDashboardContent() {
                       <button
                         type="button"
                         onClick={() => setContactBooking(booking)}
-                        className="inline-flex rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm font-semibold text-[#0a2342] transition hover:border-[#0d9488] hover:text-[#0d9488]"
+                        className="inline-flex rounded-lg border border-[#c5d0de] px-3 py-2 text-sm font-semibold text-[#0f1f3d] transition hover:border-[#0d9488] hover:text-[#0d9488]"
                       >
                         Kontakta hamnägare
                       </button>
@@ -488,7 +488,7 @@ function RenterDashboardContent() {
                         type="button"
                         onClick={() => void cancelBooking(booking.id)}
                         disabled={updatingBookingId === booking.id}
-                        className="inline-flex rounded-lg border border-[#fecaca] bg-[#fff1f2] px-3 py-2 text-sm font-semibold text-[#b91c1c] transition hover:bg-[#ffe4e6] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex rounded-lg border border-[#fecaca] bg-[#fff1f2] px-3 py-2 text-sm font-semibold text-[#d64c3b] transition hover:bg-[#ffe4e6] disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {updatingBookingId === booking.id ? "Avbokar..." : "Avboka"}
                       </button>
@@ -499,34 +499,34 @@ function RenterDashboardContent() {
             </div>
           )}
 
-          <section className="rounded-xl border border-[#e2e8f0] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] sm:p-6">
-            <h2 className="text-lg font-extrabold text-[#0a2342]">Mina uppgifter</h2>
+          <section className="rounded-xl border border-[#dce3ee] bg-white p-5 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] sm:p-6">
+            <h2 className="text-lg font-extrabold text-[#0f1f3d]">Mina uppgifter</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <div>
-                <label className="mb-1 block text-sm font-semibold text-[#0a2342]">E-post</label>
+                <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">E-post</label>
                 <input
                   type="email"
                   value={userEmail}
                   readOnly
-                  className="w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm text-[#475569]"
+                  className="w-full rounded-lg border border-[#c5d0de] bg-[#f5f0e8] px-3 py-2 text-sm text-[#6b7a8f]"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Namn</label>
+                <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Namn</label>
                 <input
                   type="text"
                   value={fullName}
                   onChange={(event) => setFullName(event.target.value)}
-                  className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Telefon</label>
+                <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Telefon</label>
                 <input
                   type="tel"
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
-                  className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                 />
               </div>
             </div>
@@ -534,7 +534,7 @@ function RenterDashboardContent() {
               type="button"
               onClick={saveProfile}
               disabled={savingProfile}
-              className="mt-4 rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:opacity-60"
+              className="mt-4 rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:opacity-60"
             >
               {savingProfile ? "Sparar..." : "Spara"}
             </button>
@@ -543,49 +543,49 @@ function RenterDashboardContent() {
       </section>
 
       {contactBooking ? (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0a2342]/60 p-4">
-          <div className="w-full max-w-lg rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_10px_25px_rgba(0,0,0,0.15)]">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0f1f3d]/60 p-4">
+          <div className="w-full max-w-lg rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_10px_25px_rgba(0,0,0,0.15)]">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <p className="text-[0.75rem] font-bold uppercase tracking-[0.5px] text-[#0d9488]">
                   Kontakta hamnägare
                 </p>
-                <h3 className="mt-1 text-xl font-extrabold text-[#0a2342]">
+                <h3 className="mt-1 text-xl font-extrabold text-[#0f1f3d]">
                   {contactBooking.listings?.title ?? "Meddelande"}
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setContactBooking(null)}
-                className="rounded-md px-2 py-1 text-sm text-[#64748b] transition hover:bg-[#f1f5f9] hover:text-[#0a2342]"
+                className="rounded-md px-2 py-1 text-sm text-[#8a96a8] transition hover:bg-[#ebe6dc] hover:text-[#0f1f3d]"
               >
                 ✕
               </button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Ämne</label>
+                <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Ämne</label>
                 <input
                   type="text"
                   value={contactSubject}
                   onChange={(event) => setContactSubject(event.target.value)}
-                  className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Meddelande</label>
+                <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Meddelande</label>
                 <textarea
                   rows={5}
                   value={contactMessage}
                   onChange={(event) => setContactMessage(event.target.value)}
-                  className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                 />
               </div>
               <button
                 type="button"
                 onClick={submitContact}
                 disabled={sendingMessage}
-                className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:opacity-60"
+                className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:opacity-60"
               >
                 {sendingMessage ? "Skickar..." : "Skicka meddelande"}
               </button>
@@ -601,10 +601,10 @@ export default function RenterDashboardPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-[#f8fafc] text-[#1e293b]">
+        <main className="flex min-h-screen items-center justify-center bg-[#f5f0e8] text-[#0f1f3d]">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#cbd5e1] border-t-[#0d9488]" />
-            <p className="text-sm font-medium text-[#64748b]">Laddar dashboard...</p>
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#c5d0de] border-t-[#0d9488]" />
+            <p className="text-sm font-medium text-[#8a96a8]">Laddar dashboard...</p>
           </div>
         </main>
       }

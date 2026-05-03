@@ -135,7 +135,7 @@ export default function MapLocationPicker({
   if (!apiKey) {
     return (
       <div
-        className="flex items-center justify-center rounded-lg border border-[#e2e8f0] bg-[#f8fafc] text-xs text-[#64748b]"
+        className="flex items-center justify-center rounded-lg border border-[#dce3ee] bg-[#f5f0e8] text-xs text-[#8a96a8]"
         style={{ height }}
       >
         Lägg till NEXT_PUBLIC_GOOGLE_MAPS_API_KEY i .env.local
@@ -146,7 +146,7 @@ export default function MapLocationPicker({
   return (
     <div
       ref={mapElementRef}
-      className="w-full rounded-lg border border-[#e2e8f0]"
+      className="w-full rounded-lg border border-[#dce3ee]"
       style={{ height }}
     />
   );

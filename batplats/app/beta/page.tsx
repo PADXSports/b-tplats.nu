@@ -69,7 +69,7 @@ export default function BetaPage() {
                 required
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-white/50 focus:border-[#14b8a8]"
+                className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-white/50 focus:border-[#14b8a6]"
                 placeholder="namn@exempel.se"
               />
             </div>
@@ -80,7 +80,7 @@ export default function BetaPage() {
                 type="text"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-white/50 focus:border-[#14b8a8]"
+                className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-white/50 focus:border-[#14b8a6]"
                 placeholder="Ditt namn"
               />
             </div>
@@ -90,7 +90,7 @@ export default function BetaPage() {
               <select
                 value={userType}
                 onChange={(event) => setUserType(event.target.value as BetaUserType)}
-                className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#14b8a8]"
+                className="w-full rounded-lg border border-white/20 bg-white/10 px-3 py-2.5 text-sm text-white outline-none transition focus:border-[#14b8a6]"
               >
                 <option value="Båtägare">Båtägare</option>
                 <option value="Hamnägare">Hamnägare</option>
@@ -101,7 +101,7 @@ export default function BetaPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:opacity-70"
+              className="w-full rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:cursor-not-allowed disabled:opacity-70"
             >
               {loading ? "Skickar..." : "Anmäl intresse"}
             </button>
@@ -111,7 +111,7 @@ export default function BetaPage() {
             <div
               className={`mt-4 rounded-lg border px-4 py-3 text-sm ${
                 toast.type === "success"
-                  ? "border-[#5eead4] bg-[#0f766e]/25 text-[#ccfbf1]"
+                  ? "border-[#14b8a6] bg-[#0d9488]/25 text-[#d4f0ec]"
                   : "border-[#fda4af] bg-[#881337]/35 text-[#ffe4e6]"
               }`}
             >

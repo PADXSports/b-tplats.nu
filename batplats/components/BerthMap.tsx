@@ -134,11 +134,11 @@ export default function BerthMap({ height = "480px" }: BerthMapProps) {
         const infoWindow = new googleMaps.InfoWindow({
           content: `
             <div style="padding:8px;min-width:200px">
-              <h3 style="margin:0 0 4px;color:#0f172a">${listing.title}</h3>
-              <p style="margin:0 0 4px;color:#64748b;font-size:13px">${listing.harbour_name ?? listing.city ?? "Hamn"}</p>
+              <h3 style="margin:0 0 4px;color:#0f1f3d">${listing.title}</h3>
+              <p style="margin:0 0 4px;color:#8a96a8;font-size:13px">${listing.harbour_name ?? listing.city ?? "Hamn"}</p>
               <p style="margin:0 0 8px;font-weight:600">${(listing.price_per_season ?? 0).toLocaleString("sv-SE")} SEK / säsong</p>
-              <span style="background:${listing.is_available ? "#dcfce7" : "#f1f5f9"};
-                color:${listing.is_available ? "#16a34a" : "#64748b"};
+              <span style="background:${listing.is_available ? "#dff5ea" : "#ebe6dc"};
+                color:${listing.is_available ? "#2d9e6b" : "#8a96a8"};
                 padding:2px 8px;border-radius:999px;font-size:12px">
                 ${listing.is_available ? "Tillgänglig" : "Ej tillgänglig"}
               </span>
@@ -167,7 +167,7 @@ export default function BerthMap({ height = "480px" }: BerthMapProps) {
   if (!apiKey) {
     return (
       <div
-        className="flex items-center justify-center rounded-[12px] border border-[#e2e8f0] bg-white text-sm text-[#64748b]"
+        className="flex items-center justify-center rounded-[12px] border border-[#dce3ee] bg-white text-sm text-[#8a96a8]"
         style={{ height }}
       >
         Lägg till NEXT_PUBLIC_GOOGLE_MAPS_API_KEY i .env.local
@@ -176,7 +176,7 @@ export default function BerthMap({ height = "480px" }: BerthMapProps) {
   }
 
   return (
-    <div className="rounded-[12px] border border-[#e2e8f0] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+    <div className="rounded-[12px] border border-[#dce3ee] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
       <div
         ref={mapElementRef}
         style={{ height, width: "100%", borderRadius: "12px" }}

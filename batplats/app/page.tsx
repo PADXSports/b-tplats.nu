@@ -146,10 +146,10 @@ export default function Home() {
   ];
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
+    <main className="min-h-screen bg-[#f5f0e8] text-[#0f1f3d]">
       <AuthNavbar currentPage="home" />
 
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#0a2342] via-[#0d3060] to-[#0a4a6b] px-6 pb-24 pt-[108px] md:pb-28">
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 pb-24 pt-[108px] md:pb-28">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.03]"
           style={{
@@ -159,17 +159,17 @@ export default function Home() {
         />
         <div className="relative mx-auto max-w-[1280px]">
           <div className="mx-auto max-w-[760px] text-center">
-            <h1 className="text-[3.2rem] font-black leading-[1.08] tracking-[-0.6px] text-white max-md:text-[2.2rem]">
-              Hitta din perfekta <span className="text-[#14b8a8]">båtplats</span>
+            <h1 className="text-[3.25rem] font-extrabold leading-[1.08] tracking-[-0.04em] text-white max-md:text-[2.2rem]">
+              Hitta din perfekta <span className="text-[#14b8a6]">båtplats</span>
             </h1>
-            <p className="mb-11 mt-5 text-[1rem] leading-relaxed text-white/78 md:text-[1.05rem]">
+            <p className="mb-11 mt-5 text-base leading-relaxed text-white/80 md:text-[1.05rem]">
               Hundratals kajplatser i Stockholm. Kort vistelse eller hel säsong — allt på ett ställe.
             </p>
           </div>
 
-          <div className="mx-auto flex max-w-[920px] flex-wrap gap-2 rounded-2xl bg-white p-2.5 shadow-[0_18px_40px_rgba(2,12,27,0.32)] ring-1 ring-white/30">
+          <div className="mx-auto flex max-w-[920px] flex-wrap gap-2 rounded-xl border border-[#dce3ee]/80 bg-white p-2.5 shadow-[0_8px_24px_rgba(15,31,61,0.14),0_1px_4px_rgba(15,31,61,0.08)]">
             <div className="flex min-w-[140px] flex-1 flex-col px-3 py-2">
-              <label className="mb-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.5px] text-[#64748b]">
+              <label className="mb-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.5px] text-[#8a96a8]">
                 Plats
               </label>
               <input
@@ -177,18 +177,18 @@ export default function Home() {
                 placeholder="T.ex. Göteborg eller Nynäshamn"
                 value={location}
                 onChange={(event) => setLocation(event.target.value)}
-                className="w-full bg-transparent text-[0.9rem] text-[#1e293b] outline-none"
+                className="w-full bg-transparent text-[0.9rem] text-[#0f1f3d] outline-none"
               />
             </div>
-            <div className="my-2 hidden w-px bg-[#e2e8f0] md:block" />
+            <div className="my-2 hidden w-px self-stretch bg-[#dce3ee] md:block" />
             <div className="flex min-w-[140px] flex-1 flex-col px-3 py-2">
-              <label className="mb-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.5px] text-[#64748b]">
+              <label className="mb-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.5px] text-[#8a96a8]">
                 Båtlängd
               </label>
               <select
                 value={boatLength}
                 onChange={(event) => setBoatLength(event.target.value)}
-                className="w-full bg-transparent text-[0.9rem] text-[#1e293b] outline-none"
+                className="w-full bg-transparent text-[0.9rem] text-[#0f1f3d] outline-none"
               >
                 <option value="">Valfri storlek</option>
                 <option value="8">Upp till 8m</option>
@@ -197,21 +197,21 @@ export default function Home() {
                 <option value="17">16m+</option>
               </select>
             </div>
-            <div className="my-2 hidden w-px bg-[#e2e8f0] md:block" />
+            <div className="my-2 hidden w-px self-stretch bg-[#dce3ee] md:block" />
             <div className="flex min-w-[140px] flex-1 flex-col px-3 py-2">
-              <label className="mb-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.5px] text-[#64748b]">
+              <label className="mb-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.5px] text-[#8a96a8]">
                 Tillgänglig från
               </label>
               <input
                 type="date"
                 value={date}
                 onChange={(event) => setDate(event.target.value)}
-                className="w-full bg-transparent text-[0.9rem] text-[#1e293b] outline-none"
+                className="w-full bg-transparent text-[0.9rem] text-[#0f1f3d] outline-none"
               />
             </div>
             <button
               onClick={handleSearch}
-              className="rounded-xl bg-[#0d9488] px-7 py-3 text-base font-semibold text-white shadow-[0_8px_18px_rgba(13,148,136,0.28)] transition hover:-translate-y-0.5 hover:bg-[#14b8a8] hover:shadow-[0_12px_24px_rgba(20,184,166,0.32)]"
+              className="rounded-xl bg-[#0d9488] px-7 py-3 text-base font-semibold text-white shadow-[0_8px_18px_rgba(13,148,136,0.28)] transition hover:-translate-y-0.5 hover:bg-[#14b8a6] hover:shadow-[0_12px_24px_rgba(20,184,166,0.32)]"
             >
               Sök
             </button>
@@ -219,7 +219,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="relative bg-gradient-to-r from-[#0d9488] via-[#14b8a8] to-[#0ea5a5] px-6 py-8 text-white">
+      <section className="relative bg-gradient-to-r from-[#0d9488] via-[#14b8a6] to-[#14b8a6] px-6 py-8 text-white">
         <div className="mx-auto flex w-full max-w-[1280px] flex-col items-start justify-between gap-4 md:flex-row md:items-center">
           <div>
             <p className="text-[0.78rem] font-bold uppercase tracking-[1px] text-white/80">🚀 Lansering snart!</p>
@@ -236,8 +236,8 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="relative overflow-hidden bg-[#0d2d54] px-6 pb-9 pt-10">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#14b8a8]/30 via-[#14b8a8]/10 to-transparent" />
+      <section className="relative overflow-hidden bg-[#0d2252] px-6 pb-9 pt-10">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#14b8a6]/30 via-[#14b8a6]/10 to-transparent" />
         <div className="mx-auto grid max-w-[1280px] gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             [stats.marinas, "Partnerhamnar", "/kajplatser"],
@@ -261,7 +261,7 @@ export default function Home() {
         <div className="mx-auto max-w-[1280px]">
           <div className="mb-5">
             <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#0d9488]">KARTA</p>
-            <h2 className="mt-1 text-[2rem] font-extrabold leading-tight text-[#0a2342]">
+            <h2 className="mt-1 text-[2rem] font-extrabold leading-tight text-[#0f1f3d]">
               Utforska båtplatser på karta
             </h2>
           </div>
@@ -293,10 +293,10 @@ export default function Home() {
               <Link
                 key={item.id}
                 href={`/listings/${item.id}`}
-                className="block cursor-pointer overflow-hidden rounded-xl border border-[#e2e8f0] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition hover:-translate-y-0.5 hover:shadow-lg"
+                className="block cursor-pointer overflow-hidden rounded-xl border border-[#dce3ee] bg-white shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] transition hover:-translate-y-0.5 hover:shadow-lg"
               >
                 <article>
-                  <div className="relative h-[200px] bg-[#f1f5f9]">
+                  <div className="relative h-[200px] bg-[#ebe6dc]">
                     <Image
                       src={item.imageSrc}
                       alt={`${item.title} at ${item.marina}`}
@@ -310,25 +310,25 @@ export default function Home() {
                       {item.marina}
                     </p>
                     <h3 className="mb-1 text-base font-bold">{item.title}</h3>
-                    <p className="mb-3 text-[0.83rem] text-[#64748b]">{item.city}</p>
+                    <p className="mb-3 text-[0.83rem] text-[#8a96a8]">{item.city}</p>
                     <div className="mb-3 flex flex-wrap gap-2">
                       {item.specs.map((spec) => (
                         <span
                           key={spec}
-                          className="rounded-full border border-[#e2e8f0] bg-[#f1f5f9] px-2.5 py-1 text-[0.76rem] text-[#64748b]"
+                          className="rounded-full border border-[#dce3ee] bg-[#ebe6dc] px-2.5 py-1 text-[0.76rem] text-[#8a96a8]"
                         >
                           {spec}
                         </span>
                       ))}
                     </div>
-                    <div className="flex items-center justify-between border-t border-[#e2e8f0] pt-3">
-                      <p className="text-[1.1rem] font-extrabold text-[#0a2342]">
+                    <div className="flex items-center justify-between border-t border-[#dce3ee] pt-3">
+                      <p className="text-[1.1rem] font-extrabold text-[#0f1f3d]">
                         {item.price} SEK
-                        <span className="ml-0.5 text-xs font-normal text-[#64748b]">
+                        <span className="ml-0.5 text-xs font-normal text-[#8a96a8]">
                           /månad
                         </span>
                       </p>
-                      <span className="rounded-full bg-[#dcfce7] px-2.5 py-1 text-[0.74rem] font-semibold text-[#15803d]">
+                      <span className="rounded-full bg-[#dff5ea] px-2.5 py-1 text-[0.74rem] font-semibold text-[#2d9e6b]">
                         Tillgänglig
                       </span>
                     </div>
@@ -340,13 +340,13 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-[#f1f5f9] px-6 py-20">
+      <section className="bg-[#ebe6dc] px-6 py-20">
         <div className="mx-auto max-w-[1280px] text-center">
           <p className="mb-2.5 text-[0.8rem] font-bold uppercase tracking-[1px] text-[#0d9488]">
             Hamnar
           </p>
           <h2 className="text-[2rem] font-extrabold">Utforska hamnar</h2>
-          <p className="mx-auto mt-3 max-w-[560px] text-base text-[#64748b]">
+          <p className="mx-auto mt-3 max-w-[560px] text-base text-[#8a96a8]">
             Utforska hamnar och båtplatser över hela landet — med tydliga priser
             och enkel bokning via båtplats.nu.
           </p>
@@ -356,9 +356,9 @@ export default function Home() {
               <Link
                 key={marina.name}
                 href="/kajplatser"
-                className="block cursor-pointer rounded-xl border border-[#e2e8f0] bg-white p-6 text-center transition hover:-translate-y-0.5 hover:border-[#0d9488] hover:shadow-lg"
+                className="block cursor-pointer rounded-xl border border-[#dce3ee] bg-white p-6 text-center transition hover:-translate-y-0.5 hover:border-[#0d9488] hover:shadow-lg"
               >
-                <div className="relative mx-auto mb-3 h-16 w-16 overflow-hidden rounded-full border-2 border-[#e2e8f0] bg-[#f1f5f9]">
+                <div className="relative mx-auto mb-3 h-16 w-16 overflow-hidden rounded-full border-2 border-[#dce3ee] bg-[#ebe6dc]">
                   <Image
                     src={marina.imageSrc}
                     alt={marina.name}
@@ -368,7 +368,7 @@ export default function Home() {
                   />
                 </div>
                 <h3 className="text-[0.95rem] font-bold">{marina.name}</h3>
-                <p className="mt-1 text-[0.82rem] text-[#64748b]">{marina.spots}</p>
+                <p className="mt-1 text-[0.82rem] text-[#8a96a8]">{marina.spots}</p>
               </Link>
             ))}
           </div>
@@ -384,7 +384,7 @@ export default function Home() {
             <h2 className="text-[2rem] font-extrabold">Enkelt. Snabbt. Tryggt.</h2>
           </div>
           <div className="relative mt-12 grid gap-10 md:grid-cols-3">
-            <div className="pointer-events-none absolute left-[calc(16.67%+40px)] right-[calc(16.67%+40px)] top-8 hidden h-0.5 bg-gradient-to-r from-[#0d9488] to-[#14b8a8] md:block" />
+            <div className="pointer-events-none absolute left-[calc(16.67%+40px)] right-[calc(16.67%+40px)] top-8 hidden h-0.5 bg-gradient-to-r from-[#0d9488] to-[#14b8a6] md:block" />
             {[
               [
                 "1",
@@ -407,7 +407,7 @@ export default function Home() {
                   {step}
                 </div>
                 <h3 className="mb-2 text-[1.1rem] font-bold">{title}</h3>
-                <p className="text-[0.9rem] leading-relaxed text-[#64748b]">
+                <p className="text-[0.9rem] leading-relaxed text-[#8a96a8]">
                   {copy}
                 </p>
               </article>

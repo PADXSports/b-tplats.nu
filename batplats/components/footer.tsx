@@ -6,7 +6,7 @@ const linkClass = "text-[0.87rem] text-white/60 transition hover:text-white";
 
 export default function Footer() {
   return (
-    <footer className="bg-[#0f172a] px-6 pb-6 pt-12 text-white/70">
+    <footer className="bg-[#0f1f3d] px-6 pb-6 pt-12 text-white/70">
       <div className="mx-auto max-w-[1280px]">
         <div className="mb-10 grid gap-10 md:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-1">

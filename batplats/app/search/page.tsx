@@ -83,12 +83,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   };
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
+    <main className="min-h-screen bg-[#f5f0e8] text-[#0f1f3d]">
       <AuthNavbar currentPage="search" />
 
-      <section className="bg-gradient-to-br from-[#0a2342] via-[#0d3060] to-[#0a4a6b] px-6 py-12 text-white">
+      <section className="bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 py-12 text-white">
         <div className="mx-auto w-full max-w-[1280px]">
-          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a8]">
+          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
             Sökresultat
           </p>
           <h1 className="mt-2 text-[2rem] font-extrabold leading-tight">Tillgängliga båtplatser</h1>
@@ -100,41 +100,41 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
       <section className="px-6 py-10">
         <div className="mx-auto w-full max-w-[1280px]">
-          <div className="mb-8 rounded-xl border border-[#e2e8f0] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+          <div className="mb-8 rounded-xl border border-[#dce3ee] bg-white p-4 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
             <p className="mb-3 text-[0.75rem] font-bold uppercase tracking-[0.5px] text-[#0d9488]">
               Aktiva filter
             </p>
             {hasActiveFilters ? (
               <div className="flex flex-wrap gap-2 text-[0.85rem]">
                 {location ? (
-                  <span className="rounded-full border border-[#e2e8f0] bg-[#f1f5f9] px-3 py-1.5 text-[#334155]">
+                  <span className="rounded-full border border-[#dce3ee] bg-[#ebe6dc] px-3 py-1.5 text-[#4a5568]">
                     Plats: <strong>{location}</strong>
                   </span>
                 ) : null}
                 {!Number.isNaN(boatLength) ? (
-                  <span className="rounded-full border border-[#e2e8f0] bg-[#f1f5f9] px-3 py-1.5 text-[#334155]">
+                  <span className="rounded-full border border-[#dce3ee] bg-[#ebe6dc] px-3 py-1.5 text-[#4a5568]">
                     Båtlängd: <strong>{boatLength}m+</strong>
                   </span>
                 ) : null}
                 {selectedDate ? (
-                  <span className="rounded-full border border-[#e2e8f0] bg-[#f1f5f9] px-3 py-1.5 text-[#334155]">
+                  <span className="rounded-full border border-[#dce3ee] bg-[#ebe6dc] px-3 py-1.5 text-[#4a5568]">
                     Datum: <strong>{formatDate(selectedDate)}</strong>
                   </span>
                 ) : null}
               </div>
             ) : (
-              <p className="text-sm text-[#64748b]">Inga filter valda.</p>
+              <p className="text-sm text-[#8a96a8]">Inga filter valda.</p>
             )}
           </div>
 
           {error ? (
-            <div className="rounded-xl border border-[#fee2e2] bg-[#fff1f2] p-6 text-[#9f1239]">
+            <div className="rounded-xl border border-[#fee2e2] bg-[#fff1f2] p-6 text-[#d64c3b]">
               Kunde inte ladda båtplatser just nu.
             </div>
           ) : listings.length === 0 ? (
-            <div className="rounded-xl border border-[#e2e8f0] bg-white p-10 text-center shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
-              <h2 className="text-xl font-bold text-[#0a2342]">Inga resultat hittades</h2>
-              <p className="mt-2 text-sm text-[#64748b]">
+            <div className="rounded-xl border border-[#dce3ee] bg-white p-10 text-center shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
+              <h2 className="text-xl font-bold text-[#0f1f3d]">Inga resultat hittades</h2>
+              <p className="mt-2 text-sm text-[#8a96a8]">
                 Justera plats, båtlängd eller datum och försök igen.
               </p>
             </div>

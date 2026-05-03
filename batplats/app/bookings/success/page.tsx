@@ -74,11 +74,11 @@ export default async function BookingSuccessPage({ searchParams }: SuccessPagePr
   }
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
+    <main className="min-h-screen bg-[#f5f0e8] text-[#0f1f3d]">
       <AuthNavbar currentPage="profile" />
-      <section className="bg-gradient-to-br from-[#0a2342] via-[#0d3060] to-[#0a4a6b] px-6 py-14 text-white">
+      <section className="bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 py-14 text-white">
         <div className="mx-auto w-full max-w-[900px] text-center">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#22c55e] text-4xl shadow-lg">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#2d9e6b] text-4xl shadow-lg">
             ✓
           </div>
           <h1 className="mt-6 text-3xl font-extrabold">Betalning genomförd! 🎉</h1>
@@ -87,39 +87,39 @@ export default async function BookingSuccessPage({ searchParams }: SuccessPagePr
       </section>
 
       <section className="px-6 py-10">
-        <div className="mx-auto w-full max-w-[900px] rounded-2xl border border-[#e2e8f0] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] sm:p-8">
-          <h2 className="text-xl font-extrabold text-[#0a2342]">Bokningsdetaljer</h2>
+        <div className="mx-auto w-full max-w-[900px] rounded-2xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] sm:p-8">
+          <h2 className="text-xl font-extrabold text-[#0f1f3d]">Bokningsdetaljer</h2>
           {booking ? (
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg bg-[#f8fafc] p-3">
+              <div className="rounded-lg bg-[#f5f0e8] p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.4px] text-[#0d9488]">Båtplats</p>
-                <p className="mt-1 font-semibold text-[#0a2342]">{booking.listings?.title ?? "Båtplats"}</p>
+                <p className="mt-1 font-semibold text-[#0f1f3d]">{booking.listings?.title ?? "Båtplats"}</p>
               </div>
-              <div className="rounded-lg bg-[#f8fafc] p-3">
+              <div className="rounded-lg bg-[#f5f0e8] p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.4px] text-[#0d9488]">Hamn</p>
-                <p className="mt-1 font-semibold text-[#0a2342]">
+                <p className="mt-1 font-semibold text-[#0f1f3d]">
                   {booking.listings?.harbours?.name ?? "Okänd hamn"}
                 </p>
               </div>
-              <div className="rounded-lg bg-[#f8fafc] p-3">
+              <div className="rounded-lg bg-[#f5f0e8] p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.4px] text-[#0d9488]">Ort</p>
-                <p className="mt-1 font-semibold text-[#0a2342]">
+                <p className="mt-1 font-semibold text-[#0f1f3d]">
                   {booking.listings?.harbours?.city ?? "Okänd stad"}
                 </p>
               </div>
-              <div className="rounded-lg bg-[#f8fafc] p-3">
+              <div className="rounded-lg bg-[#f5f0e8] p-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.4px] text-[#0d9488]">Period</p>
-                <p className="mt-1 font-semibold text-[#0a2342]">
+                <p className="mt-1 font-semibold text-[#0f1f3d]">
                   {formatDate(booking.start_date)} - {formatDate(booking.end_date)}
                 </p>
               </div>
-              <div className="rounded-lg bg-[#f8fafc] p-3 sm:col-span-2">
+              <div className="rounded-lg bg-[#f5f0e8] p-3 sm:col-span-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.4px] text-[#0d9488]">E-post</p>
-                <p className="mt-1 font-semibold text-[#0a2342]">{booking.guest_email ?? "Inloggad användare"}</p>
+                <p className="mt-1 font-semibold text-[#0f1f3d]">{booking.guest_email ?? "Inloggad användare"}</p>
               </div>
             </div>
           ) : (
-            <p className="mt-4 text-sm text-[#64748b]">
+            <p className="mt-4 text-sm text-[#8a96a8]">
               Vi kunde inte läsa upp bokningsdetaljerna just nu, men betalningen registrerades.
             </p>
           )}
@@ -127,7 +127,7 @@ export default async function BookingSuccessPage({ searchParams }: SuccessPagePr
           <div className="mt-8">
             <Link
               href="/dashboard/renter"
-              className="inline-flex rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8]"
+              className="inline-flex rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6]"
             >
               Se mina bokningar
             </Link>

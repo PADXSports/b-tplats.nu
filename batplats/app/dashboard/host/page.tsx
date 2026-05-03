@@ -839,10 +839,10 @@ function HostDashboardContent() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f8fafc] text-[#1e293b]">
+      <main className="flex min-h-screen items-center justify-center bg-[#f5f0e8] text-[#0f1f3d]">
         <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#cbd5e1] border-t-[#0d9488]" />
-          <p className="text-sm font-medium text-[#64748b]">Laddar dashboard...</p>
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#c5d0de] border-t-[#0d9488]" />
+          <p className="text-sm font-medium text-[#8a96a8]">Laddar dashboard...</p>
         </div>
       </main>
     );
@@ -853,12 +853,12 @@ function HostDashboardContent() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
+    <main className="min-h-screen bg-[#f5f0e8] text-[#0f1f3d]">
       <AuthNavbar currentPage="dashboard" />
 
-      <section className="bg-[#0f172a] px-4 py-10 text-white sm:px-6 sm:py-12">
+      <section className="bg-[#0f1f3d] px-4 py-10 text-white sm:px-6 sm:py-12">
         <div className="mx-auto w-full max-w-[1280px]">
-          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a8]">
+          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
             För hamnägare
           </p>
           <h1 className="mt-2 text-[1.7rem] font-extrabold leading-tight sm:text-[2rem]">{hostName}</h1>
@@ -868,7 +868,7 @@ function HostDashboardContent() {
 
       <section className="px-4 py-6 sm:px-6 sm:py-8">
         <div className="mx-auto w-full max-w-[1280px]">
-          <div className="mb-6 overflow-x-auto rounded-xl border border-[#e2e8f0] bg-white p-1 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+          <div className="mb-6 overflow-x-auto rounded-xl border border-[#dce3ee] bg-white p-1 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
             <div className="inline-flex min-w-max gap-1">
               {[
                 ["overview", "Översikt"],
@@ -892,7 +892,7 @@ function HostDashboardContent() {
                   className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
                     tab === value
                       ? "bg-[#0d9488] text-white"
-                      : "text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0a2342]"
+                      : "text-[#8a96a8] hover:bg-[#ebe6dc] hover:text-[#0f1f3d]"
                   }`}
                 >
                   {label}
@@ -902,7 +902,7 @@ function HostDashboardContent() {
           </div>
 
           {error ? (
-            <div className="mb-5 rounded-xl border border-[#fecaca] bg-[#fff1f2] p-4 text-sm text-[#9f1239]">
+            <div className="mb-5 rounded-xl border border-[#fecaca] bg-[#fff1f2] p-4 text-sm text-[#d64c3b]">
               {error}
             </div>
           ) : null}
@@ -910,8 +910,8 @@ function HostDashboardContent() {
             <div
               className={`mb-5 rounded-xl p-4 text-sm ${
                 toast.type === "success"
-                  ? "border border-[#99f6e4] bg-[#f0fdfa] text-[#0f766e]"
-                  : "border border-[#fecaca] bg-[#fff1f2] text-[#9f1239]"
+                  ? "border border-[#99f6e4] bg-[#f0fdfa] text-[#0d9488]"
+                  : "border border-[#fecaca] bg-[#fff1f2] text-[#d64c3b]"
               }`}
             >
               {toast.message}
@@ -921,64 +921,64 @@ function HostDashboardContent() {
           {tab === "overview" ? (
             <div className="space-y-6">
               <div className="grid gap-4 sm:gap-5 md:grid-cols-2 xl:grid-cols-4">
-                <article className="rounded-xl border border-[#e2e8f0] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+                <article className="rounded-xl border border-[#dce3ee] bg-white p-5 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
                   <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                     Mina annonser
                   </p>
-                  <p className="mt-2 text-3xl font-extrabold text-[#0a2342]">{listings.length}</p>
+                  <p className="mt-2 text-3xl font-extrabold text-[#0f1f3d]">{listings.length}</p>
                 </article>
-                <article className="rounded-xl border border-[#e2e8f0] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+                <article className="rounded-xl border border-[#dce3ee] bg-white p-5 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
                   <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                     Väntande bokningar
                   </p>
-                  <p className="mt-2 text-3xl font-extrabold text-[#0a2342]">{pendingBookings}</p>
+                  <p className="mt-2 text-3xl font-extrabold text-[#0f1f3d]">{pendingBookings}</p>
                 </article>
-                <article className="rounded-xl border border-[#e2e8f0] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+                <article className="rounded-xl border border-[#dce3ee] bg-white p-5 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
                   <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                     Bekräftade bokningar
                   </p>
-                  <p className="mt-2 text-3xl font-extrabold text-[#0a2342]">{confirmedBookingsCount}</p>
+                  <p className="mt-2 text-3xl font-extrabold text-[#0f1f3d]">{confirmedBookingsCount}</p>
                 </article>
-                <article className="rounded-xl border border-[#e2e8f0] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+                <article className="rounded-xl border border-[#dce3ee] bg-white p-5 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
                   <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                     Intäkter denna månad
                   </p>
-                  <p className="mt-2 text-3xl font-extrabold text-[#0a2342]">
+                  <p className="mt-2 text-3xl font-extrabold text-[#0f1f3d]">
                     {revenueThisMonth.toLocaleString("sv-SE")} SEK
                   </p>
                 </article>
               </div>
 
-              <article className="rounded-xl border border-[#e2e8f0] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
-                <h3 className="text-lg font-bold text-[#0a2342]">Åtgärd krävs</h3>
-                <p className="mt-1 text-sm text-[#64748b]">Alla väntande bokningar.</p>
+              <article className="rounded-xl border border-[#dce3ee] bg-white p-5 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
+                <h3 className="text-lg font-bold text-[#0f1f3d]">Åtgärd krävs</h3>
+                <p className="mt-1 text-sm text-[#8a96a8]">Alla väntande bokningar.</p>
                 <div className="mt-4 space-y-3">
                   {allPendingBookings.length === 0 ? (
-                    <p className="text-sm text-[#64748b]">Inga väntande bokningar ✓</p>
+                    <p className="text-sm text-[#8a96a8]">Inga väntande bokningar ✓</p>
                   ) : (
                     allPendingBookings.map((booking) => (
                       <div
                         key={`pending-${booking.id}`}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-3"
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#dce3ee] bg-[#f5f0e8] p-3"
                       >
                         <div>
-                          <p className="text-sm font-semibold text-[#0a2342]">
+                          <p className="text-sm font-semibold text-[#0f1f3d]">
                             {booking.renter_name} · {booking.listings?.title ?? "Okänd annons"}
                           </p>
-                          <p className="text-xs text-[#64748b]">
+                          <p className="text-xs text-[#8a96a8]">
                             {formatDate(booking.start_date)} - {formatDate(booking.end_date)}
                           </p>
                         </div>
                         <div className="flex gap-2">
                           <button
                             onClick={() => void updateBookingStatus(booking.id, "confirmed")}
-                            className="rounded-lg bg-[#0d9488] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#14b8a8]"
+                            className="rounded-lg bg-[#0d9488] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#14b8a6]"
                           >
                             Acceptera
                           </button>
                           <button
                             onClick={() => void updateBookingStatus(booking.id, "declined")}
-                            className="rounded-lg border border-[#fecaca] bg-[#fff1f2] px-3 py-1.5 text-xs font-semibold text-[#b91c1c] transition hover:bg-[#ffe4e6]"
+                            className="rounded-lg border border-[#fecaca] bg-[#fff1f2] px-3 py-1.5 text-xs font-semibold text-[#d64c3b] transition hover:bg-[#ffe4e6]"
                           >
                             Avböj
                           </button>
@@ -1006,13 +1006,13 @@ function HostDashboardContent() {
                 <div className="flex justify-end">
                   <button
                     onClick={() => setShowAddModal(true)}
-                    className="rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8]"
+                    className="rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a6]"
                   >
                     + Lägg till ny annons
                   </button>
                 </div>
                 {listings.length === 0 ? (
-                  <div className="rounded-xl border border-[#e2e8f0] bg-white p-6 text-sm text-[#64748b] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+                  <div className="rounded-xl border border-[#dce3ee] bg-white p-6 text-sm text-[#8a96a8] shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
                     Inga annonser hittades för detta konto.
                   </div>
                 ) : (
@@ -1020,10 +1020,10 @@ function HostDashboardContent() {
                     {listings.map((listing) => (
                       <article
                         key={listing.id}
-                        className="overflow-hidden rounded-xl border border-[#e2e8f0] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]"
+                        className="overflow-hidden rounded-xl border border-[#dce3ee] bg-white p-5 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]"
                       >
                         <div className="mb-3 flex items-center gap-3">
-                          <div className="relative h-[60px] w-[60px] overflow-hidden rounded-lg border border-[#e2e8f0] bg-[#f1f5f9]">
+                          <div className="relative h-[60px] w-[60px] overflow-hidden rounded-lg border border-[#dce3ee] bg-[#ebe6dc]">
                             {listing.image_url ? (
                               <Image
                                 src={listing.image_url}
@@ -1033,7 +1033,7 @@ function HostDashboardContent() {
                                 sizes="60px"
                               />
                             ) : (
-                              <div className="flex h-full w-full items-center justify-center text-xl text-[#94a3b8]">
+                              <div className="flex h-full w-full items-center justify-center text-xl text-[#8a96a8]">
                                 📷
                               </div>
                             )}
@@ -1042,19 +1042,19 @@ function HostDashboardContent() {
                             <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                               {listing.harbour_name ?? "Hamn"}
                             </p>
-                            <h2 className="text-lg font-bold text-[#0a2342]">{listing.title}</h2>
+                            <h2 className="text-lg font-bold text-[#0f1f3d]">{listing.title}</h2>
                           </div>
                         </div>
-                        <p className="mt-2 text-sm text-[#475569]">
+                        <p className="mt-2 text-sm text-[#6b7a8f]">
                           Pris:{" "}
                           {listing.price_per_season != null
                             ? `${listing.price_per_season.toLocaleString("sv-SE")} SEK / säsong`
                             : "-"}
                         </p>
-                        <p className="mt-1 text-sm text-[#475569]">
+                        <p className="mt-1 text-sm text-[#6b7a8f]">
                           Säsong: {formatDate(listing.season_start)} - {formatDate(listing.season_end)}
                         </p>
-                        <p className="mt-1 text-sm text-[#475569]">
+                        <p className="mt-1 text-sm text-[#6b7a8f]">
                           Mått: {listing.max_boat_length ?? "-"}m längd · {listing.max_boat_width ?? "-"}m bredd
                         </p>
                         <p className="mt-1 text-sm">
@@ -1062,8 +1062,8 @@ function HostDashboardContent() {
                           <span
                             className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                               listing.is_available
-                                ? "bg-[#dcfce7] text-[#15803d]"
-                                : "bg-[#e2e8f0] text-[#475569]"
+                                ? "bg-[#dff5ea] text-[#2d9e6b]"
+                                : "bg-[#dce3ee] text-[#6b7a8f]"
                             }`}
                           >
                             {listing.is_available ? "Aktiv" : "Pausad"}
@@ -1072,19 +1072,19 @@ function HostDashboardContent() {
                         <div className="mt-4 flex flex-wrap gap-2">
                           <button
                             onClick={() => void toggleListingAvailability(listing.id, listing.is_available)}
-                            className="rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-xs font-semibold text-[#0a2342] transition hover:border-[#0d9488] hover:text-[#0d9488]"
+                            className="rounded-lg border border-[#c5d0de] bg-white px-3 py-2 text-xs font-semibold text-[#0f1f3d] transition hover:border-[#0d9488] hover:text-[#0d9488]"
                           >
                             {listing.is_available ? "Pausa" : "Aktivera"}
                           </button>
                           <button
                             onClick={() => openEditListing(listing)}
-                            className="rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-xs font-semibold text-[#0a2342] transition hover:border-[#0d9488] hover:text-[#0d9488]"
+                            className="rounded-lg border border-[#c5d0de] bg-white px-3 py-2 text-xs font-semibold text-[#0f1f3d] transition hover:border-[#0d9488] hover:text-[#0d9488]"
                           >
                             Redigera
                           </button>
                           <button
                             onClick={() => void deleteListing(listing.id)}
-                            className="rounded-lg border border-[#fecaca] bg-[#fff1f2] px-3 py-2 text-xs font-semibold text-[#b91c1c] transition hover:bg-[#ffe4e6]"
+                            className="rounded-lg border border-[#fecaca] bg-[#fff1f2] px-3 py-2 text-xs font-semibold text-[#d64c3b] transition hover:bg-[#ffe4e6]"
                           >
                             Ta bort
                           </button>
@@ -1108,12 +1108,12 @@ function HostDashboardContent() {
                 ))}
               </div>
             ) : bookings.length === 0 ? (
-              <div className="rounded-xl border border-[#e2e8f0] bg-white p-6 text-sm text-[#64748b] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+              <div className="rounded-xl border border-[#dce3ee] bg-white p-6 text-sm text-[#8a96a8] shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
                 Inga bokningar ännu.
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="inline-flex flex-wrap rounded-xl border border-[#e2e8f0] bg-white p-1">
+                <div className="inline-flex flex-wrap rounded-xl border border-[#dce3ee] bg-white p-1">
                   {[
                     ["all", "Alla"],
                     ["pending", "Väntande"],
@@ -1126,7 +1126,7 @@ function HostDashboardContent() {
                       className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${
                         bookingFilter === value
                           ? "bg-[#0d9488] text-white"
-                          : "text-[#64748b] hover:bg-[#f1f5f9]"
+                          : "text-[#8a96a8] hover:bg-[#ebe6dc]"
                       }`}
                     >
                       {label}
@@ -1135,41 +1135,41 @@ function HostDashboardContent() {
                 </div>
 
                 {filteredBookings.length === 0 ? (
-                  <div className="rounded-xl border border-[#e2e8f0] bg-white p-6 text-sm text-[#64748b] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+                  <div className="rounded-xl border border-[#dce3ee] bg-white p-6 text-sm text-[#8a96a8] shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
                     Inga bokningar i vald kategori.
                   </div>
                 ) : filteredBookings.map((booking) => (
                   <article
                     key={booking.id}
-                    className="rounded-xl border border-[#e2e8f0] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] sm:p-5"
+                    className="rounded-xl border border-[#dce3ee] bg-white p-4 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] sm:p-5"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                           {booking.listings?.title ?? "Okänd annons"}
                         </p>
-                        <h3 className="mt-1 text-base font-bold text-[#0a2342]">
+                        <h3 className="mt-1 text-base font-bold text-[#0f1f3d]">
                           {booking.renter_name || "Okänd gäst"}
                         </h3>
-                        <p className="mt-1 text-sm text-[#475569]">
+                        <p className="mt-1 text-sm text-[#6b7a8f]">
                           {booking.renter_email ?? "E-post ej tillgänglig"}
                         </p>
-                        <p className="mt-1 text-sm text-[#475569]">
+                        <p className="mt-1 text-sm text-[#6b7a8f]">
                           {formatDate(booking.start_date)} - {formatDate(booking.end_date)}
                         </p>
                         {booking.message ? (
-                          <p className="mt-1 text-sm text-[#475569]">Meddelande: {booking.message}</p>
+                          <p className="mt-1 text-sm text-[#6b7a8f]">Meddelande: {booking.message}</p>
                         ) : null}
                       </div>
                       <span
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
                           booking.status === "confirmed"
-                            ? "bg-[#dcfce7] text-[#15803d]"
+                            ? "bg-[#dff5ea] text-[#2d9e6b]"
                             : booking.status === "pending"
                               ? "bg-[#fef9c3] text-[#854d0e]"
                               : booking.status === "completed"
                                 ? "bg-[#dbeafe] text-[#1d4ed8]"
-                                : "bg-[#fee2e2] text-[#b91c1c]"
+                                : "bg-[#fee2e2] text-[#d64c3b]"
                         }`}
                       >
                         {booking.status === "pending"
@@ -1186,13 +1186,13 @@ function HostDashboardContent() {
                       <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
                         <button
                           onClick={() => void updateBookingStatus(booking.id, "confirmed")}
-                          className="rounded-lg bg-[#0d9488] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#14b8a8] sm:min-w-[110px]"
+                          className="rounded-lg bg-[#0d9488] px-3 py-2 text-sm font-semibold text-white transition hover:bg-[#14b8a6] sm:min-w-[110px]"
                         >
                           Acceptera
                         </button>
                         <button
                           onClick={() => void updateBookingStatus(booking.id, "declined")}
-                          className="rounded-lg border border-[#fecaca] bg-[#fff1f2] px-3 py-2 text-sm font-semibold text-[#b91c1c] transition hover:bg-[#ffe4e6] sm:min-w-[110px]"
+                          className="rounded-lg border border-[#fecaca] bg-[#fff1f2] px-3 py-2 text-sm font-semibold text-[#d64c3b] transition hover:bg-[#ffe4e6] sm:min-w-[110px]"
                         >
                           Avböj
                         </button>
@@ -1201,7 +1201,7 @@ function HostDashboardContent() {
                       <div className="mt-4">
                         <button
                           onClick={() => void updateBookingStatus(booking.id, "completed")}
-                          className="rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm font-semibold text-[#0a2342] transition hover:border-[#0d9488] hover:text-[#0d9488]"
+                          className="rounded-lg border border-[#c5d0de] bg-white px-3 py-2 text-sm font-semibold text-[#0f1f3d] transition hover:border-[#0d9488] hover:text-[#0d9488]"
                         >
                           Markera som avslutad
                         </button>
@@ -1214,47 +1214,47 @@ function HostDashboardContent() {
           ) : null}
 
           {tab === "profile" ? (
-            <article className="rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+            <article className="rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
               <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                 Profil
               </p>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Hamnnamn</label>
+                  <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Hamnnamn</label>
                   <input
                     value={profileName}
                     onChange={(event) => setProfileName(event.target.value)}
-                    className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                    className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Kontakt e-post</label>
+                  <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Kontakt e-post</label>
                   <input
                     value={contactEmail}
                     readOnly
-                    className="w-full rounded-lg border border-[#cbd5e1] bg-[#f8fafc] px-3 py-2 text-sm text-[#475569]"
+                    className="w-full rounded-lg border border-[#c5d0de] bg-[#f5f0e8] px-3 py-2 text-sm text-[#6b7a8f]"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Telefon</label>
+                  <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Telefon</label>
                   <input
                     value={profilePhone}
                     onChange={(event) => setProfilePhone(event.target.value)}
-                    className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                    className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Beskrivning av hamnen</label>
+                  <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Beskrivning av hamnen</label>
                   <textarea
                     value={profileDescription}
                     onChange={(event) => setProfileDescription(event.target.value)}
                     rows={4}
-                    className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                    className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                   />
                 </div>
               </div>
-              <article className="mt-5 rounded-lg border border-dashed border-[#cbd5e1] bg-[#f8fafc] p-4 text-sm text-[#64748b]">
-                <p className="font-semibold text-[#0a2342]">Betalningsinställningar</p>
+              <article className="mt-5 rounded-lg border border-dashed border-[#c5d0de] bg-[#f5f0e8] p-4 text-sm text-[#8a96a8]">
+                <p className="font-semibold text-[#0f1f3d]">Betalningsinställningar</p>
                 <p className="mt-1">
                   Stripe-integration kommer snart. Du kommer kunna ta emot betalningar direkt via plattformen.
                 </p>
@@ -1269,7 +1269,7 @@ function HostDashboardContent() {
               <button
                 onClick={() => void saveProfile()}
                 disabled={savingProfile}
-                className="mt-5 rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:opacity-70"
+                className="mt-5 rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:opacity-70"
               >
                 {savingProfile ? "Sparar..." : "Spara profil"}
               </button>
@@ -1279,25 +1279,25 @@ function HostDashboardContent() {
       </section>
 
       {showAddModal ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#0a2342]/55 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-[#e2e8f0] bg-white shadow-[0_10px_25px_rgba(0,0,0,0.2)]">
-            <div className="sticky top-0 z-10 mb-4 flex items-start justify-between gap-4 border-b border-[#e2e8f0] bg-white px-6 py-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#0f1f3d]/55 p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-[#dce3ee] bg-white shadow-[0_10px_25px_rgba(0,0,0,0.2)]">
+            <div className="sticky top-0 z-10 mb-4 flex items-start justify-between gap-4 border-b border-[#dce3ee] bg-white px-6 py-4">
               <div>
                 <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                   Ny annons
                 </p>
-                <h3 className="text-xl font-extrabold text-[#0a2342]">Lägg till ny annons</h3>
+                <h3 className="text-xl font-extrabold text-[#0f1f3d]">Lägg till ny annons</h3>
               </div>
               <button
                 onClick={() => setShowAddModal(false)}
-                className="rounded-md px-2 py-1 text-sm text-[#64748b] transition hover:bg-[#f1f5f9] hover:text-[#0a2342]"
+                className="rounded-md px-2 py-1 text-sm text-[#8a96a8] transition hover:bg-[#ebe6dc] hover:text-[#0f1f3d]"
               >
                 ✕
               </button>
             </div>
             <form onSubmit={handleAddListing} className="grid gap-4 px-6 pb-0">
               <div>
-                <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Foto på båtplatsen</label>
+                <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Foto på båtplatsen</label>
                 <label className="block cursor-pointer rounded-xl border-2 border-dashed border-[#0d9488] p-6 text-center">
                   <input
                     type="file"
@@ -1306,11 +1306,11 @@ function HostDashboardContent() {
                     onChange={(event) => handleAddImageChange(event.target.files?.[0] ?? null)}
                   />
                   <p className="text-2xl">📷</p>
-                  <p className="mt-1 text-sm font-semibold text-[#0a2342]">Klicka för att ladda upp bild</p>
-                  <p className="mt-1 text-xs text-[#64748b]">Max 5MB</p>
+                  <p className="mt-1 text-sm font-semibold text-[#0f1f3d]">Klicka för att ladda upp bild</p>
+                  <p className="mt-1 text-xs text-[#8a96a8]">Max 5MB</p>
                 </label>
                 {addImagePreview ? (
-                  <div className="relative mt-3 h-36 overflow-hidden rounded-lg border border-[#e2e8f0]">
+                  <div className="relative mt-3 h-36 overflow-hidden rounded-lg border border-[#dce3ee]">
                     <Image src={addImagePreview} alt="Förhandsvisning" fill className="object-cover" sizes="400px" />
                     <button
                       type="button"
@@ -1326,140 +1326,140 @@ function HostDashboardContent() {
                 ) : null}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Hamnnamn</label>
+                <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Hamnnamn</label>
                 <input
                   value={addForm.harbour_name}
                   onChange={(event) => setField("harbour_name", event.target.value)}
                   placeholder="Hamnnamn"
-                  className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                 />
                 {addFormErrors.harbour_name ? (
-                  <p className="mt-1 text-xs text-[#b91c1c]">{addFormErrors.harbour_name}</p>
+                  <p className="mt-1 text-xs text-[#d64c3b]">{addFormErrors.harbour_name}</p>
                 ) : null}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Titel på platsen</label>
+                <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Titel på platsen</label>
                 <input
                   value={addForm.title}
                   onChange={(event) => setField("title", event.target.value)}
                   placeholder="Titel"
-                  className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                 />
-                {addFormErrors.title ? <p className="mt-1 text-xs text-[#b91c1c]">{addFormErrors.title}</p> : null}
+                {addFormErrors.title ? <p className="mt-1 text-xs text-[#d64c3b]">{addFormErrors.title}</p> : null}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Stad</label>
+                <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Stad</label>
                 <input
                   value={addForm.city}
                   onChange={(event) => setField("city", event.target.value)}
                   placeholder="Stad"
-                  className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                 />
-                {addFormErrors.city ? <p className="mt-1 text-xs text-[#b91c1c]">{addFormErrors.city}</p> : null}
+                {addFormErrors.city ? <p className="mt-1 text-xs text-[#d64c3b]">{addFormErrors.city}</p> : null}
               </div>
-              <div className="rounded-lg border border-[#e2e8f0] p-3">
-                <p className="mb-2 text-sm font-semibold text-[#0a2342]">Plats på karta</p>
+              <div className="rounded-lg border border-[#dce3ee] p-3">
+                <p className="mb-2 text-sm font-semibold text-[#0f1f3d]">Plats på karta</p>
                 <MapLocationPicker
                   lat={addForm.lat ? Number(addForm.lat) : null}
                   lng={addForm.lng ? Number(addForm.lng) : null}
                   onPick={handleAddMapPick}
                   height="220px"
                 />
-                <p className="mt-2 text-xs text-[#64748b]">
+                <p className="mt-2 text-xs text-[#8a96a8]">
                   📍 {addForm.lat || "59.3293"}, {addForm.lng || "18.0686"} — {addForm.city || "Stockholm"}
                 </p>
                 {(addFormErrors.lat || addFormErrors.lng) ? (
-                  <p className="mt-1 text-xs text-[#b91c1c]">Välj en plats på kartan</p>
+                  <p className="mt-1 text-xs text-[#d64c3b]">Välj en plats på kartan</p>
                 ) : null}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Beskrivning</label>
+                <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Beskrivning</label>
                 <textarea
                   value={addForm.description}
                   onChange={(event) => setField("description", event.target.value)}
                   placeholder="Beskrivning"
                   rows={3}
-                  className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                 />
                 {addFormErrors.description ? (
-                  <p className="mt-1 text-xs text-[#b91c1c]">{addFormErrors.description}</p>
+                  <p className="mt-1 text-xs text-[#d64c3b]">{addFormErrors.description}</p>
                 ) : null}
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Pris per säsong (SEK)</label>
+                  <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Pris per säsong (SEK)</label>
                   <input
                     type="number"
                     min={0}
                     value={addForm.price_per_season}
                     onChange={(event) => setField("price_per_season", event.target.value)}
                     placeholder="Pris per säsong (SEK)"
-                    className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                    className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                   />
                   {addFormErrors.price_per_season ? (
-                    <p className="mt-1 text-xs text-[#b91c1c]">{addFormErrors.price_per_season}</p>
+                    <p className="mt-1 text-xs text-[#d64c3b]">{addFormErrors.price_per_season}</p>
                   ) : null}
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Max båtlängd (meter)</label>
+                  <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Max båtlängd (meter)</label>
                   <input
                     type="number"
                     min={0}
                     value={addForm.max_boat_length}
                     onChange={(event) => setField("max_boat_length", event.target.value)}
                     placeholder="Max båtlängd (m)"
-                    className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                    className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                   />
                   {addFormErrors.max_boat_length ? (
-                    <p className="mt-1 text-xs text-[#b91c1c]">{addFormErrors.max_boat_length}</p>
+                    <p className="mt-1 text-xs text-[#d64c3b]">{addFormErrors.max_boat_length}</p>
                   ) : null}
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Max båtbredd (meter)</label>
+                  <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Max båtbredd (meter)</label>
                   <input
                     type="number"
                     min={0}
                     value={addForm.max_boat_width}
                     onChange={(event) => setField("max_boat_width", event.target.value)}
                     placeholder="Max båtbred (m)"
-                    className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                    className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                   />
                   {addFormErrors.max_boat_width ? (
-                    <p className="mt-1 text-xs text-[#b91c1c]">{addFormErrors.max_boat_width}</p>
+                    <p className="mt-1 text-xs text-[#d64c3b]">{addFormErrors.max_boat_width}</p>
                   ) : null}
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Säsong start</label>
+                  <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Säsong start</label>
                   <input
                     type="date"
                     value={addForm.season_start}
                     onChange={(event) => setField("season_start", event.target.value)}
-                    className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                    className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                   />
                   {addFormErrors.season_start ? (
-                    <p className="mt-1 text-xs text-[#b91c1c]">{addFormErrors.season_start}</p>
+                    <p className="mt-1 text-xs text-[#d64c3b]">{addFormErrors.season_start}</p>
                   ) : null}
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Säsong slut</label>
+                  <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Säsong slut</label>
                   <input
                     type="date"
                     value={addForm.season_end}
                     onChange={(event) => setField("season_end", event.target.value)}
-                    className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                    className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                   />
                   {addFormErrors.season_end ? (
-                    <p className="mt-1 text-xs text-[#b91c1c]">{addFormErrors.season_end}</p>
+                    <p className="mt-1 text-xs text-[#d64c3b]">{addFormErrors.season_end}</p>
                   ) : null}
                 </div>
               </div>
-              <div className="sticky bottom-0 -mx-6 border-t border-[#e2e8f0] bg-white px-6 py-4">
+              <div className="sticky bottom-0 -mx-6 border-t border-[#dce3ee] bg-white px-6 py-4">
                 <button
                   type="submit"
                   disabled={addingListing}
-                  className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:opacity-70"
+                  className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:opacity-70"
                 >
                   {addingListing ? "Sparar..." : "Spara annons"}
                 </button>
@@ -1470,25 +1470,25 @@ function HostDashboardContent() {
       ) : null}
 
       {showEditModal ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#0a2342]/55 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-[#e2e8f0] bg-white shadow-[0_10px_25px_rgba(0,0,0,0.2)]">
-            <div className="sticky top-0 z-10 mb-4 flex items-start justify-between gap-4 border-b border-[#e2e8f0] bg-white px-6 py-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#0f1f3d]/55 p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-[#dce3ee] bg-white shadow-[0_10px_25px_rgba(0,0,0,0.2)]">
+            <div className="sticky top-0 z-10 mb-4 flex items-start justify-between gap-4 border-b border-[#dce3ee] bg-white px-6 py-4">
               <div>
                 <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                   Redigera annons
                 </p>
-                <h3 className="text-xl font-extrabold text-[#0a2342]">Uppdatera annons</h3>
+                <h3 className="text-xl font-extrabold text-[#0f1f3d]">Uppdatera annons</h3>
               </div>
               <button
                 onClick={() => setShowEditModal(false)}
-                className="rounded-md px-2 py-1 text-sm text-[#64748b] transition hover:bg-[#f1f5f9] hover:text-[#0a2342]"
+                className="rounded-md px-2 py-1 text-sm text-[#8a96a8] transition hover:bg-[#ebe6dc] hover:text-[#0f1f3d]"
               >
                 ✕
               </button>
             </div>
             <form onSubmit={handleEditListing} className="grid gap-4 px-6 pb-0">
               <div>
-                <label className="mb-1 block text-sm font-semibold text-[#0a2342]">Foto på båtplatsen</label>
+                <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Foto på båtplatsen</label>
                 <label className="block cursor-pointer rounded-xl border-2 border-dashed border-[#0d9488] p-6 text-center">
                   <input
                     type="file"
@@ -1497,11 +1497,11 @@ function HostDashboardContent() {
                     onChange={(event) => handleEditImageChange(event.target.files?.[0] ?? null)}
                   />
                   <p className="text-2xl">📷</p>
-                  <p className="mt-1 text-sm font-semibold text-[#0a2342]">Klicka för att ladda upp bild</p>
-                  <p className="mt-1 text-xs text-[#64748b]">Max 5MB</p>
+                  <p className="mt-1 text-sm font-semibold text-[#0f1f3d]">Klicka för att ladda upp bild</p>
+                  <p className="mt-1 text-xs text-[#8a96a8]">Max 5MB</p>
                 </label>
                 {editImagePreview ? (
-                  <div className="relative mt-3 h-36 overflow-hidden rounded-lg border border-[#e2e8f0]">
+                  <div className="relative mt-3 h-36 overflow-hidden rounded-lg border border-[#dce3ee]">
                     <Image src={editImagePreview} alt="Förhandsvisning" fill className="object-cover" sizes="400px" />
                     <button
                       type="button"
@@ -1520,29 +1520,29 @@ function HostDashboardContent() {
                 value={editForm.harbour_name}
                 onChange={(event) => setEditField("harbour_name", event.target.value)}
                 placeholder="Hamnnamn"
-                className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
               />
               <input
                 value={editForm.title}
                 onChange={(event) => setEditField("title", event.target.value)}
                 placeholder="Titel"
-                className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
               />
               <input
                 value={editForm.city}
                 onChange={(event) => setEditField("city", event.target.value)}
                 placeholder="Stad"
-                className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
               />
-              <div className="rounded-lg border border-[#e2e8f0] p-3">
-                <p className="mb-2 text-sm font-semibold text-[#0a2342]">Plats på karta</p>
+              <div className="rounded-lg border border-[#dce3ee] p-3">
+                <p className="mb-2 text-sm font-semibold text-[#0f1f3d]">Plats på karta</p>
                 <MapLocationPicker
                   lat={editForm.lat ? Number(editForm.lat) : null}
                   lng={editForm.lng ? Number(editForm.lng) : null}
                   onPick={handleEditMapPick}
                   height="220px"
                 />
-                <p className="mt-2 text-xs text-[#64748b]">
+                <p className="mt-2 text-xs text-[#8a96a8]">
                   📍 {editForm.lat || "59.3293"}, {editForm.lng || "18.0686"} — {editForm.city || "Stockholm"}
                 </p>
               </div>
@@ -1551,7 +1551,7 @@ function HostDashboardContent() {
                 onChange={(event) => setEditField("description", event.target.value)}
                 placeholder="Beskrivning"
                 rows={3}
-                className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
               />
               <div className="grid gap-4 sm:grid-cols-2">
                 <input
@@ -1560,7 +1560,7 @@ function HostDashboardContent() {
                   value={editForm.price_per_season}
                   onChange={(event) => setEditField("price_per_season", event.target.value)}
                   placeholder="Pris per säsong (SEK)"
-                  className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                 />
                 <input
                   type="number"
@@ -1568,7 +1568,7 @@ function HostDashboardContent() {
                   value={editForm.max_boat_length}
                   onChange={(event) => setEditField("max_boat_length", event.target.value)}
                   placeholder="Max båtlängd (m)"
-                  className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                 />
                 <input
                   type="number"
@@ -1576,7 +1576,7 @@ function HostDashboardContent() {
                   value={editForm.max_boat_width}
                   onChange={(event) => setEditField("max_boat_width", event.target.value)}
                   placeholder="Max båtbredd (m)"
-                  className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                 />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -1584,20 +1584,20 @@ function HostDashboardContent() {
                   type="date"
                   value={editForm.season_start}
                   onChange={(event) => setEditField("season_start", event.target.value)}
-                  className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                 />
                 <input
                   type="date"
                   value={editForm.season_end}
                   onChange={(event) => setEditField("season_end", event.target.value)}
-                  className="w-full rounded-lg border border-[#cbd5e1] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                  className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
                 />
               </div>
-              <div className="sticky bottom-0 -mx-6 border-t border-[#e2e8f0] bg-white px-6 py-4">
+              <div className="sticky bottom-0 -mx-6 border-t border-[#dce3ee] bg-white px-6 py-4">
                 <button
                   type="submit"
                   disabled={editingListing}
-                  className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:opacity-70"
+                  className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:opacity-70"
                 >
                   {editingListing ? "Sparar..." : "Spara ändringar"}
                 </button>
@@ -1614,10 +1614,10 @@ export default function HostDashboardPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-[#f8fafc] text-[#1e293b]">
+        <main className="flex min-h-screen items-center justify-center bg-[#f5f0e8] text-[#0f1f3d]">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#cbd5e1] border-t-[#0d9488]" />
-            <p className="text-sm font-medium text-[#64748b]">Laddar dashboard...</p>
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#c5d0de] border-t-[#0d9488]" />
+            <p className="text-sm font-medium text-[#8a96a8]">Laddar dashboard...</p>
           </div>
         </main>
       }

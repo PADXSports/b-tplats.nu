@@ -5,12 +5,12 @@ import Footer from "@/components/footer";
 
 export default function OmOssPage() {
   return (
-    <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
+    <main className="min-h-screen bg-[#f5f0e8] text-[#0f1f3d]">
       <AuthNavbar currentPage="home" />
 
-      <section className="bg-gradient-to-br from-[#0a2342] via-[#0d3060] to-[#0a4a6b] px-6 py-20 text-white">
+      <section className="bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 py-20 text-white">
         <div className="mx-auto w-full max-w-[980px] text-center">
-          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a8]">
+          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
             Om oss
           </p>
           <h1 className="mt-3 text-[2.8rem] font-black leading-tight tracking-[-0.5px] max-md:text-[2rem]">
@@ -24,14 +24,14 @@ export default function OmOssPage() {
       </section>
 
       <section className="px-6 py-16">
-        <div className="mx-auto w-full max-w-[980px] rounded-xl border border-[#e2e8f0] bg-white p-8 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+        <div className="mx-auto w-full max-w-[980px] rounded-xl border border-[#dce3ee] bg-white p-8 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#0d9488]">
             Vilka vi är
           </p>
-          <h2 className="mt-2 text-[1.8rem] font-extrabold text-[#0a2342]">
+          <h2 className="mt-2 text-[1.8rem] font-extrabold text-[#0f1f3d]">
             En digital marknadsplats för båtplatser
           </h2>
-          <p className="mt-4 text-[0.98rem] leading-relaxed text-[#475569]">
+          <p className="mt-4 text-[0.98rem] leading-relaxed text-[#6b7a8f]">
             Vi hjälper hamnägare att fylla lediga platser och ger båtägare en tydlig väg till
             rätt kajplats. Med bättre överblick, snabbare kommunikation och modern bokningshantering
             sparar båda sidor tid och får en tryggare upplevelse.
@@ -39,15 +39,15 @@ export default function OmOssPage() {
         </div>
       </section>
 
-      <section className="bg-[#f1f5f9] px-6 py-16">
-        <div className="mx-auto w-full max-w-[980px] rounded-xl border border-[#e2e8f0] bg-white p-8 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+      <section className="bg-[#ebe6dc] px-6 py-16">
+        <div className="mx-auto w-full max-w-[980px] rounded-xl border border-[#dce3ee] bg-white p-8 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#0d9488]">
             Vår mission
           </p>
-          <h2 className="mt-2 text-[1.8rem] font-extrabold text-[#0a2342]">
+          <h2 className="mt-2 text-[1.8rem] font-extrabold text-[#0f1f3d]">
             Att göra båtplatser lika enkla att boka som ett hotell
           </h2>
-          <p className="mt-4 text-[0.98rem] leading-relaxed text-[#475569]">
+          <p className="mt-4 text-[0.98rem] leading-relaxed text-[#6b7a8f]">
             Vi vill minska friktionen i hela processen - från att upptäcka en hamn till att slutföra
             en bokning. Genom transparent information, säkra flöden och enkel administration hjälper
             vi fler att komma ut på vattnet.
@@ -56,8 +56,8 @@ export default function OmOssPage() {
       </section>
 
       <section className="px-6 py-16">
-        <div className="mx-auto w-full max-w-[980px] rounded-xl bg-gradient-to-r from-[#0a2342] to-[#0d3060] p-8 text-white shadow-[0_10px_30px_rgba(10,35,66,0.25)]">
-          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a8]">
+        <div className="mx-auto w-full max-w-[980px] rounded-xl bg-gradient-to-r from-[#0f1f3d] to-[#0d2252] p-8 text-white shadow-[0_10px_30px_rgba(15,31,61,0.22)]">
+          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
             Kontakt
           </p>
           <h2 className="mt-2 text-[1.8rem] font-extrabold">Hör av dig till oss</h2>
@@ -66,7 +66,7 @@ export default function OmOssPage() {
           </p>
           <p className="mt-4 text-sm">
             E-post:{" "}
-            <a href="mailto:kontakt@batplats.nu" className="font-semibold text-[#5eead4] hover:underline">
+            <a href="mailto:kontakt@batplats.nu" className="font-semibold text-[#14b8a6] hover:underline">
               kontakt@batplats.nu
             </a>
           </p>
@@ -74,10 +74,10 @@ export default function OmOssPage() {
       </section>
 
       <section id="integritet" className="scroll-mt-24 px-6 py-16">
-        <div className="mx-auto max-w-[980px] rounded-xl border border-[#e2e8f0] bg-white p-8 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+        <div className="mx-auto max-w-[980px] rounded-xl border border-[#dce3ee] bg-white p-8 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#0d9488]">Integritet</p>
-          <h2 className="mt-2 text-[1.5rem] font-extrabold text-[#0a2342]">Integritetspolicy</h2>
-          <p className="mt-4 text-[0.98rem] leading-relaxed text-[#475569]">
+          <h2 className="mt-2 text-[1.5rem] font-extrabold text-[#0f1f3d]">Integritetspolicy</h2>
+          <p className="mt-4 text-[0.98rem] leading-relaxed text-[#6b7a8f]">
             Vi behandlar personuppgifter enligt gällande dataskyddsregler. Kontakta oss på{" "}
             <a href="mailto:kontakt@batplats.nu" className="font-semibold text-[#0d9488] hover:underline">
               kontakt@batplats.nu
@@ -87,11 +87,11 @@ export default function OmOssPage() {
         </div>
       </section>
 
-      <section id="villkor" className="scroll-mt-24 bg-[#f1f5f9] px-6 py-16">
-        <div className="mx-auto max-w-[980px] rounded-xl border border-[#e2e8f0] bg-white p-8 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+      <section id="villkor" className="scroll-mt-24 bg-[#ebe6dc] px-6 py-16">
+        <div className="mx-auto max-w-[980px] rounded-xl border border-[#dce3ee] bg-white p-8 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#0d9488]">Villkor</p>
-          <h2 className="mt-2 text-[1.5rem] font-extrabold text-[#0a2342]">Användarvillkor</h2>
-          <p className="mt-4 text-[0.98rem] leading-relaxed text-[#475569]">
+          <h2 className="mt-2 text-[1.5rem] font-extrabold text-[#0f1f3d]">Användarvillkor</h2>
+          <p className="mt-4 text-[0.98rem] leading-relaxed text-[#6b7a8f]">
             Genom att använda Båtplats.nu godkänner du våra villkor för plattformen. Vid tvister gäller
             svensk lag. Vid frågor, kontakta{" "}
             <a href="mailto:kontakt@batplats.nu" className="font-semibold text-[#0d9488] hover:underline">
@@ -102,16 +102,16 @@ export default function OmOssPage() {
         </div>
       </section>
 
-      <section className="bg-[#f1f5f9] px-6 py-16">
+      <section className="bg-[#ebe6dc] px-6 py-16">
         <div className="mx-auto w-full max-w-[980px]">
           <div className="text-center">
             <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#0d9488]">Team</p>
-            <h2 className="mt-2 text-[1.9rem] font-extrabold text-[#0a2342]">
+            <h2 className="mt-2 text-[1.9rem] font-extrabold text-[#0f1f3d]">
               Teamet bakom Båtplats.nu
             </h2>
           </div>
 
-          <div className="mx-auto mt-8 max-w-[420px] rounded-xl border border-[#e2e8f0] bg-white p-7 text-center shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+          <div className="mx-auto mt-8 max-w-[420px] rounded-xl border border-[#dce3ee] bg-white p-7 text-center shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
             <div
               className="relative mx-auto mb-[18px] h-[160px] w-[160px] overflow-hidden rounded-full"
               style={{
@@ -128,9 +128,9 @@ export default function OmOssPage() {
                 style={{ objectPosition: "center 22%" }}
               />
             </div>
-            <p className="text-[1.05rem] font-bold text-[#0a2342]">Carl Lagerberg</p>
+            <p className="text-[1.05rem] font-bold text-[#0f1f3d]">Carl Lagerberg</p>
             <p className="mb-2.5 text-[0.85rem] font-semibold text-[#0d9488]">Grundare & VD</p>
-            <p className="text-[0.9rem] leading-relaxed text-[#64748b]">
+            <p className="text-[0.9rem] leading-relaxed text-[#8a96a8]">
               Carl grundade Båtplats.nu med visionen att förenkla livet för båtägare och hamnägare
               i Sverige.
             </p>

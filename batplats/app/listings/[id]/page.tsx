@@ -67,11 +67,11 @@ export default async function ListingPage({ params }: ListingPageProps) {
 
   if (error || !listing) {
     return (
-      <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
+      <main className="min-h-screen bg-[#f5f0e8] text-[#0f1f3d]">
         <AuthNavbar currentPage="listing" />
-        <section className="bg-gradient-to-br from-[#0a2342] via-[#0d3060] to-[#0a4a6b] px-6 py-20 text-white">
+        <section className="bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 py-20 text-white">
           <div className="mx-auto w-full max-w-[880px] text-center">
-            <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a8]">
+            <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
               Oj!
             </p>
             <h1 className="mt-3 text-[2.2rem] font-extrabold leading-tight max-md:text-[1.8rem]">
@@ -82,7 +82,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
             </p>
             <Link
               href="/kajplatser"
-              className="mt-8 inline-flex rounded-lg bg-[#0d9488] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8]"
+              className="mt-8 inline-flex rounded-lg bg-[#0d9488] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6]"
             >
               Se alla båtplatser
             </Link>
@@ -142,23 +142,23 @@ export default async function ListingPage({ params }: ListingPageProps) {
       .filter(Boolean) as string[];
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] pb-24 text-[#1e293b] md:pb-0">
+    <main className="min-h-screen bg-[#f5f0e8] pb-24 text-[#0f1f3d] md:pb-0">
       <AuthNavbar currentPage="listing" />
 
-      <div className="border-b border-[#e2e8f0] bg-white px-6 py-3">
+      <div className="border-b border-[#dce3ee] bg-white px-6 py-3">
         <div className="mx-auto w-full max-w-[1280px]">
           <Link
             href="/kajplatser"
-            className="hidden cursor-pointer items-center gap-1 text-sm font-semibold text-[#0d9488] transition hover:text-[#14b8a8] hover:underline md:inline-flex"
+            className="hidden cursor-pointer items-center gap-1 text-sm font-semibold text-[#0d9488] transition hover:text-[#14b8a6] hover:underline md:inline-flex"
           >
             ← Tillbaka till alla båtplatser
           </Link>
         </div>
       </div>
 
-      <section className="bg-gradient-to-br from-[#0a2342] via-[#0d3060] to-[#0a4a6b] px-6 py-12 text-white">
+      <section className="bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 py-12 text-white">
         <div className="mx-auto w-full max-w-[1280px]">
-          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a8]">
+          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
             {resolvedListing.harbours?.name ?? "Hamn"}
           </p>
           <h1 className="mt-2 text-[2rem] font-extrabold leading-tight">{resolvedListing.title}</h1>
@@ -174,7 +174,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
       <section className="px-6 py-10">
         <div className="mx-auto grid w-full max-w-[1280px] gap-8 lg:grid-cols-[1fr_340px]">
           <div>
-            <div className="relative mb-6 h-[300px] overflow-hidden rounded-2xl border border-[#e2e8f0] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] md:h-[420px]">
+            <div className="relative mb-6 h-[300px] overflow-hidden rounded-2xl border border-[#dce3ee] bg-white shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] md:h-[420px]">
               <Image
                 src={resolvedListing.image_url || DEFAULT_HERO_IMAGE}
                 alt={resolvedListing.title}
@@ -182,31 +182,31 @@ export default async function ListingPage({ params }: ListingPageProps) {
                 className="object-cover"
                 sizes="(max-width: 1024px) 100vw, 900px"
               />
-              <span className="absolute left-4 top-4 rounded-full bg-[#dcfce7] px-3 py-1 text-[0.74rem] font-semibold text-[#15803d]">
+              <span className="absolute left-4 top-4 rounded-full bg-[#dff5ea] px-3 py-1 text-[0.74rem] font-semibold text-[#2d9e6b]">
                 Tillgänglig
               </span>
             </div>
 
-            <div className="rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
-              <h2 className="mb-4 text-xl font-extrabold text-[#0a2342]">Detaljer om båtplatsen</h2>
-              <p className="mb-6 text-[0.95rem] leading-relaxed text-[#475569]">
+            <div className="rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
+              <h2 className="mb-4 text-xl font-extrabold text-[#0f1f3d]">Detaljer om båtplatsen</h2>
+              <p className="mb-6 text-[0.95rem] leading-relaxed text-[#6b7a8f]">
                 {resolvedListing.description?.trim() || "Ingen beskrivning har lagts till ännu."}
               </p>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-3">
+                <div className="rounded-lg border border-[#dce3ee] bg-[#f5f0e8] p-3">
                   <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                     Hamn
                   </p>
                   <p className="mt-1 font-semibold">{resolvedListing.harbours?.name ?? "-"}</p>
                 </div>
-                <div className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-3">
+                <div className="rounded-lg border border-[#dce3ee] bg-[#f5f0e8] p-3">
                   <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                     Stad
                   </p>
                   <p className="mt-1 font-semibold">{resolvedListing.harbours?.city ?? "-"}</p>
                 </div>
-                <div className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-3">
+                <div className="rounded-lg border border-[#dce3ee] bg-[#f5f0e8] p-3">
                   <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                     Max båtlängd
                   </p>
@@ -214,7 +214,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
                     {resolvedListing.max_boat_length != null ? `${resolvedListing.max_boat_length} m` : "-"}
                   </p>
                 </div>
-                <div className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-3">
+                <div className="rounded-lg border border-[#dce3ee] bg-[#f5f0e8] p-3">
                   <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                     Max båtbredd
                   </p>
@@ -222,13 +222,13 @@ export default async function ListingPage({ params }: ListingPageProps) {
                     {resolvedListing.max_boat_width != null ? `${resolvedListing.max_boat_width} m` : "-"}
                   </p>
                 </div>
-                <div className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-3">
+                <div className="rounded-lg border border-[#dce3ee] bg-[#f5f0e8] p-3">
                   <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                     Säsong start
                   </p>
                   <p className="mt-1 font-semibold">{formatDate(resolvedListing.season_start)}</p>
                 </div>
-                <div className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-3">
+                <div className="rounded-lg border border-[#dce3ee] bg-[#f5f0e8] p-3">
                   <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
                     Säsong slut
                   </p>
@@ -236,10 +236,10 @@ export default async function ListingPage({ params }: ListingPageProps) {
                 </div>
               </div>
 
-              <div className="mt-6 rounded-xl border border-[#e2e8f0] bg-[#fffbeb] p-5">
-                <h3 className="text-lg font-extrabold text-[#0a2342]">Bokade perioder</h3>
+              <div className="mt-6 rounded-xl border border-[#dce3ee] bg-[#fffbeb] p-5">
+                <h3 className="text-lg font-extrabold text-[#0f1f3d]">Bokade perioder</h3>
                 {bookedPeriodLines.length === 0 ? (
-                  <p className="mt-2 text-sm text-[#64748b]">Inga bekräftade bokningar för denna plats ännu.</p>
+                  <p className="mt-2 text-sm text-[#8a96a8]">Inga bekräftade bokningar för denna plats ännu.</p>
                 ) : (
                   <ul className="mt-3 list-inside list-disc space-y-1.5 text-sm text-[#92400e]">
                     {bookedPeriodLines.map((line, idx) => (
@@ -252,14 +252,14 @@ export default async function ListingPage({ params }: ListingPageProps) {
           </div>
 
           <aside className="hidden lg:block">
-            <div className="sticky top-24 rounded-xl border border-[#e2e8f0] bg-white p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+            <div className="sticky top-24 rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
               <p className="text-[0.8rem] font-bold uppercase tracking-[0.5px] text-[#0d9488]">
                 Pris
               </p>
-              <p className="mt-1 text-[1.75rem] font-extrabold text-[#0a2342]">
+              <p className="mt-1 text-[1.75rem] font-extrabold text-[#0f1f3d]">
                 {resolvedListing.price_per_season.toLocaleString("sv-SE")} SEK
               </p>
-              <p className="text-sm text-[#64748b]">per säsong</p>
+              <p className="text-sm text-[#8a96a8]">per säsong</p>
               {resolvedListing.is_available ? (
                 <BookBerthButton
                   listingId={id}
@@ -268,10 +268,10 @@ export default async function ListingPage({ params }: ListingPageProps) {
                   pricePerSeason={resolvedListing.price_per_season}
                   bookedRanges={serializedBookedRanges}
                   isAvailable
-                  className="mt-5 w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
+                  className="mt-5 w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:cursor-not-allowed disabled:bg-[#8a96a8]"
                 />
               ) : (
-                <p className="mt-5 rounded-lg border border-[#fecaca] bg-[#fff1f2] px-4 py-3 text-sm font-semibold text-[#b91c1c]">
+                <p className="mt-5 rounded-lg border border-[#fecaca] bg-[#fff1f2] px-4 py-3 text-sm font-semibold text-[#d64c3b]">
                   Denna båtplats är inte tillgänglig just nu
                 </p>
               )}
@@ -281,7 +281,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
       </section>
 
       {resolvedListing.is_available ? (
-        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#e2e8f0] bg-white/95 p-4 backdrop-blur md:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#dce3ee] bg-white/95 p-4 backdrop-blur md:hidden">
           <BookBerthButton
             listingId={id}
             listingTitle={resolvedListing.title}
@@ -289,7 +289,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
             pricePerSeason={resolvedListing.price_per_season}
             bookedRanges={serializedBookedRanges}
             isAvailable
-            className="w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
+            className="w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:cursor-not-allowed disabled:bg-[#8a96a8]"
           />
         </div>
       ) : null}

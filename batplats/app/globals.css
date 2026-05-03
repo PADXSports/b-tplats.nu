@@ -1,26 +1,53 @@
 @import "tailwindcss";
 
+/* Båtplats brand — from Brand Identity System (cream, ink, teal, semantic accents) */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f5f0e8;
+  --foreground: #0f1f3d;
+  --brand-ink: #0f1f3d;
+  --brand-navy-deep: #0d2252;
+  --brand-teal: #0d9488;
+  --brand-teal-light: #14b8a6;
+  --brand-cream: #f5f0e8;
+  --brand-cream-muted: #ebe6dc;
+  --brand-muted: #8a96a8;
+  --brand-muted-dark: #6b7a8f;
+  --brand-border: #dce3ee;
+  --brand-input-border: #c5d0de;
+  --brand-success: #2d9e6b;
+  --brand-success-muted: #dff5ea;
+  --brand-warning: #e8a020;
+  --brand-danger: #d64c3b;
+  --brand-white: #ffffff;
+  --shadow-card: 0 1px 4px rgba(15, 31, 61, 0.08), 0 1px 2px rgba(15, 31, 61, 0.05);
+  --shadow-card-hover: 0 10px 15px rgba(15, 31, 61, 0.08), 0 4px 6px rgba(15, 31, 61, 0.05);
+  --radius-button: 0.5rem;
+  --radius-card: 0.75rem;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-navy-deep: var(--brand-navy-deep);
+  --color-brand-teal: var(--brand-teal);
+  --color-brand-teal-light: var(--brand-teal-light);
+  --color-brand-cream: var(--brand-cream);
+  --color-brand-cream-muted: var(--brand-cream-muted);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-muted-dark: var(--brand-muted-dark);
+  --color-brand-border: var(--brand-border);
+  --color-brand-success: var(--brand-success);
+  --color-brand-warning: var(--brand-warning);
+  --color-brand-danger: var(--brand-danger);
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
 }

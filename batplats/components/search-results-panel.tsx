@@ -44,7 +44,7 @@ export default function SearchResultsPanel({ listings }: SearchResultsPanelProps
         <select
           value={sortValue}
           onChange={(event) => setSortValue(event.target.value)}
-          className="rounded-lg border border-[#cbd5e1] bg-white px-3 py-2 text-sm text-[#0a2342] outline-none transition focus:border-[#0d9488]"
+          className="rounded-lg border border-[#c5d0de] bg-white px-3 py-2 text-sm text-[#0f1f3d] outline-none transition focus:border-[#0d9488]"
         >
           <option value="recommended">Sortera: Rekommenderad</option>
           <option value="price-asc">Pris: Lågt till högt</option>
@@ -52,7 +52,7 @@ export default function SearchResultsPanel({ listings }: SearchResultsPanelProps
         </select>
         <button
           onClick={() => setShowMap((current) => !current)}
-          className="rounded-lg bg-[#0a2342] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0d3060]"
+          className="rounded-lg bg-[#0f1f3d] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0d2252]"
         >
           {showMap ? "Dölj karta" : "Visa karta 🗺"}
         </button>
@@ -65,9 +65,9 @@ export default function SearchResultsPanel({ listings }: SearchResultsPanelProps
           <Link
             key={listing.id}
             href={`/listings/${listing.id}`}
-            className="block overflow-hidden rounded-xl border border-[#e2e8f0] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_15px_rgba(0,0,0,0.08),0_4px_6px_rgba(0,0,0,0.05)]"
+            className="block overflow-hidden rounded-xl border border-[#dce3ee] bg-white shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_10px_20px_rgba(15,31,61,0.1),0_4px_6px_rgba(15,31,61,0.06)]"
           >
-            <div className="relative h-[200px] bg-[#f1f5f9]">
+            <div className="relative h-[200px] bg-[#ebe6dc]">
               <Image
                 src={DEFAULT_LISTING_IMAGE}
                 alt="Marina photo"
@@ -81,23 +81,23 @@ export default function SearchResultsPanel({ listings }: SearchResultsPanelProps
                 {listing.harbours?.name ?? "Okänd hamn"}
               </p>
               <h2 className="mb-1 text-base font-bold">{listing.title}</h2>
-              <p className="mb-3 text-[0.83rem] text-[#64748b]">
+              <p className="mb-3 text-[0.83rem] text-[#8a96a8]">
                 {listing.harbours?.city ?? "Okänd stad"}
               </p>
 
               <div className="mb-3 flex flex-wrap gap-2">
-                <span className="rounded-full border border-[#e2e8f0] bg-[#f1f5f9] px-2.5 py-1 text-[0.76rem] text-[#64748b]">
+                <span className="rounded-full border border-[#dce3ee] bg-[#ebe6dc] px-2.5 py-1 text-[0.76rem] text-[#8a96a8]">
                   Max {listing.max_boat_length}m
                 </span>
-                <span className="rounded-full border border-[#e2e8f0] bg-[#f1f5f9] px-2.5 py-1 text-[0.76rem] text-[#64748b]">
+                <span className="rounded-full border border-[#dce3ee] bg-[#ebe6dc] px-2.5 py-1 text-[0.76rem] text-[#8a96a8]">
                   Tillgänglig
                 </span>
               </div>
 
-              <div className="flex items-center justify-between border-t border-[#e2e8f0] pt-3">
-                <p className="text-[1.1rem] font-extrabold text-[#0a2342]">
+              <div className="flex items-center justify-between border-t border-[#dce3ee] pt-3">
+                <p className="text-[1.1rem] font-extrabold text-[#0f1f3d]">
                   {listing.price_per_season.toLocaleString("sv-SE")} SEK
-                  <span className="ml-0.5 text-xs font-normal text-[#64748b]">/säsong</span>
+                  <span className="ml-0.5 text-xs font-normal text-[#8a96a8]">/säsong</span>
                 </p>
               </div>
             </div>

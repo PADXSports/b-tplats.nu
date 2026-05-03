@@ -48,7 +48,7 @@ export function GoogleOAuthButton({ newUserRole = "renter" }: GoogleOAuthButtonP
     <button
       type="button"
       onClick={() => void handleGoogleLogin()}
-      className="flex w-full items-center justify-center gap-3 rounded-lg border border-[#e2e8f0] bg-white px-4 py-3 text-sm font-semibold text-[#0f172a] transition hover:border-[#cbd5e1] hover:bg-[#f8fafc]"
+      className="flex w-full items-center justify-center gap-3 rounded-lg border border-[#dce3ee] bg-white px-4 py-3 text-sm font-semibold text-[#0f1f3d] transition hover:border-[#c5d0de] hover:bg-[#f5f0e8]"
     >
       <GoogleIcon />
       Fortsätt med Google
@@ -59,9 +59,9 @@ export function GoogleOAuthButton({ newUserRole = "renter" }: GoogleOAuthButtonP
 export function AuthOAuthDivider() {
   return (
     <div className="flex items-center gap-3 py-1">
-      <div className="h-px flex-1 bg-[#94a3b8]" />
-      <span className="text-sm text-[#94a3b8]">eller</span>
-      <div className="h-px flex-1 bg-[#94a3b8]" />
+      <div className="h-px flex-1 bg-[#8a96a8]" />
+      <span className="text-sm text-[#8a96a8]">eller</span>
+      <div className="h-px flex-1 bg-[#8a96a8]" />
     </div>
   );
 }
