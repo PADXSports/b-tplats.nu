@@ -149,7 +149,7 @@ export default function Home() {
     <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
       <AuthNavbar currentPage="home" />
 
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#0a2342] via-[#0d3060] to-[#0a4a6b] px-6 pb-20 pt-[100px]">
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#0a2342] via-[#0d3060] to-[#0a4a6b] px-6 pb-24 pt-[108px] md:pb-28">
         <div
           className="pointer-events-none absolute inset-0 opacity-[0.03]"
           style={{
@@ -158,33 +158,30 @@ export default function Home() {
           }}
         />
         <div className="relative mx-auto max-w-[1280px]">
-          <div className="mx-auto max-w-[680px] text-center">
-            <h1 className="text-[3rem] font-black leading-[1.1] tracking-[-0.5px] text-white max-md:text-[2rem]">
-              Hitta din perfekta{" "}
-              <span className="text-[#14b8a8]">båtplats</span> — hela Sverige på{" "}
-              <span className="text-[#14b8a8]">båtplats.nu</span>
+          <div className="mx-auto max-w-[760px] text-center">
+            <h1 className="text-[3.2rem] font-black leading-[1.08] tracking-[-0.6px] text-white max-md:text-[2.2rem]">
+              Hitta din perfekta <span className="text-[#14b8a8]">båtplats</span>
             </h1>
-            <p className="mb-9 mt-4 text-[1.15rem] leading-relaxed text-white/80">
-              Hundratals kajplatser och gästhamnar från Göteborg till Stockholm.
-              Kort vistelse eller hel säsong — allt på ett ställe.
+            <p className="mb-11 mt-5 text-[1rem] leading-relaxed text-white/78 md:text-[1.05rem]">
+              Hundratals kajplatser i Stockholm. Kort vistelse eller hel säsong — allt på ett ställe.
             </p>
           </div>
 
-          <div className="mx-auto flex max-w-[900px] flex-wrap gap-2 rounded-xl bg-white p-2 shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
-            <div className="flex min-w-[140px] flex-1 flex-col px-3 py-[6px]">
+          <div className="mx-auto flex max-w-[920px] flex-wrap gap-2 rounded-2xl bg-white p-2.5 shadow-[0_18px_40px_rgba(2,12,27,0.32)] ring-1 ring-white/30">
+            <div className="flex min-w-[140px] flex-1 flex-col px-3 py-2">
               <label className="mb-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.5px] text-[#64748b]">
                 Plats
               </label>
               <input
                 type="text"
-                placeholder="Stad eller hamn..."
+                placeholder="T.ex. Göteborg eller Nynäshamn"
                 value={location}
                 onChange={(event) => setLocation(event.target.value)}
                 className="w-full bg-transparent text-[0.9rem] text-[#1e293b] outline-none"
               />
             </div>
             <div className="my-2 hidden w-px bg-[#e2e8f0] md:block" />
-            <div className="flex min-w-[140px] flex-1 flex-col px-3 py-[6px]">
+            <div className="flex min-w-[140px] flex-1 flex-col px-3 py-2">
               <label className="mb-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.5px] text-[#64748b]">
                 Båtlängd
               </label>
@@ -201,7 +198,7 @@ export default function Home() {
               </select>
             </div>
             <div className="my-2 hidden w-px bg-[#e2e8f0] md:block" />
-            <div className="flex min-w-[140px] flex-1 flex-col px-3 py-[6px]">
+            <div className="flex min-w-[140px] flex-1 flex-col px-3 py-2">
               <label className="mb-0.5 text-[0.72rem] font-semibold uppercase tracking-[0.5px] text-[#64748b]">
                 Tillgänglig från
               </label>
@@ -214,7 +211,7 @@ export default function Home() {
             </div>
             <button
               onClick={handleSearch}
-              className="rounded-lg bg-[#0d9488] px-7 py-3 text-base font-semibold text-white transition hover:bg-[#14b8a8]"
+              className="rounded-xl bg-[#0d9488] px-7 py-3 text-base font-semibold text-white shadow-[0_8px_18px_rgba(13,148,136,0.28)] transition hover:-translate-y-0.5 hover:bg-[#14b8a8] hover:shadow-[0_12px_24px_rgba(20,184,166,0.32)]"
             >
               Sök
             </button>
@@ -222,8 +219,26 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="border-y border-white/10 bg-[#0d2d54] px-6 py-7">
-        <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-center gap-14">
+      <section className="relative bg-gradient-to-r from-[#0d9488] via-[#14b8a8] to-[#0ea5a5] px-6 py-8 text-white">
+        <div className="mx-auto flex w-full max-w-[1280px] flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+          <div>
+            <p className="text-[0.78rem] font-bold uppercase tracking-[1px] text-white/80">🚀 Lansering snart!</p>
+            <h2 className="mt-1 text-[1.5rem] font-extrabold leading-tight sm:text-[1.8rem]">
+              Anmäl dig till betan och få exklusiv tidig tillgång
+            </h2>
+          </div>
+          <Link
+            href="/beta"
+            className="inline-flex rounded-lg border border-white/25 bg-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-white/25 hover:shadow-lg"
+          >
+            Anmäl intresse →
+          </Link>
+        </div>
+      </section>
+
+      <section className="relative overflow-hidden bg-[#0d2d54] px-6 pb-9 pt-10">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#14b8a8]/30 via-[#14b8a8]/10 to-transparent" />
+        <div className="mx-auto grid max-w-[1280px] gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[
             [stats.marinas, "Partnerhamnar", "/kajplatser"],
             [stats.listings, "Tillgängliga båtplatser", "/kajplatser"],
@@ -233,10 +248,10 @@ export default function Home() {
             <Link
               key={label}
               href={href}
-              className="block cursor-pointer rounded-xl px-3 py-2 text-center transition hover:bg-white/5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
+              className="block cursor-pointer rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-5 text-center backdrop-blur-sm transition hover:-translate-y-0.5 hover:bg-white/[0.08] hover:shadow-[0_12px_28px_rgba(0,0,0,0.22)]"
             >
               <p className="text-[2rem] font-black text-white">{value}</p>
-              <p className="mt-0.5 text-[0.83rem] text-white/60">{label}</p>
+              <p className="mt-1 text-[0.82rem] text-white/70">{label}</p>
             </Link>
           ))}
         </div>
