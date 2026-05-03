@@ -163,6 +163,11 @@ export default async function ListingPage({ params }: ListingPageProps) {
           </p>
           <h1 className="mt-2 text-[2rem] font-extrabold leading-tight">{resolvedListing.title}</h1>
           <p className="mt-2 text-sm text-white/80">{resolvedListing.harbours?.city ?? "Okänd stad"}</p>
+          {!resolvedListing.is_available ? (
+            <p className="mt-4 inline-flex rounded-lg border border-[#fca5a5] bg-[#7f1d1d]/60 px-4 py-2 text-sm font-semibold text-white">
+              Denna båtplats är inte tillgänglig just nu
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -255,31 +260,39 @@ export default async function ListingPage({ params }: ListingPageProps) {
                 {resolvedListing.price_per_season.toLocaleString("sv-SE")} SEK
               </p>
               <p className="text-sm text-[#64748b]">per säsong</p>
-              <BookBerthButton
-                listingId={id}
-                listingTitle={resolvedListing.title}
-                harbourName={resolvedListing.harbours?.name ?? "Hamn"}
-                pricePerSeason={resolvedListing.price_per_season}
-                bookedRanges={serializedBookedRanges}
-                isAvailable
-                className="mt-5 w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
-              />
+              {resolvedListing.is_available ? (
+                <BookBerthButton
+                  listingId={id}
+                  listingTitle={resolvedListing.title}
+                  harbourName={resolvedListing.harbours?.name ?? "Hamn"}
+                  pricePerSeason={resolvedListing.price_per_season}
+                  bookedRanges={serializedBookedRanges}
+                  isAvailable
+                  className="mt-5 w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
+                />
+              ) : (
+                <p className="mt-5 rounded-lg border border-[#fecaca] bg-[#fff1f2] px-4 py-3 text-sm font-semibold text-[#b91c1c]">
+                  Denna båtplats är inte tillgänglig just nu
+                </p>
+              )}
             </div>
           </aside>
         </div>
       </section>
 
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#e2e8f0] bg-white/95 p-4 backdrop-blur md:hidden">
-        <BookBerthButton
-          listingId={id}
-          listingTitle={resolvedListing.title}
-          harbourName={resolvedListing.harbours?.name ?? "Hamn"}
-          pricePerSeason={resolvedListing.price_per_season}
-          bookedRanges={serializedBookedRanges}
-          isAvailable
-          className="w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
-        />
-      </div>
+      {resolvedListing.is_available ? (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#e2e8f0] bg-white/95 p-4 backdrop-blur md:hidden">
+          <BookBerthButton
+            listingId={id}
+            listingTitle={resolvedListing.title}
+            harbourName={resolvedListing.harbours?.name ?? "Hamn"}
+            pricePerSeason={resolvedListing.price_per_season}
+            bookedRanges={serializedBookedRanges}
+            isAvailable
+            className="w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a8] disabled:cursor-not-allowed disabled:bg-[#94a3b8]"
+          />
+        </div>
+      ) : null}
       <Footer />
     </main>
   );
