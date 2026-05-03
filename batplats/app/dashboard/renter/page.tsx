@@ -14,15 +14,11 @@ type RenterBooking = {
   start_date: string | null;
   end_date: string | null;
   listings: {
-    id: number | string;
     title: string;
+    harbour_name: string | null;
+    city: string | null;
     price_per_season: number | null;
-    season_start: string | null;
-    season_end: string | null;
-    harbours: {
-      name: string;
-      city: string;
-    } | null;
+    image_url: string | null;
   } | null;
 };
 
@@ -77,13 +73,17 @@ function RenterDashboardContent() {
   const showError = (message: string) => setToast({ type: "error", message });
 
   const fetchBookings = useCallback(
-    async (renterId: string) => {
+    async (renterId: string, email: string) => {
+      const trimmedEmail = email.trim();
+      const orFilter =
+        trimmedEmail.length > 0
+          ? `renter_id.eq.${renterId},guest_email.eq."${trimmedEmail.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`
+          : `renter_id.eq.${renterId}`;
+
       const { data, error: bookingsError } = await supabase
         .from("bookings")
-        .select(
-          "id, listing_id, status, start_date, end_date, listings(id, title, price_per_season, season_start, season_end, harbours(name, city))",
-        )
-        .eq("renter_id", renterId)
+        .select("*, listings(title, harbour_name, city, price_per_season, image_url)")
+        .or(orFilter)
         .order("created_at", { ascending: false });
 
       if (bookingsError) {
@@ -97,11 +97,6 @@ function RenterDashboardContent() {
           const listingRelation = Array.isArray(booking.listings)
             ? (booking.listings[0] as Record<string, unknown> | undefined)
             : (booking.listings as Record<string, unknown> | null | undefined);
-          const harbourRelation = listingRelation
-            ? (Array.isArray(listingRelation.harbours)
-                ? (listingRelation.harbours[0] as Record<string, unknown> | undefined)
-                : (listingRelation.harbours as Record<string, unknown> | null | undefined))
-            : null;
 
           return {
             id: booking.id as number | string,
@@ -111,17 +106,11 @@ function RenterDashboardContent() {
             end_date: (booking.end_date as string | null) ?? null,
             listings: listingRelation
               ? {
-                  id: listingRelation.id as number | string,
                   title: (listingRelation.title as string) ?? "Okänd annons",
+                  harbour_name: (listingRelation.harbour_name as string | null) ?? null,
+                  city: (listingRelation.city as string | null) ?? null,
                   price_per_season: (listingRelation.price_per_season as number | null) ?? null,
-                  season_start: (listingRelation.season_start as string | null) ?? null,
-                  season_end: (listingRelation.season_end as string | null) ?? null,
-                  harbours: harbourRelation
-                    ? {
-                        name: (harbourRelation.name as string) ?? "Okänd hamn",
-                        city: (harbourRelation.city as string) ?? "Okänd stad",
-                      }
-                    : null,
+                  image_url: (listingRelation.image_url as string | null) ?? null,
                 }
               : null,
           };
@@ -174,7 +163,7 @@ function RenterDashboardContent() {
       return;
     }
 
-    await fetchBookings(userId);
+    await fetchBookings(userId, userEmail);
     showSuccess("Bokning avbokad");
     setUpdatingBookingId(null);
   };
@@ -258,7 +247,7 @@ function RenterDashboardContent() {
         }
         localStorage.setItem("userRole", profileData?.role ?? "renter");
 
-        await Promise.all([fetchBookings(user.id), fetchProfile(user.id)]);
+        await Promise.all([fetchBookings(user.id, user.email ?? ""), fetchProfile(user.id)]);
       } catch (initError) {
         console.error(initError);
         if (mounted) {
@@ -385,23 +374,28 @@ function RenterDashboardContent() {
                   className="rounded-xl border border-[#e2e8f0] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)] sm:p-6"
                 >
                   <div className="flex flex-wrap gap-4">
-                    <div className="h-24 w-full rounded-lg bg-gradient-to-br from-[#cbd5e1] to-[#e2e8f0] sm:w-40" />
+                    <div className="relative h-24 w-full overflow-hidden rounded-lg bg-gradient-to-br from-[#cbd5e1] to-[#e2e8f0] sm:w-40 sm:shrink-0">
+                      {booking.listings?.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={booking.listings.image_url}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                    </div>
                     <div className="min-w-[220px] flex-1">
                       <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
-                        {booking.listings?.harbours?.name ?? "Okänd hamn"}
+                        {booking.listings?.harbour_name ?? "Okänd hamn"}
                       </p>
                       <h3 className="mt-1 text-base font-bold text-[#0a2342]">
                         {booking.listings?.title ?? "Okänd plats"}
                       </h3>
                       <p className="mt-1 text-sm text-[#475569]">
-                        {booking.listings?.harbours?.city ?? "Okänd stad"}
+                        {booking.listings?.city ?? "Okänd stad"}
                       </p>
                       <p className="mt-1 text-sm text-[#475569]">
                         Bokning: {formatDate(booking.start_date)} - {formatDate(booking.end_date)}
-                      </p>
-                      <p className="mt-1 text-sm text-[#475569]">
-                        Säsong: {formatDate(booking.listings?.season_start ?? null)} -{" "}
-                        {formatDate(booking.listings?.season_end ?? null)}
                       </p>
                       <p className="mt-1 text-sm font-semibold text-[#0a2342]">
                         {booking.listings?.price_per_season

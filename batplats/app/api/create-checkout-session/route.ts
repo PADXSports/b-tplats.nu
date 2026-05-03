@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         startDate,
         endDate,
         renterId: user?.id || "",
-        guestEmail: guestEmail || "",
+        guestEmail: guestEmail || user?.email || "",
         guestFirstName: firstName || "",
         guestLastName: lastName || "",
         guestPhone: phone || "",
