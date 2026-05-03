@@ -22,7 +22,18 @@ export async function POST(request: NextRequest) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    const { listingId, startDate, endDate, guestEmail } = session.metadata ?? {};
+    const {
+      listingId,
+      startDate,
+      endDate,
+      renterId,
+      guestEmail,
+      guestFirstName,
+      guestLastName,
+      guestPhone,
+      guestBoatName,
+      guestBoatLength,
+    } = session.metadata ?? {};
 
     if (!listingId || !startDate || !endDate) {
       return NextResponse.json({ error: "Missing booking metadata" }, { status: 400 });
@@ -35,9 +46,14 @@ export async function POST(request: NextRequest) {
       status: "confirmed",
       start_date: startDate,
       end_date: endDate,
+      renter_id: renterId || null,
       guest_email: guestEmail || null,
+      guest_first_name: guestFirstName || null,
+      guest_last_name: guestLastName || null,
+      guest_phone: guestPhone || null,
       stripe_session_id: session.id,
       stripe_payment_intent: typeof session.payment_intent === "string" ? session.payment_intent : null,
+      message: guestBoatName ? `Båt: ${guestBoatName}, ${guestBoatLength || ""}m` : null,
     });
 
     await supabase.from("listings").update({ is_available: false }).eq("id", listingId);

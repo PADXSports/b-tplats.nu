@@ -8,17 +8,26 @@ type CheckoutPayload = {
   startDate: string;
   endDate: string;
   guestEmail?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  boatName?: string;
+  boatLength?: string;
 };
 
 export async function POST(request: NextRequest) {
   try {
-    const { listingId, startDate, endDate, guestEmail } = (await request.json()) as CheckoutPayload;
+    const { listingId, startDate, endDate, guestEmail, firstName, lastName, phone, boatName, boatLength } =
+      (await request.json()) as CheckoutPayload;
 
     if (!listingId || !startDate || !endDate) {
       return NextResponse.json({ error: "Missing required booking data" }, { status: 400 });
     }
 
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     const { data: listing, error: listingError } = await supabase
       .from("listings")
       .select("id, title, harbour_id, price_per_season")
@@ -61,9 +70,15 @@ export async function POST(request: NextRequest) {
         listingId,
         startDate,
         endDate,
+        renterId: user?.id || "",
         guestEmail: guestEmail || "",
+        guestFirstName: firstName || "",
+        guestLastName: lastName || "",
+        guestPhone: phone || "",
+        guestBoatName: boatName || "",
+        guestBoatLength: boatLength || "",
       },
-      customer_email: guestEmail || undefined,
+      customer_email: user?.email || guestEmail,
     });
 
     if (!session.url) {
