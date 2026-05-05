@@ -9,15 +9,130 @@ import BerthMap from "@/components/BerthMap";
 import Footer from "@/components/footer";
 import LandingHeroWave from "@/components/landing-hero-wave";
 import RevealOnView from "@/components/reveal-on-view";
+import { getListingImageSrc } from "@/lib/listing-image";
 import { createClient } from "@/lib/supabase/client";
 
-const DEFAULT_LISTING_IMAGE =
-  "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=600&h=300&fit=crop";
+type HarbourSuggestionRow = {
+  id: number | string;
+  name: string | null;
+  city: string | null;
+  zip_code: string | null;
+  area: string | null;
+  lat: number | null;
+  lng: number | null;
+};
+
+type LocationSuggestionType = "harbour" | "city" | "area" | "zip";
+
+type LocationSuggestion = {
+  key: string;
+  type: LocationSuggestionType;
+  label: string;
+  secondary: string | null;
+  value: string;
+  lat: number | null;
+  lng: number | null;
+};
+
+const LOCATION_TYPE_LABELS: Record<LocationSuggestionType, string> = {
+  harbour: "Hamnar",
+  city: "Städer",
+  area: "Områden",
+  zip: "Postnummer",
+};
+
+const normalizeSearchValue = (value: string) => value.toLowerCase().trim();
+
+const includesMatch = (value: string | null | undefined, query: string) =>
+  Boolean(value && normalizeSearchValue(value).includes(query));
+
+const formatLocationSuggestion = (
+  type: LocationSuggestionType,
+  row: HarbourSuggestionRow,
+): LocationSuggestion | null => {
+  const city = row.city?.trim() || "Okänd stad";
+  const area = row.area?.trim() || null;
+  const name = row.name?.trim() || null;
+  const zip = row.zip_code?.trim() || null;
+
+  if (type === "harbour") {
+    if (!name) return null;
+    return {
+      key: `${type}:${name}:${city}`,
+      type,
+      label: name,
+      secondary: city,
+      value: name,
+      lat: row.lat,
+      lng: row.lng,
+    };
+  }
+
+  if (type === "city") {
+    return {
+      key: `${type}:${city}`,
+      type,
+      label: city,
+      secondary: area ? `Område: ${area}` : null,
+      value: city,
+      lat: row.lat,
+      lng: row.lng,
+    };
+  }
+
+  if (type === "area") {
+    if (!area) return null;
+    return {
+      key: `${type}:${area}:${city}`,
+      type,
+      label: `${city}, ${area}`,
+      secondary: null,
+      value: area,
+      lat: row.lat,
+      lng: row.lng,
+    };
+  }
+
+  if (!zip) return null;
+  return {
+    key: `${type}:${zip}:${city}`,
+    type,
+    label: `Postnummer: ${zip}`,
+    secondary: city,
+    value: zip,
+    lat: row.lat,
+    lng: row.lng,
+  };
+};
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const renderHighlightedText = (text: string, query: string) => {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) return text;
+  const pattern = new RegExp(`(${escapeRegExp(trimmedQuery)})`, "ig");
+  const segments = text.split(pattern);
+
+  return segments.map((segment, idx) =>
+    segment.toLowerCase() === trimmedQuery.toLowerCase() ? (
+      <span key={`${segment}-${idx}`} className="font-semibold text-[#0d9488]">
+        {segment}
+      </span>
+    ) : (
+      <span key={`${segment}-${idx}`}>{segment}</span>
+    ),
+  );
+};
 
 export default function Home() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [location, setLocation] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [selectedLocationSuggestion, setSelectedLocationSuggestion] = useState<LocationSuggestion | null>(null);
   const [boatLength, setBoatLength] = useState("");
   const [date, setDate] = useState("");
   const [featuredListings, setFeaturedListings] = useState<
@@ -41,11 +156,75 @@ export default function Home() {
   const handleSearch = () => {
     const params = new URLSearchParams();
     if (location.trim()) params.set("location", location.trim());
+    if (selectedLocationSuggestion) {
+      params.set("locationType", selectedLocationSuggestion.type);
+      if (selectedLocationSuggestion.lat != null) params.set("lat", String(selectedLocationSuggestion.lat));
+      if (selectedLocationSuggestion.lng != null) params.set("lng", String(selectedLocationSuggestion.lng));
+    }
     if (boatLength) params.set("boatLength", boatLength);
     if (date) params.set("date", date);
     const queryString = params.toString();
     router.push(queryString ? `/search?${queryString}` : "/search");
   };
+
+  useEffect(() => {
+    const query = normalizeSearchValue(locationQuery);
+    if (!query) {
+      setLocationSuggestions([]);
+      setIsLocationLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setIsLocationLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("harbours")
+          .select("id, name, city, zip_code, area, lat, lng")
+          .or(`name.ilike.%${query}%,city.ilike.%${query}%,zip_code.ilike.%${query}%,area.ilike.%${query}%`)
+          .limit(8);
+
+        if (error) {
+          console.error("Failed to fetch location suggestions:", error);
+          if (!cancelled) setLocationSuggestions([]);
+          return;
+        }
+
+        const rows = ((data ?? []) as HarbourSuggestionRow[]).slice(0, 8);
+        const suggestions: LocationSuggestion[] = [];
+        const keys = new Set<string>();
+
+        const addSuggestion = (type: LocationSuggestionType, row: HarbourSuggestionRow) => {
+          const formatted = formatLocationSuggestion(type, row);
+          if (!formatted || keys.has(formatted.key)) return;
+          keys.add(formatted.key);
+          suggestions.push(formatted);
+        };
+
+        for (const row of rows) {
+          if (includesMatch(row.name, query)) addSuggestion("harbour", row);
+          if (includesMatch(row.area, query)) addSuggestion("area", row);
+          if (includesMatch(row.city, query)) addSuggestion("city", row);
+          if (includesMatch(row.zip_code, query)) addSuggestion("zip", row);
+        }
+
+        if (!cancelled) {
+          setLocationSuggestions(suggestions.slice(0, 8));
+        }
+      } catch (error) {
+        console.error("Unexpected location suggestion error:", error);
+        if (!cancelled) setLocationSuggestions([]);
+      } finally {
+        if (!cancelled) setIsLocationLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [locationQuery, supabase]);
 
   useEffect(() => {
     const loadHomepageData = async () => {
@@ -56,7 +235,7 @@ export default function Home() {
           supabase.from("bookings").select("*", { count: "exact", head: true }),
           supabase
             .from("listings")
-            .select("id, title, price_per_season, max_boat_length, max_boat_width, harbours(name, city)")
+            .select("id, title, image_url, price_per_season, max_boat_length, max_boat_width, harbours(name, city)")
             .limit(3),
         ]);
 
@@ -94,7 +273,7 @@ export default function Home() {
                   listing.max_boat_width ? `${listing.max_boat_width} m bredd` : "Bredd ej angiven",
                 ],
                 price: listing.price_per_season.toLocaleString("sv-SE"),
-                imageSrc: DEFAULT_LISTING_IMAGE,
+                imageSrc: getListingImageSrc(listing.image_url),
               };
             }),
           );
@@ -164,6 +343,19 @@ export default function Home() {
     },
   ];
 
+  const groupedSuggestions: Record<LocationSuggestionType, LocationSuggestion[]> = {
+    harbour: [],
+    area: [],
+    city: [],
+    zip: [],
+  };
+
+  for (const suggestion of locationSuggestions) {
+    groupedSuggestions[suggestion.type].push(suggestion);
+  }
+
+  const orderedSuggestionTypes: LocationSuggestionType[] = ["harbour", "area", "city", "zip"];
+
   return (
     <main className="min-h-screen bg-[#fafcff] text-[#0f1f3d]">
       <AuthNavbar currentPage="home" />
@@ -205,13 +397,105 @@ export default function Home() {
                 <span className="text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#0f1f3d]">
                   Område
                 </span>
-                <input
-                  type="text"
-                  placeholder="Stockholm & skärgård"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="mt-0.5 w-full bg-transparent text-sm text-[#4a5568] outline-none placeholder:text-[#8a96a8]"
-                />
+                <div className="relative mt-0.5">
+                  <input
+                    type="text"
+                    placeholder="Stockholm, Östermalm eller 115 21"
+                    value={location}
+                    onChange={(e) => {
+                      const nextValue = e.target.value;
+                      setLocation(nextValue);
+                      setLocationQuery(nextValue);
+                      setSelectedLocationSuggestion(null);
+                      setShowLocationSuggestions(true);
+                    }}
+                    onFocus={() => setShowLocationSuggestions(true)}
+                    onBlur={() => {
+                      setTimeout(() => setShowLocationSuggestions(false), 120);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleSearch();
+                      }
+                    }}
+                    className="w-full bg-transparent pr-6 text-sm text-[#4a5568] outline-none placeholder:text-[#8a96a8]"
+                  />
+                  {isLocationLoading ? (
+                    <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-[#0d9488]" aria-hidden>
+                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                        />
+                        <path
+                          className="opacity-80"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                        />
+                      </svg>
+                    </span>
+                  ) : null}
+                  {showLocationSuggestions && locationQuery.trim() ? (
+                    <div className="absolute left-0 right-0 z-40 mt-3 max-h-72 overflow-y-auto rounded-2xl border border-[#dce3ee] bg-white p-2 shadow-[0_12px_30px_rgba(15,31,61,0.16)]">
+                      {locationSuggestions.length === 0 && !isLocationLoading ? (
+                        <p className="px-3 py-3 text-sm text-[#8a96a8]">Inga resultat</p>
+                      ) : (
+                        orderedSuggestionTypes.map((type) => {
+                          const items = groupedSuggestions[type];
+                          if (items.length === 0) return null;
+
+                          return (
+                            <div key={type} className="mb-1 last:mb-0">
+                              <p className="px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a96a8]">
+                                {LOCATION_TYPE_LABELS[type]}
+                              </p>
+                              {items.map((suggestion) => (
+                                <button
+                                  key={suggestion.key}
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => {
+                                    setLocation(suggestion.value);
+                                    setLocationQuery(suggestion.value);
+                                    setSelectedLocationSuggestion(suggestion);
+                                    setShowLocationSuggestions(false);
+                                    const params = new URLSearchParams();
+                                    params.set("location", suggestion.value);
+                                    params.set("locationType", suggestion.type);
+                                    if (suggestion.lat != null) params.set("lat", String(suggestion.lat));
+                                    if (suggestion.lng != null) params.set("lng", String(suggestion.lng));
+                                    if (boatLength) params.set("boatLength", boatLength);
+                                    if (date) params.set("date", date);
+                                    router.push(`/search?${params.toString()}`);
+                                  }}
+                                  className="flex w-full items-start gap-2 rounded-xl px-3 py-3 text-left transition hover:bg-[#f5f0e8]"
+                                >
+                                  <span className="mt-0.5 text-base leading-none text-[#0d9488]" aria-hidden>
+                                    📍
+                                  </span>
+                                  <span className="min-w-0 text-sm text-[#4a5568]">
+                                    <span className="block truncate">{renderHighlightedText(suggestion.label, locationQuery)}</span>
+                                    {suggestion.secondary ? (
+                                      <span className="block truncate text-xs text-[#8a96a8]">
+                                        {renderHighlightedText(suggestion.secondary, locationQuery)}
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               </label>
               <div className="hidden w-px shrink-0 self-center bg-[#dce3ee] sm:block sm:h-9" />
               <label className="group relative flex flex-1 cursor-pointer flex-col rounded-[2rem] px-4 py-2.5 transition-colors hover:bg-[#f5f0e8] sm:px-5 sm:py-2.5">

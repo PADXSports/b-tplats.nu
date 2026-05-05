@@ -5,6 +5,8 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import AuthNavbar from "@/components/auth-navbar";
 import BookBerthButton from "@/components/book-berth-button";
 import Footer from "@/components/footer";
+import ListingLocationMap from "@/components/listing-location-map";
+import { getListingImageSrc } from "@/lib/listing-image";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
 type ListingPageProps = {
@@ -16,6 +18,8 @@ type ListingPageProps = {
 type ListingRecord = {
   id: number | string;
   harbour_id?: number | string | null;
+  harbour_name?: string | null;
+  city?: string | null;
   title: string;
   description: string | null;
   image_url?: string | null;
@@ -25,11 +29,16 @@ type ListingRecord = {
   season_start: string | null;
   season_end: string | null;
   is_available: boolean;
+  lat?: number | null;
+  lng?: number | null;
   harbours?: {
     name: string;
     city: string;
     lat: number | null;
     lng: number | null;
+    area?: string | null;
+    zip_code?: string | null;
+    address?: string | null;
   } | null;
 };
 
@@ -37,9 +46,6 @@ type BookingRange = {
   start_date: string | null;
   end_date: string | null;
 };
-
-const DEFAULT_HERO_IMAGE =
-  "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=1400&h=700&fit=crop";
 
 const formatDate = (value: string | null) => {
   if (!value) return "-";
@@ -101,12 +107,17 @@ export default async function ListingPage({ params }: ListingPageProps) {
       .eq("id", listing.harbour_id)
       .maybeSingle();
 
+    console.log("Harbour data:", harbour);
+
     if (!harbourError && harbour) {
       harbourData = {
         name: harbour.name,
         city: harbour.city,
         lat: harbour.lat ?? null,
         lng: harbour.lng ?? null,
+        area: harbour.area ?? null,
+        zip_code: harbour.zip_code ?? null,
+        address: harbour.address ?? null,
       };
     }
   }
@@ -115,6 +126,13 @@ export default async function ListingPage({ params }: ListingPageProps) {
     ...(listing as ListingRecord),
     harbours: harbourData,
   };
+  const mapLat = resolvedListing.harbours?.lat ?? resolvedListing.lat ?? null;
+  const mapLng = resolvedListing.harbours?.lng ?? resolvedListing.lng ?? null;
+  const mapHarbourName =
+    resolvedListing.harbours?.name ?? resolvedListing.harbour_name ?? "Hamn";
+  const mapCity = resolvedListing.harbours?.city ?? resolvedListing.city ?? "Okänd stad";
+  const mapArea = resolvedListing.harbours?.area ?? null;
+  const mapAddress = resolvedListing.harbours?.address ?? null;
 
   const supabasePublic = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -176,7 +194,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
           <div>
             <div className="relative mb-6 h-[300px] overflow-hidden rounded-2xl border border-[#dce3ee] bg-white shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] md:h-[420px]">
               <Image
-                src={resolvedListing.image_url || DEFAULT_HERO_IMAGE}
+                src={getListingImageSrc(resolvedListing.image_url)}
                 alt={resolvedListing.title}
                 fill
                 className="object-cover"
@@ -235,6 +253,28 @@ export default async function ListingPage({ params }: ListingPageProps) {
                   <p className="mt-1 font-semibold">{formatDate(resolvedListing.season_end)}</p>
                 </div>
               </div>
+
+              {mapLat != null && mapLng != null ? (
+                <div className="mt-6 rounded-xl border border-[#dce3ee] bg-[#f5f0e8] p-5">
+                  <h3 className="text-lg font-extrabold text-[#0f1f3d]">Plats och omgivning</h3>
+                  <p className="mt-2 text-sm text-[#6b7a8f]">
+                    {mapHarbourName} • {mapCity}
+                    {mapArea ? ` • ${mapArea}` : ""}
+                  </p>
+                  {mapAddress ? (
+                    <p className="mt-1 text-sm text-[#8a96a8]">{mapAddress}</p>
+                  ) : null}
+                  <div className="mt-4">
+                    <ListingLocationMap
+                      lat={mapLat}
+                      lng={mapLng}
+                      harbourName={mapHarbourName}
+                      address={mapAddress}
+                      height="400px"
+                    />
+                  </div>
+                </div>
+              ) : null}
 
               <div className="mt-6 rounded-xl border border-[#dce3ee] bg-[#fffbeb] p-5">
                 <h3 className="text-lg font-extrabold text-[#0f1f3d]">Bokade perioder</h3>

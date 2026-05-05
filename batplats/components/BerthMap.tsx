@@ -6,9 +6,11 @@ import { createClient } from "@/lib/supabase/client";
 
 type BerthMapProps = {
   height?: string;
+  listings?: MapListing[];
+  shouldFitBounds?: boolean;
 };
 
-type MapListing = {
+export type MapListing = {
   id: number | string;
   title: string;
   harbour_name: string | null;
@@ -28,17 +30,29 @@ declare global {
   }
 }
 
-export default function BerthMap({ height = "480px" }: BerthMapProps) {
+export default function BerthMap({
+  height = "480px",
+  listings: providedListings,
+  shouldFitBounds = false,
+}: BerthMapProps) {
   const supabase = useMemo(() => createClient(), []);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const initializedRef = useRef(false);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
   const [isApiReady, setIsApiReady] = useState(false);
-  const [listings, setListings] = useState<MapListing[]>([]);
+  const [internalListings, setInternalListings] = useState<MapListing[]>([]);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const listings = providedListings ?? internalListings;
 
   useEffect(() => {
+    console.log("BerthMap received listings:", listings);
+    console.log("Map received listings prop:", providedListings);
+  }, [listings, providedListings]);
+
+  useEffect(() => {
+    if (providedListings) return;
+
     const loadListings = async () => {
       try {
         const { data, error } = await supabase
@@ -52,14 +66,14 @@ export default function BerthMap({ height = "480px" }: BerthMapProps) {
           return;
         }
 
-        setListings((data ?? []) as MapListing[]);
+        setInternalListings((data ?? []) as MapListing[]);
       } catch (loadError) {
         console.error(loadError);
       }
     };
 
     void loadListings();
-  }, [supabase]);
+  }, [providedListings, supabase]);
 
   useEffect(() => {
     if (!apiKey) return;
@@ -124,12 +138,20 @@ export default function BerthMap({ height = "480px" }: BerthMapProps) {
       const { AdvancedMarkerElement } = markerLib as any;
       if (!mounted) return;
 
+      console.log("Creating markers:", listings.length);
+      console.log("Creating markers for:", listings.length, "listings");
+      const bounds = new googleMaps.LatLngBounds();
       listings.forEach((listing) => {
+        const lat = Number(listing.lat);
+        const lng = Number(listing.lng);
+        if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+
         const marker = new AdvancedMarkerElement({
-          position: { lat: listing.lat, lng: listing.lng },
+          position: { lat, lng },
           map,
           title: listing.title,
         });
+        bounds.extend({ lat, lng });
 
         const infoWindow = new googleMaps.InfoWindow({
           content: `
@@ -156,13 +178,20 @@ export default function BerthMap({ height = "480px" }: BerthMapProps) {
         });
         markersRef.current.push(marker);
       });
+
+      if (shouldFitBounds && markersRef.current.length > 0) {
+        map.fitBounds(bounds);
+      } else {
+        map.setCenter(STOCKHOLM_CENTER);
+        map.setZoom(11);
+      }
     };
 
     void drawMarkers();
     return () => {
       mounted = false;
     };
-  }, [listings]);
+  }, [listings, shouldFitBounds]);
 
   if (!apiKey) {
     return (
