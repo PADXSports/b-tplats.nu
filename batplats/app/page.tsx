@@ -42,9 +42,22 @@ const LOCATION_TYPE_LABELS: Record<LocationSuggestionType, string> = {
 };
 
 const normalizeSearchValue = (value: string) => value.toLowerCase().trim();
+const normalizeZipValue = (value: string) => value.replace(/\D/g, "");
+const formatSwedishZip = (value: string) => {
+  const digits = normalizeZipValue(value);
+  if (digits.length < 4) return value.trim();
+  return `${digits.slice(0, 3)} ${digits.slice(3, 5)}`.trim();
+};
+const isZipSearchValue = (value: string) => /^\d[\d\s]*$/.test(value.trim());
 
 const includesMatch = (value: string | null | undefined, query: string) =>
   Boolean(value && normalizeSearchValue(value).includes(query));
+const includesZipMatch = (value: string | null | undefined, query: string) => {
+  if (!value) return false;
+  const normalizedQuery = normalizeZipValue(query);
+  if (!normalizedQuery) return false;
+  return normalizeZipValue(value).startsWith(normalizedQuery);
+};
 
 const formatLocationSuggestion = (
   type: LocationSuggestionType,
@@ -97,8 +110,8 @@ const formatLocationSuggestion = (
   return {
     key: `${type}:${zip}:${city}`,
     type,
-    label: `Postnummer: ${zip}`,
-    secondary: city,
+    label: `Postnummer: ${zip} • ${city}`,
+    secondary: null,
     value: zip,
     lat: row.lat,
     lng: row.lng,
@@ -155,20 +168,30 @@ export default function Home() {
 
   const handleSearch = () => {
     const params = new URLSearchParams();
-    if (location.trim()) params.set("location", location.trim());
+    const locationValue = location.trim();
+    if (locationValue) params.set("location", locationValue);
+    const zipSearchValue =
+      selectedLocationSuggestion?.type === "zip" ? selectedLocationSuggestion.value : locationValue;
+    if (isZipSearchValue(zipSearchValue)) {
+      const normalizedZip = normalizeZipValue(zipSearchValue);
+      if (normalizedZip) params.set("zip", formatSwedishZip(normalizedZip));
+    }
     if (selectedLocationSuggestion) {
       params.set("locationType", selectedLocationSuggestion.type);
       if (selectedLocationSuggestion.lat != null) params.set("lat", String(selectedLocationSuggestion.lat));
       if (selectedLocationSuggestion.lng != null) params.set("lng", String(selectedLocationSuggestion.lng));
     }
-    if (boatLength) params.set("boatLength", boatLength);
+    if (boatLength) params.set("boat_length", boatLength);
     if (date) params.set("date", date);
     const queryString = params.toString();
-    router.push(queryString ? `/search?${queryString}` : "/search");
+    router.push(queryString ? `/kajplatser?${queryString}` : "/kajplatser");
   };
 
   useEffect(() => {
     const query = normalizeSearchValue(locationQuery);
+    const zipQuery = normalizeZipValue(locationQuery);
+    const formattedZipQuery = zipQuery.length >= 4 ? `${zipQuery.slice(0, 3)} ${zipQuery.slice(3)}` : zipQuery;
+    const zipOrClause = zipQuery ? `,zip_code.ilike.%${formattedZipQuery}%` : "";
     if (!query) {
       setLocationSuggestions([]);
       setIsLocationLoading(false);
@@ -182,7 +205,7 @@ export default function Home() {
         const { data, error } = await supabase
           .from("harbours")
           .select("id, name, city, zip_code, area, lat, lng")
-          .or(`name.ilike.%${query}%,city.ilike.%${query}%,zip_code.ilike.%${query}%,area.ilike.%${query}%`)
+          .or(`name.ilike.%${query}%,city.ilike.%${query}%,zip_code.ilike.%${query}%${zipOrClause},area.ilike.%${query}%`)
           .limit(8);
 
         if (error) {
@@ -206,7 +229,7 @@ export default function Home() {
           if (includesMatch(row.name, query)) addSuggestion("harbour", row);
           if (includesMatch(row.area, query)) addSuggestion("area", row);
           if (includesMatch(row.city, query)) addSuggestion("city", row);
-          if (includesMatch(row.zip_code, query)) addSuggestion("zip", row);
+          if (includesZipMatch(row.zip_code, locationQuery) || includesMatch(row.zip_code, query)) addSuggestion("zip", row);
         }
 
         if (!cancelled) {
@@ -416,7 +439,6 @@ export default function Home() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        handleSearch();
                       }
                     }}
                     className="w-full bg-transparent pr-6 text-sm text-[#4a5568] outline-none placeholder:text-[#8a96a8]"
@@ -465,14 +487,6 @@ export default function Home() {
                                     setLocationQuery(suggestion.value);
                                     setSelectedLocationSuggestion(suggestion);
                                     setShowLocationSuggestions(false);
-                                    const params = new URLSearchParams();
-                                    params.set("location", suggestion.value);
-                                    params.set("locationType", suggestion.type);
-                                    if (suggestion.lat != null) params.set("lat", String(suggestion.lat));
-                                    if (suggestion.lng != null) params.set("lng", String(suggestion.lng));
-                                    if (boatLength) params.set("boatLength", boatLength);
-                                    if (date) params.set("date", date);
-                                    router.push(`/search?${params.toString()}`);
                                   }}
                                   className="flex w-full items-start gap-2 rounded-xl px-3 py-3 text-left transition hover:bg-[#f5f0e8]"
                                 >

@@ -8,6 +8,8 @@ type BerthMapProps = {
   height?: string;
   listings?: MapListing[];
   shouldFitBounds?: boolean;
+  center?: { lat: number; lng: number } | null;
+  radiusKm?: number | null;
 };
 
 export type MapListing = {
@@ -34,21 +36,19 @@ export default function BerthMap({
   height = "480px",
   listings: providedListings,
   shouldFitBounds = false,
+  center = null,
+  radiusKm = null,
 }: BerthMapProps) {
   const supabase = useMemo(() => createClient(), []);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const initializedRef = useRef(false);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const radiusCircleRef = useRef<any>(null);
   const [isApiReady, setIsApiReady] = useState(false);
   const [internalListings, setInternalListings] = useState<MapListing[]>([]);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const listings = providedListings ?? internalListings;
-
-  useEffect(() => {
-    console.log("BerthMap received listings:", listings);
-    console.log("Map received listings prop:", providedListings);
-  }, [listings, providedListings]);
 
   useEffect(() => {
     if (providedListings) return;
@@ -138,8 +138,6 @@ export default function BerthMap({
       const { AdvancedMarkerElement } = markerLib as any;
       if (!mounted) return;
 
-      console.log("Creating markers:", listings.length);
-      console.log("Creating markers for:", listings.length, "listings");
       const bounds = new googleMaps.LatLngBounds();
       listings.forEach((listing) => {
         const lat = Number(listing.lat);
@@ -179,11 +177,38 @@ export default function BerthMap({
         markersRef.current.push(marker);
       });
 
+      if (radiusCircleRef.current) {
+        radiusCircleRef.current.setMap(null);
+        radiusCircleRef.current = null;
+      }
+
+      if (center && Number.isFinite(center.lat) && Number.isFinite(center.lng)) {
+        map.setCenter(center);
+      }
+
+      if (radiusKm && center && Number.isFinite(center.lat) && Number.isFinite(center.lng)) {
+        radiusCircleRef.current = new googleMaps.Circle({
+          map,
+          center,
+          radius: radiusKm * 1000,
+          strokeColor: "#0d9488",
+          strokeOpacity: 0.5,
+          strokeWeight: 1.5,
+          fillColor: "#14b8a6",
+          fillOpacity: 0.1,
+        });
+      }
+
       if (shouldFitBounds && markersRef.current.length > 0) {
         map.fitBounds(bounds);
+        if (radiusCircleRef.current) {
+          bounds.extend(radiusCircleRef.current.getBounds().getNorthEast());
+          bounds.extend(radiusCircleRef.current.getBounds().getSouthWest());
+          map.fitBounds(bounds);
+        }
       } else {
-        map.setCenter(STOCKHOLM_CENTER);
-        map.setZoom(11);
+        map.setCenter(center ?? STOCKHOLM_CENTER);
+        map.setZoom(radiusKm ? 12 : 11);
       }
     };
 
@@ -191,7 +216,7 @@ export default function BerthMap({
     return () => {
       mounted = false;
     };
-  }, [listings, shouldFitBounds]);
+  }, [listings, shouldFitBounds, center, radiusKm]);
 
   if (!apiKey) {
     return (
