@@ -730,10 +730,6 @@ export default function KajplatserPage() {
                   href={`/listings/${listing.id}`}
                   className="block cursor-pointer overflow-hidden rounded-xl border border-[#dce3ee] bg-white shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] transition hover:-translate-y-0.5 hover:shadow-lg"
                 >
-                  {console.log("Rendering card:", {
-                    listingId: listing.id,
-                    hasDistance: !!travelMap[String(listing.id)],
-                  })}
                   <div className="relative h-44 w-full bg-gradient-to-br from-[#c5d0de] to-[#dce3ee]">
                     <Image
                       src={getListingImageSrc(listing.image_url)}
