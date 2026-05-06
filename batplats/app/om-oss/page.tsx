@@ -1,9 +1,12 @@
+"use client";
+
 import Image from "next/image";
+import { Suspense } from "react";
 
 import AuthNavbar from "@/components/auth-navbar";
 import Footer from "@/components/footer";
 
-export default function OmOssPage() {
+function OmOssContent() {
   return (
     <main className="min-h-screen bg-[#f5f0e8] text-[#0f1f3d]">
       <AuthNavbar currentPage="home" />
@@ -139,5 +142,19 @@ export default function OmOssPage() {
       </section>
       <Footer />
     </main>
+  );
+}
+
+export default function OmOssPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-[#f5f0e8] text-[#0f1f3d]">
+          <p className="text-sm font-medium text-[#8a96a8]">Laddar...</p>
+        </main>
+      }
+    >
+      <OmOssContent />
+    </Suspense>
   );
 }
