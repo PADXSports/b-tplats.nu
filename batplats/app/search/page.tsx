@@ -70,6 +70,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     let harbourSearch = supabase
       .from("harbours")
       .select("id, name, city, zip_code, area, lat, lng")
+      .not("owner_id", "is", null)
       .or(
         `name.ilike.%${escapedLocation}%,city.ilike.%${escapedLocation}%,zip_code.ilike.%${escapedLocation}%,area.ilike.%${escapedLocation}%`,
       )
@@ -99,6 +100,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     const { data: nearbyCandidates, error: nearbyError } = await supabase
       .from("harbours")
       .select("id, lat, lng")
+      .not("owner_id", "is", null)
       .not("lat", "is", null)
       .not("lng", "is", null)
       .limit(2000);
@@ -119,7 +121,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
   let query = supabase
     .from("listings")
-    .select("id, title, price_per_season, max_boat_length, season_start, season_end, harbour_id, harbours(name, city)");
+    .select("id, title, price_per_season, max_boat_length, season_start, season_end, harbour_id, harbours!inner(name, city, owner_id)")
+    .not("owner_id", "is", null)
+    .not("harbours.owner_id", "is", null);
 
   if (location || isValidCoordinate) {
     const harbourIds = Array.from(matchingHarbourIds);

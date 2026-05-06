@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import AuthNavbar from "@/components/auth-navbar";
 import BerthMap, { type MapListing } from "@/components/BerthMap";
@@ -13,6 +13,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type KajplatsListing = {
   id: number | string;
+  harbour_id?: number | string | null;
   title: string;
   description: string | null;
   price_per_season: number | null;
@@ -30,10 +31,14 @@ type KajplatsListing = {
   lng: number | null;
   created_at: string | null;
   distance_km?: number | null;
+  user_distance_km?: number | null;
+  user_drive_text?: string | null;
 };
 
 type ListingRow = {
   id: number | string;
+  harbour_id?: number | string | null;
+  owner_id: string | null;
   title: string;
   description: string | null;
   price_per_season: number | null;
@@ -64,6 +69,7 @@ type ListingRow = {
         zip_code: string | null;
         lat: number | null;
         lng: number | null;
+        owner_id?: string | null;
       }>
     | null;
 };
@@ -98,6 +104,7 @@ export default function KajplatserPage() {
   const [locationInput, setLocationInput] = useState("");
   const [activeLocationQuery, setActiveLocationQuery] = useState("");
   const [isLocationSearchActive, setIsLocationSearchActive] = useState(false);
+  const [searchActive, setSearchActive] = useState(false);
   const [boatLengthQuery, setBoatLengthQuery] = useState("");
   const [dateQuery, setDateQuery] = useState("");
   const [zipQuery, setZipQuery] = useState("");
@@ -105,7 +112,15 @@ export default function KajplatserPage() {
   const [radiusKm, setRadiusKm] = useState(10);
   const [geocodedCenter, setGeocodedCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [geocodeError, setGeocodeError] = useState<string | null>(null);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [travelMap, setTravelMap] = useState<Record<string, { distanceText: string | null; driveText: string | null; km: number | null }>>({});
+  const [sortBy, setSortBy] = useState<"default" | "nearest">("default");
+  const [locationRequested, setLocationRequested] = useState(false);
+  const selectedHarbourId = searchParams.get("harbour_id");
+  const storageKey = "batplats.userLocation";
+  const deniedKey = "batplats.userLocationDenied";
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     const locationParam = searchParams.get("location") ?? "";
     const boatLengthParam = searchParams.get("boat_length") ?? "";
@@ -116,6 +131,7 @@ export default function KajplatserPage() {
     setLocationInput(locationParam);
     setActiveLocationQuery(locationParam);
     setIsLocationSearchActive(Boolean(locationParam.trim()));
+    setSearchActive(Boolean(locationParam.trim()));
     setBoatLengthQuery(boatLengthParam);
     setDateQuery(dateParam);
     setZipQuery(zipParam);
@@ -123,6 +139,112 @@ export default function KajplatserPage() {
       setShowMap(true);
     }
   }, [searchParams]);
+
+  const requestUserLocation = useCallback(() => {
+    if (typeof window === "undefined" || !navigator.geolocation) return;
+    console.log("🌍 Requesting geolocation permission...");
+    setLocationRequested(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const next = { lat: position.coords.latitude, lng: position.coords.longitude };
+        console.log("✅ Location granted:", next);
+        setUserLocation(next);
+        localStorage.setItem(storageKey, JSON.stringify(next));
+        localStorage.removeItem(deniedKey);
+      },
+      (error) => {
+        console.error("❌ Location denied:", error);
+        localStorage.setItem(deniedKey, "1");
+      },
+      { enableHighAccuracy: true, maximumAge: 300000, timeout: 10000 },
+    );
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    console.log("🔍 Kajplatser page mounted");
+    console.log("📍 Checking for cached location...");
+    const cached = localStorage.getItem(storageKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached) as { lat: number; lng: number };
+        if (typeof parsed.lat === "number" && typeof parsed.lng === "number") {
+          console.log("✅ Found cached location:", parsed);
+          setUserLocation({ lat: parsed.lat, lng: parsed.lng });
+          setLocationRequested(true);
+          return;
+        }
+      } catch {
+        console.log("⚠️ Cached location malformed, requesting permission...");
+        // Ignore malformed cache.
+      }
+    }
+    if (localStorage.getItem(deniedKey) === "1") {
+      console.log("❌ Previous location denial found in localStorage.");
+      setLocationRequested(true);
+      return;
+    }
+    console.log("❌ No cached location, requesting permission...");
+    requestUserLocation();
+  }, [requestUserLocation]);
+
+  useEffect(() => {
+    if (!userLocation || listings.length === 0) return;
+    const targets = listings.filter((listing) => listing.lat != null && listing.lng != null);
+    if (targets.length === 0) return;
+    const missingTargets = targets.filter((listing) => !travelMap[String(listing.id)]);
+    if (missingTargets.length === 0) return;
+
+    const destinationParam = missingTargets.map((listing) => `${Number(listing.lat)},${Number(listing.lng)}`).join("|");
+    const originParam = `${userLocation.lat},${userLocation.lng}`;
+    const url =
+      `/api/distance?origins=${encodeURIComponent(originParam)}&` +
+      `destinations=${encodeURIComponent(destinationParam)}`;
+
+    let cancelled = false;
+    const loadTravel = async () => {
+      try {
+        missingTargets.forEach((listing) => {
+          console.log(`📡 Fetching distance for listing ${listing.id}...`);
+        });
+        const response = await fetch(url);
+        const payload = (await response.json()) as {
+          rows?: Array<{ elements?: Array<{ status?: string; distance?: { text?: string; value?: number }; duration?: { text?: string } }> }>;
+        };
+        console.log("✅ Distance result:", payload);
+        const elements = payload.rows?.[0]?.elements ?? [];
+        if (cancelled) return;
+        setTravelMap((current) => {
+          const next = { ...current };
+          missingTargets.forEach((listing, index) => {
+            const element = elements[index];
+            if (element?.status === "OK") {
+              next[String(listing.id)] = {
+                distanceText: element.distance?.text ?? null,
+                driveText: element.duration?.text ?? null,
+                km: element.distance?.value != null ? element.distance.value / 1000 : null,
+              };
+              console.log("💾 Saving distance to state:", {
+                listingId: listing.id,
+                distance: next[String(listing.id)],
+              });
+            } else {
+              next[String(listing.id)] = { distanceText: null, driveText: null, km: null };
+              console.log("💾 Saving empty distance to state:", { listingId: listing.id });
+            }
+          });
+          return next;
+        });
+      } catch (fetchError) {
+        console.error("Failed to load drive times:", fetchError);
+      }
+    };
+
+    void loadTravel();
+    return () => {
+      cancelled = true;
+    };
+  }, [listings, travelMap, userLocation]);
 
   useEffect(() => {
     const timer = setTimeout(() => setRadiusKm(radiusInputKm), 120);
@@ -132,23 +254,44 @@ export default function KajplatserPage() {
   useEffect(() => {
     const loadListings = async () => {
       try {
-        const { data, error: listingsError } = await supabase
+        let listingQuery = supabase
           .from("listings")
           .select(
-            "id, title, description, price_per_season, max_boat_length, max_boat_width, season_start, season_end, city, harbour_name, image_url, is_available, lat, lng, created_at, harbours(name, city, area, zip_code, lat, lng)",
+            "id, owner_id, title, description, price_per_season, max_boat_length, max_boat_width, season_start, season_end, city, harbour_name, image_url, is_available, lat, lng, created_at, harbour_id, harbours!inner(id, name, city, address, area, zip_code, lat, lng, owner_id)",
           )
+          .eq("is_available", true)
+          .not("owner_id", "is", null)
+          .not("harbours.owner_id", "is", null)
           .order("created_at", { ascending: false });
+        if (selectedHarbourId) {
+          listingQuery = listingQuery.eq("harbour_id", selectedHarbourId);
+        }
+        const { data, error: listingsError } = await listingQuery;
+        console.log("🗺️ Fetched listings:", data);
+        const firstRaw = (data ?? [])[0] as ListingRow | undefined;
+        const firstHarbour = firstRaw
+          ? (Array.isArray(firstRaw.harbours) ? firstRaw.harbours[0] : firstRaw.harbours)
+          : null;
+        console.log("🏝️ First listing harbour:", firstHarbour);
 
         if (listingsError) {
           setError(listingsError.message);
           return;
         }
 
+        const listingsWithCoords = ((data ?? []) as ListingRow[]).filter((listing) => {
+          const harbour = Array.isArray(listing.harbours) ? (listing.harbours[0] ?? null) : listing.harbours;
+          return harbour != null && typeof harbour.lat === "number" && typeof harbour.lng === "number";
+        });
+        console.log("✅ Listings with valid coordinates:", listingsWithCoords.length);
+        console.log("Sample:", listingsWithCoords[0] ?? null);
+
         const normalized = ((data ?? []) as ListingRow[]).map((row) => {
           const harbour = Array.isArray(row.harbours) ? (row.harbours[0] ?? null) : row.harbours;
 
           return {
             id: row.id,
+            harbour_id: row.harbour_id ?? null,
             title: row.title,
             description: row.description,
             price_per_season: row.price_per_season,
@@ -178,7 +321,7 @@ export default function KajplatserPage() {
     };
 
     void loadListings();
-  }, [supabase]);
+  }, [selectedHarbourId, supabase]);
 
   const trimmedLocationInput = locationInput.trim();
   const trimmedLocationQuery = activeLocationQuery.trim();
@@ -268,16 +411,21 @@ export default function KajplatserPage() {
     };
   }, [hasLocationOrZipSearch, searchQuery]);
 
+  const effectiveSortBy: "default" | "nearest" =
+    userLocation && sortBy === "default" ? "nearest" : sortBy;
+
   const handleLocationSearch = () => {
     const nextQuery = trimmedLocationInput;
     setActiveLocationQuery(nextQuery);
     setIsLocationSearchActive(Boolean(nextQuery));
+    setSearchActive(Boolean(nextQuery));
   };
 
   const handleResetSearch = () => {
     setLocationInput("");
     setActiveLocationQuery("");
     setIsLocationSearchActive(false);
+    setSearchActive(false);
     setGeocodedCenter(null);
     setRadiusInputKm(10);
     setRadiusKm(10);
@@ -297,8 +445,23 @@ export default function KajplatserPage() {
     });
   }, [activeSearchCenter, listings]);
 
-  const filteredListings = useMemo(() => {
+  const displayedListings = useMemo(() => {
     console.log("Current radius km:", radiusKm);
+    if (!hasLocationOrZipSearch && !hasBoatLengthFilter && !hasDateFilter) {
+      const allListings = listings.map((listing) => ({
+        ...listing,
+        distance_km: null,
+        user_distance_km: travelMap[String(listing.id)]?.km ?? null,
+        user_drive_text: travelMap[String(listing.id)]?.driveText ?? null,
+      }));
+      if (effectiveSortBy === "nearest" && userLocation) {
+        return [...allListings].sort(
+          (a, b) => (a.user_distance_km ?? Number.POSITIVE_INFINITY) - (b.user_distance_km ?? Number.POSITIVE_INFINITY),
+        );
+      }
+      return allListings;
+    }
+
     const withDistance = listings.map((listing) => {
       const hasCoordinates = listing.lat != null && listing.lng != null;
       const distanceKm =
@@ -343,8 +506,18 @@ export default function KajplatserPage() {
 
       return matchesSearch && matchesBoatLength && matchesDate;
     });
-    if (!hasLocationOrZipSearch) return results;
-    return [...results].sort((a, b) => (a.distance_km ?? Number.POSITIVE_INFINITY) - (b.distance_km ?? Number.POSITIVE_INFINITY));
+    const mapped = results.map((listing) => ({
+      ...listing,
+      user_distance_km: travelMap[String(listing.id)]?.km ?? null,
+      user_drive_text: travelMap[String(listing.id)]?.driveText ?? null,
+    }));
+    if (effectiveSortBy === "nearest" && userLocation) {
+      return [...mapped].sort(
+        (a, b) => (a.user_distance_km ?? Number.POSITIVE_INFINITY) - (b.user_distance_km ?? Number.POSITIVE_INFINITY),
+      );
+    }
+    if (!hasLocationOrZipSearch) return mapped;
+    return [...mapped].sort((a, b) => (a.distance_km ?? Number.POSITIVE_INFINITY) - (b.distance_km ?? Number.POSITIVE_INFINITY));
   }, [
     listings,
     trimmedLocationQuery,
@@ -357,23 +530,31 @@ export default function KajplatserPage() {
     parsedBoatLength,
     hasDateFilter,
     dateQuery,
+    sortBy,
+    effectiveSortBy,
+    travelMap,
+    userLocation,
   ]);
+  const visibleListings = displayedListings;
 
-  const visibleListings = filteredListings;
+  useEffect(() => {
+    console.log("📍 Filtered listings for map:", visibleListings.length);
+    console.log("🗺️ Search active:", searchActive);
+  }, [visibleListings.length, searchActive]);
 
   const mapListings = useMemo<MapListing[]>(
     () =>
       visibleListings
-        .filter((listing) => listing.lat != null && listing.lng != null)
         .map((listing) => ({
           id: listing.id,
+          harbour_id: listing.harbour_id ?? null,
           title: listing.title,
           harbour_name: listing.harbour_name,
           city: listing.city,
           price_per_season: listing.price_per_season,
           is_available: listing.is_available,
-          lat: Number(listing.lat),
-          lng: Number(listing.lng),
+          lat: listing.lat != null ? Number(listing.lat) : null,
+          lng: listing.lng != null ? Number(listing.lng) : null,
         })),
     [visibleListings],
   );
@@ -381,6 +562,7 @@ export default function KajplatserPage() {
   useEffect(() => {
     console.log("Listings for grid:", visibleListings);
     console.log("Listings for map:", mapListings);
+    console.log("Listings missing map coordinates:", mapListings.filter((listing) => listing.lat == null || listing.lng == null).length);
   }, [visibleListings, mapListings]);
 
   return (
@@ -392,7 +574,7 @@ export default function KajplatserPage() {
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">Kajplatser</p>
           <h1 className="mt-2 text-[2rem] font-extrabold leading-tight">Alla tillgängliga båtplatser</h1>
           <p className="mt-2 text-sm text-white/80">
-            {loading ? "Laddar..." : `${listings.length} ${listings.length === 1 ? "annons" : "annonser"}`}
+            {loading ? "Laddar..." : `${listings.length} ${listings.length === 1 ? "plats" : "platser"}`}
           </p>
         </div>
       </section>
@@ -401,6 +583,15 @@ export default function KajplatserPage() {
         <div className="mx-auto w-full max-w-[1280px]">
           <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div className="w-full max-w-md">
+              {!userLocation && !locationRequested ? (
+                <button
+                  type="button"
+                  onClick={requestUserLocation}
+                  className="mb-3 rounded-lg border border-[#0d9488]/30 bg-[#f0fdfa] px-3 py-2 text-xs font-semibold text-[#0d9488]"
+                >
+                  Tillåt platsåtkomst för att se avstånd till hamnar
+                </button>
+              ) : null}
               <label className="block">
                 <span className="mb-1 block text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0f1f3d]">
                   Område
@@ -459,6 +650,14 @@ export default function KajplatserPage() {
               </div>
             </div>
             <div className="flex gap-2">
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value as "default" | "nearest")}
+                className="rounded-lg border border-[#dce3ee] bg-white px-3 py-2 text-sm font-semibold text-[#0f1f3d]"
+              >
+                <option value="default">Standard</option>
+                <option value="nearest">Närmast</option>
+              </select>
               <button
                 type="button"
                 onClick={handleLocationSearch}
@@ -505,7 +704,8 @@ export default function KajplatserPage() {
             </div>
           ) : visibleListings.length === 0 ? (
             <div className="mt-5 rounded-xl border border-[#dce3ee] bg-white p-10 text-center shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
-              <h2 className="text-xl font-bold text-[#0f1f3d]">Inga annonser hittades</h2>
+              <h2 className="text-xl font-bold text-[#0f1f3d]">Inga platser tillgängliga ännu.</h2>
+              <p className="mt-2 text-sm text-[#4a5568]">Bli första hamnägaren att lista platser!</p>
               {geocodeError ? <p className="mt-2 text-sm text-[#d64c3b]">{geocodeError}</p> : null}
               {hasLocationOrZipSearch ? (
                 <p className="mt-2 text-sm text-[#4a5568]">
@@ -518,10 +718,10 @@ export default function KajplatserPage() {
             <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="sm:col-span-2 lg:col-span-3">
                 <p className="text-sm font-semibold text-[#0f1f3d]">
-                  {hasLocationOrZipSearch
+                  {searchActive
                     ? `Visar ${visibleListings.length} ${visibleListings.length === 1 ? "plats" : "platser"} inom ${radiusKm} km`
                     : `${visibleListings.length} ${visibleListings.length === 1 ? "plats" : "platser"}`}
-                  {hasLocationOrZipSearch ? ` från ${searchQuery}` : ""}
+                  {searchActive ? ` från ${searchQuery}` : ""}
                 </p>
               </div>
               {visibleListings.map((listing) => (
@@ -530,6 +730,10 @@ export default function KajplatserPage() {
                   href={`/listings/${listing.id}`}
                   className="block cursor-pointer overflow-hidden rounded-xl border border-[#dce3ee] bg-white shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] transition hover:-translate-y-0.5 hover:shadow-lg"
                 >
+                  {console.log("Rendering card:", {
+                    listingId: listing.id,
+                    hasDistance: !!travelMap[String(listing.id)],
+                  })}
                   <div className="relative h-44 w-full bg-gradient-to-br from-[#c5d0de] to-[#dce3ee]">
                     <Image
                       src={getListingImageSrc(listing.image_url)}
@@ -545,15 +749,36 @@ export default function KajplatserPage() {
                     </p>
                     <h2 className="mt-1 text-base font-bold text-[#0f1f3d]">{listing.title}</h2>
                     <p className="mt-1 text-sm text-[#8a96a8]">{listing.city ?? "Okänd stad"}</p>
+                    {listing.user_distance_km != null ? (
+                      <div
+                        className="mt-1 flex items-center gap-1 whitespace-nowrap text-[14px] font-normal text-[#64748b]"
+                        style={{ fontFamily: '"DM Sans", sans-serif' }}
+                      >
+                        <svg
+                          aria-hidden="true"
+                          viewBox="0 0 24 24"
+                          className="h-4 w-4 shrink-0 text-[#0d9488]"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z" />
+                          <circle cx="12" cy="10" r="2.5" />
+                        </svg>
+                        <span>
+                          {travelMap[String(listing.id)]?.distanceText ?? `${listing.user_distance_km.toFixed(1)} km`}
+                          {listing.user_drive_text
+                            ? ` • ${listing.user_drive_text.replace(/\bmins?\b/gi, "min")} med bil`
+                            : ""}
+                        </span>
+                      </div>
+                    ) : null}
                     <p className="mt-2 text-sm font-semibold text-[#0f1f3d]">
                       {(listing.price_per_season ?? 0).toLocaleString("sv-SE")} SEK / säsong
                     </p>
                     <p className="mt-1 text-xs text-[#8a96a8]">
                       Max: {listing.max_boat_length ?? "-"}m längd · {listing.max_boat_width ?? "-"}m bredd
                     </p>
-                    {listing.distance_km != null ? (
-                      <p className="mt-1 text-xs font-medium text-[#0d9488]">{listing.distance_km.toFixed(1)} km bort</p>
-                    ) : null}
                   </div>
                 </Link>
               ))}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -12,22 +12,13 @@ type AuthNavbarProps = {
 
 export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const mobileCloseButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [email, setEmail] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("userEmail") || "";
-    }
-    return "";
-  });
-  const [role, setRole] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("userRole") || "";
-    }
-    return "";
-  });
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -70,7 +61,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, _session) => {
+    } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
         localStorage.removeItem("userEmail");
         localStorage.removeItem("userRole");
@@ -122,8 +113,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
   const isSearchActive =
     currentPage === "search" || pathname?.startsWith("/search") || pathname?.startsWith("/kajplatser");
   const isProfileActive = currentPage === "profile" || pathname?.startsWith("/profile");
-  const activeHostTab =
-    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tab") : null;
+  const activeHostTab = searchParams.get("tab");
   const isHost = (role === "host" || role === "owner") && Boolean(email);
   const isRenter = role === "renter" && Boolean(email);
 
@@ -170,6 +160,16 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                   Översikt
                 </Link>
                 <Link
+                  href="/dashboard/host/hamnar"
+                  className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
+                    pathname?.startsWith("/dashboard/host/hamnar")
+                      ? "text-white"
+                      : "text-white/80 hover:text-white"
+                  }`}
+                >
+                  Mina Hamnar
+                </Link>
+                <Link
                   href="/dashboard/host?tab=annonser"
                   className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
                     activeHostTab === "annonser" ? "text-white" : "text-white/80 hover:text-white"
@@ -184,6 +184,16 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                   }`}
                 >
                   Bokningar
+                </Link>
+                <Link
+                  href="/dashboard/host/profil"
+                  className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
+                    pathname?.startsWith("/dashboard/host/profil")
+                      ? "text-white"
+                      : "text-white/80 hover:text-white"
+                  }`}
+                >
+                  Profil
                 </Link>
               </div>
               <div className="ml-2 flex items-center gap-2">
@@ -397,13 +407,29 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                 Om oss
               </Link>
               {isHost ? (
-                <Link
-                  href="/dashboard/host"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
-                >
-                  Host dashboard
-                </Link>
+                <>
+                  <Link
+                    href="/dashboard/host"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
+                  >
+                    Host dashboard
+                  </Link>
+                  <Link
+                    href="/dashboard/host/hamnar"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
+                  >
+                    Mina Hamnar
+                  </Link>
+                  <Link
+                    href="/dashboard/host/profil"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
+                  >
+                    Profil
+                  </Link>
+                </>
               ) : null}
               {isRenter ? (
                 <Link

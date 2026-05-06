@@ -6,6 +6,7 @@ import AuthNavbar from "@/components/auth-navbar";
 import BookBerthButton from "@/components/book-berth-button";
 import Footer from "@/components/footer";
 import ListingLocationMap from "@/components/listing-location-map";
+import ListingTravelInfo from "@/components/listing-travel-info";
 import { getListingImageSrc } from "@/lib/listing-image";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
@@ -163,19 +164,18 @@ export default async function ListingPage({ params }: ListingPageProps) {
     <main className="min-h-screen bg-[#f5f0e8] pb-24 text-[#0f1f3d] md:pb-0">
       <AuthNavbar currentPage="listing" />
 
-      <div className="border-b border-[#dce3ee] bg-white px-6 py-3">
+      <section className="bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 pb-12 pt-6 text-white">
         <div className="mx-auto w-full max-w-[1280px]">
           <Link
             href="/kajplatser"
-            className="hidden cursor-pointer items-center gap-1 text-sm font-semibold text-[#0d9488] transition hover:text-[#14b8a6] hover:underline md:inline-flex"
+            className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-teal-400 transition-colors hover:text-teal-300"
+            style={{ fontFamily: "DM Sans, sans-serif" }}
           >
-            ← Tillbaka till alla båtplatser
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+            <span>Tillbaka till alla båtplatser</span>
           </Link>
-        </div>
-      </div>
-
-      <section className="bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 py-12 text-white">
-        <div className="mx-auto w-full max-w-[1280px]">
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
             {resolvedListing.harbours?.name ?? "Hamn"}
           </p>
@@ -253,6 +253,14 @@ export default async function ListingPage({ params }: ListingPageProps) {
                   <p className="mt-1 font-semibold">{formatDate(resolvedListing.season_end)}</p>
                 </div>
               </div>
+
+              {mapLat != null && mapLng != null ? (
+                <ListingTravelInfo
+                  destinationLat={mapLat}
+                  destinationLng={mapLng}
+                  destinationLabel={mapHarbourName}
+                />
+              ) : null}
 
               {mapLat != null && mapLng != null ? (
                 <div className="mt-6 rounded-xl border border-[#dce3ee] bg-[#f5f0e8] p-5">

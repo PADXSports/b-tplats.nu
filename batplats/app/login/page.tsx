@@ -15,11 +15,13 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [roleMismatch, setRoleMismatch] = useState<"host" | null>(null);
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     setError(null);
+    setRoleMismatch(null);
     const timeoutId = setTimeout(() => {
       setLoading(false);
       setError("Inloggning tog för lång tid, försök igen");
@@ -54,6 +56,14 @@ function LoginContent() {
       }
 
       const normalizedRole = profileData?.role === "host" || profileData?.role === "owner" ? "host" : "renter";
+      if (normalizedRole === "host") {
+        await supabase.auth.signOut();
+        localStorage.removeItem("userEmail");
+        localStorage.removeItem("userRole");
+        setRoleMismatch("host");
+        setError("Du är registrerad som hamnägare. Vänligen logga in via hamnägarsidan.");
+        return;
+      }
       localStorage.setItem("userEmail", user.email ?? "");
       localStorage.setItem("userRole", normalizedRole);
       const redirectToPath = searchParams.get("redirect_to");
@@ -119,6 +129,14 @@ function LoginContent() {
             </div>
 
             {error ? <p className="text-sm text-[#d64c3b]">{error}</p> : null}
+            {roleMismatch === "host" ? (
+              <Link
+                href="/hamnar/logga-in"
+                className="inline-flex w-full items-center justify-center rounded-lg border-2 border-[#0d9488] px-4 py-2.5 text-sm font-semibold text-[#0d9488] transition hover:bg-[#0d9488] hover:text-white"
+              >
+                Gå till hamnägarsidan
+              </Link>
+            ) : null}
 
             <button
               type="submit"

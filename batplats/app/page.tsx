@@ -11,6 +11,7 @@ import LandingHeroWave from "@/components/landing-hero-wave";
 import RevealOnView from "@/components/reveal-on-view";
 import { getListingImageSrc } from "@/lib/listing-image";
 import { createClient } from "@/lib/supabase/client";
+import type { MapListing } from "@/components/BerthMap";
 
 type HarbourSuggestionRow = {
   id: number | string;
@@ -20,6 +21,7 @@ type HarbourSuggestionRow = {
   area: string | null;
   lat: number | null;
   lng: number | null;
+  owner_id?: string | null;
 };
 
 type LocationSuggestionType = "harbour" | "city" | "area" | "zip";
@@ -30,6 +32,7 @@ type LocationSuggestion = {
   label: string;
   secondary: string | null;
   value: string;
+  harbourId: number | string | null;
   lat: number | null;
   lng: number | null;
 };
@@ -73,9 +76,10 @@ const formatLocationSuggestion = (
     return {
       key: `${type}:${name}:${city}`,
       type,
-      label: name,
-      secondary: city,
+      label: `⚓ ${name} • ${city}`,
+      secondary: null,
       value: name,
+      harbourId: row.id,
       lat: row.lat,
       lng: row.lng,
     };
@@ -88,6 +92,7 @@ const formatLocationSuggestion = (
       label: city,
       secondary: area ? `Område: ${area}` : null,
       value: city,
+      harbourId: null,
       lat: row.lat,
       lng: row.lng,
     };
@@ -101,6 +106,7 @@ const formatLocationSuggestion = (
       label: `${city}, ${area}`,
       secondary: null,
       value: area,
+      harbourId: null,
       lat: row.lat,
       lng: row.lng,
     };
@@ -113,6 +119,7 @@ const formatLocationSuggestion = (
     label: `Postnummer: ${zip} • ${city}`,
     secondary: null,
     value: zip,
+    harbourId: null,
     lat: row.lat,
     lng: row.lng,
   };
@@ -159,6 +166,8 @@ export default function Home() {
       imageSrc: string;
     }[]
   >([]);
+  const [mapListings, setMapListings] = useState<MapListing[]>([]);
+  const [isMapLoading, setIsMapLoading] = useState(true);
   const [stats, setStats] = useState({
     marinas: "0",
     listings: "0",
@@ -178,6 +187,9 @@ export default function Home() {
     }
     if (selectedLocationSuggestion) {
       params.set("locationType", selectedLocationSuggestion.type);
+      if (selectedLocationSuggestion.harbourId != null) {
+        params.set("harbour_id", String(selectedLocationSuggestion.harbourId));
+      }
       if (selectedLocationSuggestion.lat != null) params.set("lat", String(selectedLocationSuggestion.lat));
       if (selectedLocationSuggestion.lng != null) params.set("lng", String(selectedLocationSuggestion.lng));
     }
@@ -204,7 +216,8 @@ export default function Home() {
       try {
         const { data, error } = await supabase
           .from("harbours")
-          .select("id, name, city, zip_code, area, lat, lng")
+          .select("id, name, city, zip_code, area, lat, lng, owner_id")
+          .not("owner_id", "is", null)
           .or(`name.ilike.%${query}%,city.ilike.%${query}%,zip_code.ilike.%${query}%${zipOrClause},area.ilike.%${query}%`)
           .limit(8);
 
@@ -250,15 +263,94 @@ export default function Home() {
   }, [locationQuery, supabase]);
 
   useEffect(() => {
+    const loadMapListings = async () => {
+      setIsMapLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("listings")
+          .select("id, harbour_id, title, price_per_season, is_available, lat, lng, harbours!inner(id, name, city, lat, lng, owner_id)")
+          .eq("is_available", true)
+          .not("owner_id", "is", null)
+          .not("harbours.owner_id", "is", null);
+        if (error) {
+          console.error("Failed to fetch homepage map listings:", error);
+          setMapListings([]);
+          return;
+        }
+        const normalized = ((data ?? []) as Array<{
+          id: number | string;
+          harbour_id?: number | string | null;
+          title: string;
+          price_per_season: number | null;
+          is_available: boolean;
+          lat: number | null;
+          lng: number | null;
+          harbours:
+            | {
+                id: number | string;
+                name: string | null;
+                city: string | null;
+                lat: number | null;
+                lng: number | null;
+              }
+            | Array<{
+                id: number | string;
+                name: string | null;
+                city: string | null;
+                lat: number | null;
+                lng: number | null;
+              }>
+            | null;
+        }>)
+          .map((row) => {
+            const harbour = Array.isArray(row.harbours) ? (row.harbours[0] ?? null) : row.harbours;
+            const lat = row.lat ?? harbour?.lat ?? null;
+            const lng = row.lng ?? harbour?.lng ?? null;
+            if (lat == null || lng == null) return null;
+            return {
+              id: row.id,
+              harbour_id: row.harbour_id ?? harbour?.id ?? null,
+              title: row.title,
+              harbour_name: harbour?.name ?? null,
+              city: harbour?.city ?? null,
+              price_per_season: row.price_per_season,
+              is_available: row.is_available,
+              lat: Number(lat),
+              lng: Number(lng),
+            } satisfies MapListing;
+          })
+          .filter((row): row is MapListing => row != null);
+        setMapListings(normalized);
+      } catch (error) {
+        console.error("Unexpected homepage map listing error:", error);
+        setMapListings([]);
+      } finally {
+        setIsMapLoading(false);
+      }
+    };
+    void loadMapListings();
+  }, [supabase]);
+
+  useEffect(() => {
     const loadHomepageData = async () => {
       try {
         const [listingsResult, availableResult, bookingsResult, featured] = await Promise.all([
-          supabase.from("listings").select("harbour_name, city"),
-          supabase.from("listings").select("*", { count: "exact", head: true }),
+          supabase
+            .from("listings")
+            .select("harbour_name, city, owner_id, harbours!inner(owner_id)")
+            .not("owner_id", "is", null)
+            .not("harbours.owner_id", "is", null),
+          supabase
+            .from("listings")
+            .select("id, harbours!inner(owner_id)", { count: "exact", head: true })
+            .not("owner_id", "is", null)
+            .not("harbours.owner_id", "is", null),
           supabase.from("bookings").select("*", { count: "exact", head: true }),
           supabase
             .from("listings")
-            .select("id, title, image_url, price_per_season, max_boat_length, max_boat_width, harbours(name, city)")
+            .select("id, title, image_url, price_per_season, max_boat_length, max_boat_width, owner_id, harbours!inner(name, city, owner_id)")
+            .not("owner_id", "is", null)
+            .not("harbours.owner_id", "is", null)
             .limit(3),
         ]);
 
@@ -742,7 +834,25 @@ export default function Home() {
               Utforska båtplatser på karta
             </h2>
           </RevealOnView>
-          <BerthMap height="480px" />
+          {isMapLoading ? (
+            <div className="flex h-[480px] items-center justify-center rounded-[12px] border border-[#dce3ee] bg-white text-sm text-[#64748b]">
+              Laddar kartan...
+            </div>
+          ) : mapListings.length === 0 ? (
+            <div className="flex h-[480px] items-center justify-center rounded-[12px] border border-[#dce3ee] bg-white text-sm text-[#64748b]">
+              Inga tillgängliga platser att visa på kartan just nu.
+            </div>
+          ) : (
+            <div className="transition-opacity duration-300 ease-out opacity-100">
+              <BerthMap
+                height="480px"
+                listings={mapListings}
+                center={{ lat: 59.3293, lng: 18.0686 }}
+                defaultZoom={11}
+                groupByHarbour
+              />
+            </div>
+          )}
         </div>
       </section>
 
