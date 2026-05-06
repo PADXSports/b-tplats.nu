@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import AuthNavbar from "@/components/auth-navbar";
 import Footer from "@/components/footer";
 import { createClient } from "@/lib/supabase/client";
 
-export default function ForHamnarPage() {
+function ForHamnarContent() {
   const router = useRouter();
   const supabase = useMemo(() => {
     if (typeof window === "undefined") return null;
@@ -212,5 +212,19 @@ export default function ForHamnarPage() {
       </section>
       <Footer />
     </main>
+  );
+}
+
+export default function ForHamnarPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-[#f5f0e8] text-[#0f1f3d]">
+          <p className="text-sm font-medium text-[#8a96a8]">Laddar...</p>
+        </main>
+      }
+    >
+      <ForHamnarContent />
+    </Suspense>
   );
 }
