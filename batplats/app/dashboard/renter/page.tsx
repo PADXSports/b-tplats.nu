@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import AuthNavbar from "@/components/auth-navbar";
@@ -23,7 +23,7 @@ const toDate = (value: string | null) => {
   return date;
 };
 
-export default function RenterDashboardPage() {
+function RenterDashboardContent() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -335,5 +335,19 @@ export default function RenterDashboardPage() {
         ) : null}
       </section>
     </main>
+  );
+}
+
+export default function RenterDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-[#0b1b3f] flex items-center justify-center">
+          <p className="text-white">Laddar...</p>
+        </main>
+      }
+    >
+      <RenterDashboardContent />
+    </Suspense>
   );
 }
