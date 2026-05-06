@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import AuthNavbar from "@/components/auth-navbar";
@@ -17,7 +17,7 @@ type HarbourWithCount = HarbourRow & {
   listingCount: number;
 };
 
-export default function HostHarboursPage() {
+function HamnarContent() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -237,5 +237,13 @@ export default function HostHarboursPage() {
         </div>
       ) : null}
     </main>
+  );
+}
+
+export default function HamnarPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0b1b3f]" />}>
+      <HamnarContent />
+    </Suspense>
   );
 }
