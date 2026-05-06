@@ -10,10 +10,17 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function ForHamnarPage() {
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    return createClient();
+  }, []);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
+    if (!supabase) {
+      setCheckingAuth(false);
+      return;
+    }
     let mounted = true;
 
     const checkRole = async () => {
