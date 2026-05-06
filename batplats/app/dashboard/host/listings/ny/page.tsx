@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import AuthNavbar from "@/components/auth-navbar";
@@ -12,7 +12,7 @@ type Harbour = {
   city: string | null;
 };
 
-export default function NewListingPage() {
+function CreateListingContent() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -454,5 +454,13 @@ export default function NewListingPage() {
         )}
       </section>
     </main>
+  );
+}
+
+export default function CreateListingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0b1b3f]" />}>
+      <CreateListingContent />
+    </Suspense>
   );
 }
