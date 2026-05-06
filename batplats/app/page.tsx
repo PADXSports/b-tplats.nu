@@ -319,11 +319,11 @@ export default function Home() {
               lng: Number(lng),
             } satisfies MapListing;
           })
-          .filter((row): row is MapListing => {
+          .filter((row) => {
             if (!row) return false;
             if (row.harbour_id === undefined) return false;
             return true;
-          });
+          }) as MapListing[];
         setMapListings(normalized);
       } catch (error) {
         console.error("Unexpected homepage map listing error:", error);
