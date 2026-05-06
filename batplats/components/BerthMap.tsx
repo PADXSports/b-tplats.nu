@@ -16,7 +16,7 @@ type BerthMapProps = {
 
 export type MapListing = {
   id: number | string;
-  harbour_id?: number | string | null;
+  harbour_id: number | string | null | undefined;
   title: string;
   harbour_name: string | null;
   city: string | null;
