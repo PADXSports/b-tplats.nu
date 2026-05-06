@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import AuthNavbar from "@/components/auth-navbar";
@@ -26,8 +26,14 @@ type OwnerListing = {
 };
 
 export default function HostHarboursPage() {
-  const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
+  const getSupabase = useCallback(() => {
+    if (!supabaseRef.current) {
+      supabaseRef.current = createClient();
+    }
+    return supabaseRef.current;
+  }, []);
   const [harbours, setHarbours] = useState<Harbour[]>([]);
   const [loading, setLoading] = useState(true);
   const [showNew, setShowNew] = useState(false);
@@ -125,6 +131,7 @@ export default function HostHarboursPage() {
   }, [reverseGeocodeHarbour]);
 
   const load = useCallback(async () => {
+    const supabase = getSupabase();
     const { data: authData } = await supabase.auth.getUser();
     const user = authData.user;
     if (!user) {
@@ -172,12 +179,13 @@ export default function HostHarboursPage() {
       return next;
     });
     setLoading(false);
-  }, [router, supabase]);
+  }, [getSupabase, router]);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { void load(); }, [load]);
 
   const toggleHarbourActive = async (harbour: Harbour) => {
+    const supabase = getSupabase();
     const { error } = await supabase.from("harbours").update({ is_active: !(harbour.is_active ?? true) }).eq("id", harbour.id);
     if (!error) await load();
   };
@@ -186,6 +194,7 @@ export default function HostHarboursPage() {
     e.preventDefault();
     if (saving) return;
     setSaving(true);
+    const supabase = getSupabase();
     const { data: authData } = await supabase.auth.getUser();
     const user = authData.user;
     if (!user?.id) {
@@ -262,6 +271,7 @@ export default function HostHarboursPage() {
     event.preventDefault();
     if (!editHarbourId || saving) return;
     setSaving(true);
+    const supabase = getSupabase();
     const lat = Number(editForm.lat);
     const lng = Number(editForm.lng);
     const { error } = await supabase
@@ -289,6 +299,7 @@ export default function HostHarboursPage() {
 
   const deleteHarbour = async (harbourId: string) => {
     if (deletingHarbourId) return;
+    const supabase = getSupabase();
     const confirmed = window.confirm("Är du säker? Detta tar bort hamnen och alla dess platser.");
     if (!confirmed) return;
     setDeletingHarbourId(harbourId);
@@ -318,6 +329,7 @@ export default function HostHarboursPage() {
 
   const linkAllListings = async () => {
     if (linking || unlinkedListings.length === 0) return;
+    const supabase = getSupabase();
     setLinking(true);
     await Promise.all(
       unlinkedListings.map(async (listing) => {
