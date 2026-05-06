@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.DS_Store
+*.html
+*.JPG
+*.jpg
+*.png
+*.PNG
+node_modules/
