@@ -55,6 +55,8 @@ const formatDate = (value: string | null) => {
 
 const formatPrice = (value: number | null) => `${(value ?? 0).toLocaleString("sv-SE")} SEK / säsong`;
 
+const formatCurrency = (value: number) => `${value.toLocaleString("sv-SE")} kr`;
+
 const getStatusMeta = (status: string) => {
   if (status === "pending") {
     return { label: "Väntande", classes: "bg-[#fef9c3] text-[#854d0e]" };
@@ -107,11 +109,6 @@ function HostDashboardContent() {
 
       const ownerHarbours = (harbourRows ?? []) as Harbour[];
       setHarbours(ownerHarbours);
-
-      if (ownerHarbours.length === 1) {
-        router.replace(`/dashboard/host/hamnar/${ownerHarbours[0].id}`);
-        return;
-      }
 
       const harbourIds = ownerHarbours.map((h) => h.id);
       if (harbourIds.length > 0) {
@@ -248,32 +245,74 @@ function HostDashboardContent() {
 
   const bookedCount = filteredBookings.filter((b) => b.status === "confirmed").length;
   const occupancy = filteredListings.length ? Math.round((bookedCount / filteredListings.length) * 100) : 0;
+  const harbourById = useMemo(
+    () => new Map(harbours.map((harbour) => [String(harbour.id), harbour])),
+    [harbours],
+  );
+  const primaryHarbourId = harbours.length > 0 ? String(harbours[0].id) : null;
+  const overviewHarbourId = selectedHarbourId === "all" ? primaryHarbourId : selectedHarbourId;
+  const overviewHarbour = overviewHarbourId ? harbourById.get(overviewHarbourId) ?? null : null;
+  const overviewListings = overviewHarbourId
+    ? listings.filter((listing) => String(listing.harbour_id) === overviewHarbourId)
+    : [];
+  const overviewConfirmedBookings = overviewHarbourId
+    ? bookings.filter(
+        (booking) => booking.status === "confirmed" && String(booking.listings?.harbour_id ?? "") === overviewHarbourId,
+      )
+    : [];
+  const overviewBookedCount = overviewConfirmedBookings.length;
+  const overviewOccupancy = overviewListings.length ? Math.round((overviewBookedCount / overviewListings.length) * 100) : 0;
+  const currentYear = new Date().getFullYear();
+  const seasonRevenue = overviewConfirmedBookings.reduce((sum, booking) => {
+    const startDate = booking.start_date ? new Date(booking.start_date) : null;
+    if (!startDate || Number.isNaN(startDate.getTime()) || startDate.getFullYear() !== currentYear) return sum;
+    return sum + (booking.listings?.price_per_season ?? 0);
+  }, 0);
+  const monthlyBuckets = [
+    { key: 4, label: "Maj" },
+    { key: 5, label: "Jun" },
+    { key: 6, label: "Jul" },
+    { key: 7, label: "Aug" },
+    { key: 8, label: "Sep" },
+    { key: 9, label: "Okt" },
+  ];
+  const monthlyCounts = monthlyBuckets.map((bucket) => {
+    const count = overviewConfirmedBookings.filter((booking) => {
+      if (!booking.start_date) return false;
+      const date = new Date(booking.start_date);
+      return !Number.isNaN(date.getTime()) && date.getMonth() === bucket.key;
+    }).length;
+    return { ...bucket, count };
+  });
+  const maxMonthlyCount = Math.max(...monthlyCounts.map((bucket) => bucket.count), 1);
 
   if (loading) {
     return <main className="min-h-screen bg-[#0f1f3d]" />;
   }
 
   return (
-    <main className="min-h-screen bg-[#0b1b3f] text-white">
+    <main className="min-h-screen bg-gradient-to-br from-[#071433] via-[#0b1b3f] to-[#132d63] text-white">
       <AuthNavbar currentPage="dashboard" />
-      <section className="mx-auto w-full max-w-[1280px] px-4 py-8 sm:px-6">
+      <section className="mx-auto w-full max-w-[1240px] px-4 py-8 sm:px-6">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#14b8a6]">Host dashboard</p>
-            <h1 className="text-2xl font-extrabold">Alla hamnar</h1>
+            <h1 className="text-2xl font-extrabold">Mina Hamnar</h1>
           </div>
           <div className="flex gap-2">
             <button onClick={() => router.push("/dashboard/host/hamnar")} className="rounded-lg border border-white/20 px-4 py-2 text-sm">Hantera hamnar</button>
-            <select
-              value={selectedHarbourId}
-              onChange={(e) => setSelectedHarbourId(e.target.value)}
-              className="rounded-lg border border-white/20 bg-[#10234f] px-3 py-2 text-sm"
-            >
-              <option value="all">Alla hamnar</option>
-              {harbours.map((h) => (
-                <option key={h.id} value={String(h.id)}>{h.name ?? "Namnlös hamn"}</option>
-              ))}
-            </select>
+            {harbours.length > 1 ? (
+              <select
+                value={selectedHarbourId}
+                onChange={(e) => setSelectedHarbourId(e.target.value)}
+                className="rounded-lg border border-white/20 bg-[#10234f] px-3 py-2 text-sm"
+              >
+                <option value="all">Alla hamnar</option>
+                {harbours.map((h) => (
+                  <option key={h.id} value={String(h.id)}>{h.name ?? "Namnlös hamn"}</option>
+                ))}
+              </select>
+            ) : null}
           </div>
         </div>
 
@@ -289,35 +328,103 @@ function HostDashboardContent() {
           </div>
         ) : null}
 
-        <div className="mb-6 grid gap-4 md:grid-cols-3">
-          <article className="rounded-xl bg-[#122a5d] p-5"><p className="text-sm text-white/70">Totalt platser</p><p className="text-3xl font-extrabold">{filteredListings.length}</p></article>
-          <article className="rounded-xl bg-[#122a5d] p-5"><p className="text-sm text-white/70">Bokade</p><p className="text-3xl font-extrabold">{bookedCount}</p></article>
-          <article className="rounded-xl bg-[#122a5d] p-5"><p className="text-sm text-white/70">Beläggning</p><p className="text-3xl font-extrabold text-[#14b8a6]">{occupancy}%</p></article>
-        </div>
-
-        <div className="mb-6 flex gap-2 rounded-xl bg-[#122a5d] p-1">
-          {[
-            ["overview", "Översikt"],
-            ["listings", "Mina annonser"],
-            ["bookings", "Bokningar"],
-          ].map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => router.push(value === "overview" ? "/dashboard/host" : `/dashboard/host?tab=${value === "listings" ? "annonser" : "bokningar"}`)}
-              className={`rounded-lg px-4 py-2 text-sm ${tab === value ? "bg-[#14b8a6] text-[#0b1b3f]" : "text-white/80"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
         {tab === "overview" ? (
-          <div className="rounded-xl bg-[#122a5d] p-5 text-sm text-white/80">
-            Välj en hamn för detaljerad vy eller öppna hamnhantering för att skapa nya hamnar.
-            <div className="mt-3 flex flex-wrap gap-2">
-              {harbours.map((h) => (
-                <button key={h.id} onClick={() => router.push(`/dashboard/host/hamnar/${h.id}`)} className="rounded-lg bg-[#14b8a6] px-3 py-2 text-xs font-semibold text-[#0b1b3f]">
-                  Hantera {h.name ?? "hamn"}
+          <div className="mx-auto w-full max-w-[1200px]">
+            {harbours.length > 1 ? (
+              <div className="mb-4">
+                <label htmlFor="overview-harbour" className="mb-2 block text-sm font-semibold text-white/85">
+                  Välj hamn
+                </label>
+                <select
+                  id="overview-harbour"
+                  value={overviewHarbourId ?? ""}
+                  onChange={(event) => setSelectedHarbourId(event.target.value)}
+                  className="w-full max-w-sm rounded-lg border border-white/20 bg-[#0f2147] px-3 py-2 text-sm text-white outline-none transition focus:border-[#14b8a6]"
+                >
+                  {harbours.map((harbour) => (
+                    <option key={harbour.id} value={String(harbour.id)}>
+                      {(harbour.name ?? "Namnlös hamn") + (harbour.city ? `, ${harbour.city}` : "")}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+
+            {overviewHarbour ? (
+              <button
+                onClick={() => router.push(`/dashboard/host/hamnar/${overviewHarbour.id}`)}
+                className="w-full rounded-2xl border border-white/10 bg-[#1a2f5f] p-5 text-left transition hover:border-[#14b8a6]/60 hover:shadow-lg hover:shadow-[#14b8a6]/10 sm:p-6"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-2xl font-black leading-tight">
+                      {(overviewHarbour.name ?? "Namnlös hamn") + (overviewHarbour.city ? `, ${overviewHarbour.city}` : "")}
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-[#dff5ea] px-3 py-1 text-xs font-bold text-[#1f7a51]">
+                    <span className="h-2 w-2 rounded-full bg-[#2d9e6b]" />
+                    Aktiv
+                  </span>
+                </div>
+
+                <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.08em] text-white/70">Totalt platser</p>
+                    <p className="mt-1 text-3xl font-extrabold">{overviewListings.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.08em] text-white/70">Bokade</p>
+                    <p className="mt-1 text-3xl font-extrabold">{overviewBookedCount}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.08em] text-white/70">Beläggning</p>
+                    <p className="mt-1 text-3xl font-extrabold text-[#14b8a6]">{overviewOccupancy}%</p>
+                  </div>
+                </div>
+
+                <div className="mt-7">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-white/70">
+                    Bokningar per månad
+                  </p>
+                  <div className="space-y-3">
+                    {monthlyCounts.map((bucket) => (
+                      <div key={bucket.label} className="grid grid-cols-[38px_1fr_30px] items-center gap-3">
+                        <span className="text-xs font-semibold text-white/75">{bucket.label}</span>
+                        <div className="h-3 rounded-full bg-white/10">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#14b8a6] to-[#2dd4bf]"
+                            style={{ width: `${Math.max((bucket.count / maxMonthlyCount) * 100, 6)}%` }}
+                          />
+                        </div>
+                        <span className="text-right text-xs font-semibold text-white/75">{bucket.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-7 border-t border-white/10 pt-5">
+                  <p className="text-sm text-white/70">Intäkt denna säsong</p>
+                  <p className="mt-1 text-4xl font-black text-[#14b8a6]">{formatCurrency(seasonRevenue)}</p>
+                </div>
+              </button>
+            ) : (
+              <div className="rounded-2xl border border-dashed border-white/20 bg-[#1a2f5f]/60 p-6 text-sm text-white/75">
+                Inga hamnar hittades ännu. Skapa din första hamn för att komma igång.
+              </div>
+            )}
+
+            <div className="mt-6 flex gap-2 rounded-xl bg-[#122a5d] p-1">
+              {[
+                ["overview", "Översikt"],
+                ["listings", "Mina annonser"],
+                ["bookings", "Bokningar"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => router.push(value === "overview" ? "/dashboard/host" : `/dashboard/host?tab=${value === "listings" ? "annonser" : "bokningar"}`)}
+                  className={`rounded-lg px-4 py-2 text-sm ${tab === value ? "bg-[#14b8a6] text-[#0b1b3f]" : "text-white/80"}`}
+                >
+                  {label}
                 </button>
               ))}
             </div>

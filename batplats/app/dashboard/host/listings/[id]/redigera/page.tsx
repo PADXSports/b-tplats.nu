@@ -52,12 +52,21 @@ export default function EditListingPage() {
     image_file: null as File | null,
     is_available: true,
   });
+  const imagePreviewUrl = useMemo(() => {
+    if (form.image_file) return URL.createObjectURL(form.image_file);
+    return form.image_url.trim();
+  }, [form.image_file, form.image_url]);
 
   useEffect(() => {
     if (!toast) return;
     const timeout = window.setTimeout(() => setToast(null), 3500);
     return () => window.clearTimeout(timeout);
   }, [toast]);
+
+  useEffect(() => {
+    if (!form.image_file || !imagePreviewUrl.startsWith("blob:")) return;
+    return () => URL.revokeObjectURL(imagePreviewUrl);
+  }, [form.image_file, imagePreviewUrl]);
 
   useEffect(() => {
     const init = async () => {
@@ -118,6 +127,17 @@ export default function EditListingPage() {
     return data.publicUrl;
   };
 
+  const deleteImageFromStorage = async (url: string | null) => {
+    if (!url) return;
+    const marker = "/storage/v1/object/public/listing-images/";
+    const markerIndex = url.indexOf(marker);
+    if (markerIndex === -1) return;
+    const rawPath = url.slice(markerIndex + marker.length).split("?")[0];
+    const decodedPath = decodeURIComponent(rawPath);
+    if (!decodedPath) return;
+    await supabase.storage.from("listing-images").remove([decodedPath]);
+  };
+
   const submit = async () => {
     if (!listing) return;
     if (!form.harbour_id || !form.title.trim()) {
@@ -130,6 +150,7 @@ export default function EditListingPage() {
     if (form.image_file) {
       try {
         imageUrl = await uploadImage(form.image_file);
+        await deleteImageFromStorage(listing.image_url ?? null);
       } catch {
         setToast({ type: "error", message: "Bilduppladdning misslyckades." });
         setSaving(false);
@@ -194,84 +215,140 @@ export default function EditListingPage() {
         {loading ? (
           <div className="rounded-xl bg-[#122a5d] p-5 text-sm text-white/70">Laddar annons...</div>
         ) : (
-          <div className="rounded-xl bg-[#122a5d] p-5">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <select
-                value={form.harbour_id}
-                onChange={(e) => setForm((prev) => ({ ...prev, harbour_id: e.target.value }))}
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
-              >
-                {harbours.map((h) => (
-                  <option key={h.id} value={String(h.id)}>
-                    {h.name ?? "Namnlös hamn"} {h.city ? `(${h.city})` : ""}
-                  </option>
-                ))}
-              </select>
-              <input
-                value={form.title}
-                onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-                placeholder="Titel"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
-              />
-              <input
-                value={form.price_per_season}
-                onChange={(e) => setForm((prev) => ({ ...prev, price_per_season: e.target.value }))}
-                type="number"
-                placeholder="Pris / säsong (SEK)"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
-              />
-              <input
-                value={form.max_boat_length}
-                onChange={(e) => setForm((prev) => ({ ...prev, max_boat_length: e.target.value }))}
-                type="number"
-                placeholder="Max båtlängd (m)"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
-              />
-              <input
-                value={form.max_boat_width}
-                onChange={(e) => setForm((prev) => ({ ...prev, max_boat_width: e.target.value }))}
-                type="number"
-                placeholder="Max båtbredd (m)"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
-              />
-              <input
-                value={form.season_start}
-                onChange={(e) => setForm((prev) => ({ ...prev, season_start: e.target.value }))}
-                type="date"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
-              />
-              <input
-                value={form.season_end}
-                onChange={(e) => setForm((prev) => ({ ...prev, season_end: e.target.value }))}
-                type="date"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
-              />
-              <input
-                value={form.image_url}
-                onChange={(e) => setForm((prev) => ({ ...prev, image_url: e.target.value }))}
-                placeholder="Bild-URL (valfritt)"
-                className="sm:col-span-2 rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
-              />
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setForm((prev) => ({ ...prev, image_file: e.target.files?.[0] ?? null }))}
-                className="sm:col-span-2 rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
-              />
-              <textarea
-                value={form.description}
-                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-                placeholder="Beskrivning"
-                className="sm:col-span-2 min-h-28 rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
-              />
-              <label className="sm:col-span-2 flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.is_available}
-                  onChange={(e) => setForm((prev) => ({ ...prev, is_available: e.target.checked }))}
-                />
-                Tillgänglig för bokning
-              </label>
+          <div className="rounded-xl border border-white/10 bg-[#122a5d] p-5 sm:p-6">
+            <div className="space-y-6">
+              <section className="border-b border-white/10 pb-6">
+                <h2 className="text-lg font-bold">Bild</h2>
+                {imagePreviewUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imagePreviewUrl}
+                    alt="Nuvarande bild"
+                    className="mt-3 h-40 w-full max-w-md rounded-lg border border-white/10 object-cover"
+                  />
+                ) : (
+                  <div className="mt-3 rounded-lg border border-dashed border-white/20 bg-[#0b1b3f] p-4 text-sm text-white/60">
+                    Ingen bild uppladdad ännu.
+                  </div>
+                )}
+                <div className="mt-3">
+                  <label className="inline-flex cursor-pointer items-center rounded-lg border border-white/20 bg-[#0b1b3f] px-4 py-2 text-sm font-semibold">
+                    Byt bild
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setForm((prev) => ({ ...prev, image_file: e.target.files?.[0] ?? null }))}
+                      className="hidden"
+                    />
+                  </label>
+                  <p className="mt-2 text-xs text-white/60">Ladda upp bild av bryggan eller platsen (valfritt)</p>
+                </div>
+              </section>
+
+              <section className="border-b border-white/10 pb-6">
+                <h2 className="text-lg font-bold">Grundläggande information</h2>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold">Hamn</label>
+                    <select
+                      value={form.harbour_id}
+                      onChange={(e) => setForm((prev) => ({ ...prev, harbour_id: e.target.value }))}
+                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                    >
+                      {harbours.map((h) => (
+                        <option key={h.id} value={String(h.id)}>
+                          {h.name ?? "Namnlös hamn"} {h.city ? `(${h.city})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold">Titel</label>
+                    <input
+                      value={form.title}
+                      onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
+                      placeholder="T.ex. Brygga A · Plats 12"
+                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                    />
+                    <p className="mt-1 text-xs text-white/60">Namn som hjälper båtägare förstå exakt vilken plats det gäller.</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="mb-2 block text-sm font-semibold">Beskrivning</label>
+                    <textarea
+                      value={form.description}
+                      onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                      placeholder="Beskriv läge, närhet till service, eluttag och övrig info"
+                      className="min-h-28 w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="border-b border-white/10 pb-6">
+                <h2 className="text-lg font-bold">Specifikationer och säsong</h2>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold">Pris / säsong (SEK)</label>
+                    <input
+                      value={form.price_per_season}
+                      onChange={(e) => setForm((prev) => ({ ...prev, price_per_season: e.target.value }))}
+                      type="number"
+                      placeholder="ex. 18000"
+                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold">Max båtlängd (m)</label>
+                    <input
+                      value={form.max_boat_length}
+                      onChange={(e) => setForm((prev) => ({ ...prev, max_boat_length: e.target.value }))}
+                      type="number"
+                      placeholder="ex. 10"
+                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold">Max båtbredd (m)</label>
+                    <input
+                      value={form.max_boat_width}
+                      onChange={(e) => setForm((prev) => ({ ...prev, max_boat_width: e.target.value }))}
+                      type="number"
+                      placeholder="ex. 3.2"
+                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold">Säsongstart</label>
+                    <input
+                      value={form.season_start}
+                      onChange={(e) => setForm((prev) => ({ ...prev, season_start: e.target.value }))}
+                      type="date"
+                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold">Säsongsslut</label>
+                    <input
+                      value={form.season_end}
+                      onChange={(e) => setForm((prev) => ({ ...prev, season_end: e.target.value }))}
+                      type="date"
+                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <label className="flex items-center gap-2 text-sm font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={form.is_available}
+                    onChange={(e) => setForm((prev) => ({ ...prev, is_available: e.target.checked }))}
+                  />
+                  Tillgänglig för bokning
+                </label>
+                <p className="mt-1 text-xs text-white/60">Avmarkera om platsen tillfälligt inte ska kunna bokas.</p>
+              </section>
             </div>
 
             <div className="mt-4 flex justify-end gap-2">
