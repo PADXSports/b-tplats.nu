@@ -328,7 +328,7 @@ function HostDashboardContent() {
           <div className="space-y-3">
             <div className="flex justify-end">
               <button
-                onClick={() => router.push("/dashboard/host/hamnar")}
+                onClick={() => router.push("/dashboard/host/listings/ny")}
                 className="rounded-lg bg-[#14b8a6] px-4 py-2 text-sm font-semibold text-[#0b1b3f]"
               >
                 Lägg till ny annons
@@ -360,11 +360,7 @@ function HostDashboardContent() {
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() =>
-                        router.push(
-                          l.harbour_id ? `/dashboard/host/hamnar/${l.harbour_id}` : "/dashboard/host/hamnar",
-                        )
-                      }
+                      onClick={() => router.push(`/dashboard/host/listings/${l.id}/redigera`)}
                       className="rounded-lg border border-white/20 px-3 py-2 text-xs font-semibold"
                     >
                       Redigera
