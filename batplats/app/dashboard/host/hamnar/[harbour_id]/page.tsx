@@ -123,11 +123,11 @@ function HarbourDetailContent() {
       return;
     }
 
+    const listingTitleById = new Map(listingRows.map((listing) => [String(listing.id), listing.title]));
+
     const { data: bookingRows, error: bookingError } = await supabase
       .from("bookings")
-      .select(
-        "id, listing_id, status, start_date, end_date, guest_email, listings(title), renter:profiles!bookings_renter_id_fkey(full_name, email)",
-      )
+      .select("id, listing_id, status, start_date, end_date, guest_email, renter:profiles!bookings_renter_id_fkey(full_name, email)")
       .in("listing_id", listingIds)
       .order("created_at", { ascending: false });
 
@@ -137,26 +137,23 @@ function HarbourDetailContent() {
     }
 
     const normalized: Booking[] = ((bookingRows ?? []) as Array<Record<string, unknown>>).map((row) => {
-      const listingRelation = Array.isArray(row.listings)
-        ? (row.listings[0] as Record<string, unknown> | undefined)
-        : (row.listings as Record<string, unknown> | null | undefined);
       const renterRelation = Array.isArray(row.renter)
         ? (row.renter[0] as Record<string, unknown> | undefined)
         : (row.renter as Record<string, unknown> | null | undefined);
+      const listingId = row.listing_id as string | number;
+      const listingTitle = listingTitleById.get(String(listingId)) ?? "Okänd plats";
 
       return {
         id: row.id as string | number,
-        listing_id: row.listing_id as string | number,
+        listing_id: listingId,
         status: (row.status as string) ?? "pending",
         start_date: (row.start_date as string | null) ?? null,
         end_date: (row.end_date as string | null) ?? null,
         guest_email: (row.guest_email as string | null) ?? null,
-        listings: listingRelation
-          ? {
-              id: row.listing_id as string | number,
-              title: (listingRelation.title as string) ?? "Okänd plats",
-            }
-          : null,
+        listings: {
+          id: listingId,
+          title: listingTitle,
+        },
         renter: renterRelation
           ? {
               full_name: (renterRelation.full_name as string | null) ?? null,

@@ -1,13 +1,12 @@
-import Image from "next/image";
 import Link from "next/link";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import AuthNavbar from "@/components/auth-navbar";
 import BookBerthButton from "@/components/book-berth-button";
 import Footer from "@/components/footer";
+import ListingGallery from "@/components/listing-gallery";
 import ListingLocationMap from "@/components/listing-location-map";
 import ListingTravelInfo from "@/components/listing-travel-info";
-import { getListingImageSrc } from "@/lib/listing-image";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
 type ListingPageProps = {
@@ -46,6 +45,12 @@ type ListingRecord = {
 type BookingRange = {
   start_date: string | null;
   end_date: string | null;
+};
+
+type ListingImage = {
+  id: string | number;
+  image_url: string;
+  display_order: number;
 };
 
 const formatDate = (value: string | null) => {
@@ -160,6 +165,17 @@ export default async function ListingPage({ params }: ListingPageProps) {
       .map((row) => formatBookingRangeLine(row.start_date as string | null, row.end_date as string | null))
       .filter(Boolean) as string[];
 
+  const { data: listingImagesData } = await supabase
+    .from("listing_images")
+    .select("id, image_url, display_order")
+    .eq("listing_id", id)
+    .order("display_order", { ascending: true });
+
+  const galleryImages = ((listingImagesData ?? []) as ListingImage[]).filter((image) => Boolean(image.image_url));
+  if (galleryImages.length === 0 && resolvedListing.image_url) {
+    galleryImages.push({ id: "legacy-main", image_url: resolvedListing.image_url, display_order: 0 });
+  }
+
   return (
     <main className="min-h-screen bg-[#f5f0e8] pb-24 text-[#0f1f3d] md:pb-0">
       <AuthNavbar currentPage="listing" />
@@ -192,18 +208,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
       <section className="px-6 py-10">
         <div className="mx-auto grid w-full max-w-[1280px] gap-8 lg:grid-cols-[1fr_340px]">
           <div>
-            <div className="relative mb-6 h-[300px] overflow-hidden rounded-2xl border border-[#dce3ee] bg-white shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] md:h-[420px]">
-              <Image
-                src={getListingImageSrc(resolvedListing.image_url)}
-                alt={resolvedListing.title}
-                fill
-                className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 900px"
-              />
-              <span className="absolute left-4 top-4 rounded-full bg-[#dff5ea] px-3 py-1 text-[0.74rem] font-semibold text-[#2d9e6b]">
-                Tillgänglig
-              </span>
-            </div>
+            <ListingGallery title={resolvedListing.title} images={galleryImages} />
 
             <div className="rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
               <h2 className="mb-4 text-xl font-extrabold text-[#0f1f3d]">Detaljer om båtplatsen</h2>

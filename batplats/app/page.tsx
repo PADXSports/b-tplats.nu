@@ -37,6 +37,24 @@ type LocationSuggestion = {
   lng: number | null;
 };
 
+type FeaturedListingImage = {
+  id: number | string;
+  image_url: string;
+  display_order: number;
+};
+
+type FeaturedListing = {
+  id: number | string;
+  harbour_name: string;
+  title: string;
+  city: string;
+  max_boat_length: number | null;
+  max_boat_width: number | null;
+  price_per_season: number;
+  image_url: string | null;
+  listing_images: FeaturedListingImage[];
+};
+
 const LOCATION_TYPE_LABELS: Record<LocationSuggestionType, string> = {
   harbour: "Hamnar",
   city: "Städer",
@@ -144,6 +162,134 @@ const renderHighlightedText = (text: string, query: string) => {
   );
 };
 
+function FeaturedListingCard({ listing }: { listing: FeaturedListing }) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isHovering, setIsHovering] = useState(false);
+  const images = listing.listing_images || [];
+  const totalImages = images.length;
+  const currentImageUrl = images[currentImageIndex]?.image_url ?? listing.image_url;
+
+  const handlePrevImage = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (totalImages <= 1) return;
+    setCurrentImageIndex((prev) => (prev - 1 + totalImages) % totalImages);
+  };
+
+  const handleNextImage = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (totalImages <= 1) return;
+    setCurrentImageIndex((prev) => (prev + 1) % totalImages);
+  };
+
+  return (
+    <Link href={`/listings/${listing.id}`} className="group">
+      <div
+        className="relative mb-3 aspect-square overflow-hidden rounded-xl"
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+      >
+        <Image
+          src={getListingImageSrc(currentImageUrl)}
+          alt={listing.title}
+          fill
+          className="object-cover transition duration-300 group-hover:scale-105"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+        />
+
+        <div className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1 text-sm font-medium text-teal-700 backdrop-blur-sm">
+          Tillgänglig
+        </div>
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          className="absolute right-3 top-3 p-2 transition hover:scale-110"
+          aria-label="Spara plats"
+        >
+          <svg className="h-6 w-6 fill-transparent stroke-white hover:fill-white/20" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+          </svg>
+        </button>
+
+        {totalImages > 1 && isHovering ? (
+          <>
+            <button
+              type="button"
+              onClick={handlePrevImage}
+              className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:scale-110 hover:bg-white"
+              aria-label="Föregående bild"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={handleNextImage}
+              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:scale-110 hover:bg-white"
+              aria-label="Nästa bild"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </>
+        ) : null}
+
+        {totalImages > 1 ? (
+          <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1">
+            {images.map((image, index) => (
+              <button
+                key={image.id}
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setCurrentImageIndex(index);
+                }}
+                className={`h-1.5 rounded-full transition ${
+                  index === currentImageIndex ? "w-2 bg-white" : "w-1.5 bg-white/60 hover:bg-white/80"
+                }`}
+                aria-label={`Visa bild ${index + 1}`}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div className="space-y-1">
+        <p className="text-xs font-semibold uppercase tracking-wide text-teal-600">{listing.harbour_name}</p>
+        <h3 className="text-base font-semibold text-gray-900">{listing.title}</h3>
+        <p className="text-sm text-gray-600">
+          <span className="inline-flex items-center gap-1">
+            <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                clipRule="evenodd"
+              />
+            </svg>
+            {listing.city}
+          </span>
+          <span className="mx-2">·</span>
+          <span>{listing.max_boat_length ?? "-"}m längd</span>
+          <span className="mx-2">·</span>
+          <span>{listing.max_boat_width ?? "-"}m bredd</span>
+        </p>
+        <p className="pt-1 text-gray-900">
+          <span className="font-semibold">{listing.price_per_season.toLocaleString("sv-SE")} kr</span>
+          <span className="font-normal text-gray-600"> / säsong</span>
+        </p>
+      </div>
+    </Link>
+  );
+}
+
 function HomeContent() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -155,17 +301,7 @@ function HomeContent() {
   const [selectedLocationSuggestion, setSelectedLocationSuggestion] = useState<LocationSuggestion | null>(null);
   const [boatLength, setBoatLength] = useState("");
   const [date, setDate] = useState("");
-  const [featuredListings, setFeaturedListings] = useState<
-    {
-      id: number | string;
-      marina: string;
-      title: string;
-      city: string;
-      specs: string[];
-      price: string;
-      imageSrc: string;
-    }[]
-  >([]);
+  const [featuredListings, setFeaturedListings] = useState<FeaturedListing[]>([]);
   const [mapListings, setMapListings] = useState<MapListing[]>([]);
   const [isMapLoading, setIsMapLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -352,10 +488,14 @@ function HomeContent() {
           supabase.from("bookings").select("*", { count: "exact", head: true }),
           supabase
             .from("listings")
-            .select("id, title, image_url, price_per_season, max_boat_length, max_boat_width, owner_id, harbours!inner(name, city, owner_id)")
+            .select(
+              "id, harbour_id, title, image_url, price_per_season, max_boat_length, max_boat_width, owner_id, harbours!inner(id, name, city, owner_id), listing_images(id, image_url, display_order)",
+            )
+            .eq("is_available", true)
             .not("owner_id", "is", null)
             .not("harbours.owner_id", "is", null)
-            .limit(3),
+            .order("created_at", { ascending: false })
+            .limit(20),
         ]);
 
         if (listingsResult.error) console.error(listingsResult.error);
@@ -376,23 +516,33 @@ function HomeContent() {
         if (featured.error) {
           console.error(featured.error);
         } else if (featured.data) {
+          const listingsByHarbour = new Map<string, (typeof featured.data)[number]>();
+          for (const listing of featured.data) {
+            const harbour = Array.isArray(listing.harbours) ? listing.harbours[0] : listing.harbours;
+            const harbourKey = String(listing.harbour_id ?? harbour?.id ?? "");
+            if (!harbourKey) continue;
+            if (!listingsByHarbour.has(harbourKey)) {
+              listingsByHarbour.set(harbourKey, listing);
+            }
+          }
+          const uniqueFeatured = Array.from(listingsByHarbour.values()).slice(0, 4);
           setFeaturedListings(
-            featured.data.map((listing) => {
+            uniqueFeatured.map((listing) => {
               const harbour = Array.isArray(listing.harbours)
                 ? listing.harbours[0]
                 : listing.harbours;
+              const listingImages = (listing.listing_images ?? []).slice().sort((a, b) => a.display_order - b.display_order);
 
               return {
                 id: listing.id,
-                marina: harbour?.name ?? "Hamn",
+                harbour_name: harbour?.name ?? "Hamn",
                 title: listing.title,
                 city: harbour?.city ?? "Okänd stad",
-                specs: [
-                  listing.max_boat_length ? `${listing.max_boat_length} m längd` : "Längd ej angiven",
-                  listing.max_boat_width ? `${listing.max_boat_width} m bredd` : "Bredd ej angiven",
-                ],
-                price: listing.price_per_season.toLocaleString("sv-SE"),
-                imageSrc: getListingImageSrc(listing.image_url),
+                max_boat_length: listing.max_boat_length ?? null,
+                max_boat_width: listing.max_boat_width ?? null,
+                price_per_season: listing.price_per_season ?? 0,
+                image_url: listing.image_url ?? null,
+                listing_images: listingImages,
               };
             }),
           );
@@ -895,68 +1045,14 @@ function HomeContent() {
             </RevealOnView>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-wrap justify-center gap-6">
             {featuredListings.map((item, idx) => (
-              <RevealOnView key={item.id} delayClass={idx === 1 ? "delay-75" : idx === 2 ? "delay-150" : ""}>
-                <Link
-                  href={`/listings/${item.id}`}
-                  className="group block overflow-hidden rounded-[22px] border border-[#dce3ee] bg-white transition duration-300 ease-out hover:-translate-y-1.5 hover:shadow-[0_20px_60px_rgba(15,31,61,0.14)]"
-                >
-                  <div className="relative h-[200px] overflow-hidden">
-                    <Image
-                      src={item.imageSrc}
-                      alt={`${item.title} — ${item.marina}`}
-                      fill
-                      className="object-cover transition duration-500 group-hover:scale-105"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                    />
-                    <div
-                      className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-white [clip-path:polygon(0_60%,100%_20%,100%_100%,0_100%)]"
-                      aria-hidden
-                    />
-                    <span className="absolute right-3.5 top-3.5 rounded-full bg-[rgba(45,158,107,0.9)] px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm">
-                      Tillgänglig
-                    </span>
-                  </div>
-                  <div className="px-5 pb-6 pt-1">
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.1em] text-[#0d9488]">{item.marina}</p>
-                    <h3 className="mb-2.5 text-lg font-bold tracking-[-0.02em] text-[#0f1f3d]">{item.title}</h3>
-                    <div className="mb-4 flex flex-wrap gap-3 text-[13px] text-[#4a5568]">
-                      <span className="inline-flex items-center gap-1.5">
-                        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden>
-                          <path
-                            d="M6.5 1C4.3 1 2.5 2.8 2.5 5C2.5 8 6.5 12 6.5 12C6.5 12 10.5 8 10.5 5C10.5 2.8 8.7 1 6.5 1Z"
-                            stroke="#8a96a8"
-                            strokeWidth="1.3"
-                            fill="none"
-                          />
-                          <circle cx="6.5" cy="5" r="1.5" stroke="#8a96a8" strokeWidth="1.3" />
-                        </svg>
-                        {item.city}
-                      </span>
-                      {item.specs.map((s) => (
-                        <span key={s}>{s}</span>
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between border-t border-[#dce3ee] pt-3.5">
-                      <p className="text-[22px] font-extrabold tracking-[-0.03em] text-[#0f1f3d]">
-                        {item.price}{" "}
-                        <span className="text-[13px] font-normal text-[#4a5568]">kr/säsong</span>
-                      </p>
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0d9488] text-white transition group-hover:scale-110 group-hover:bg-[#14b8a6]">
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-                          <path
-                            d="M3 7h8M8 4l3 3-3 3"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-                  </div>
-                </Link>
+              <RevealOnView
+                key={item.id}
+                delayClass={idx === 1 ? "delay-75" : idx === 2 ? "delay-150" : ""}
+                className="w-full sm:w-[calc(50%-12px)] lg:w-[calc(25%-18px)]"
+              >
+                <FeaturedListingCard listing={item} />
               </RevealOnView>
             ))}
           </div>

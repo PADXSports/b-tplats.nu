@@ -1,0 +1,48 @@
+import requests
+import json
+
+# Overpass API query for marinas around Stockholm (50km radius)
+overpass_url = "https://overpass-api.de/api/interpreter"
+query = """
+[out:json];
+(
+  node["leisure"="marina"](around:50000,59.3293,18.0686);
+  way["leisure"="marina"](around:50000,59.3293,18.0686);
+);
+out center;
+"""
+
+response = requests.post(overpass_url, data={'data': query})
+data = response.json()
+
+sql_values = []
+for element in data['elements']:
+    if element['type'] == 'node':
+        lat = element['lat']
+        lon = element['lon']
+    elif element['type'] == 'way' and 'center' in element:
+        lat = element['center']['lat']
+        lon = element['center']['lon']
+    else:
+        continue
+    
+    name = element.get('tags', {}).get('name', 'Unknown Marina')
+    city = element.get('tags', {}).get('addr:city', 'Stockholm')
+    
+    sql_values.append(f"('{name}', '{city}', {lat}, {lon}, 'Marina i Stockholm', 50)")
+
+# Generate SQL
+sql = f"""
+INSERT INTO public_harbours (name, city, latitude, longitude, description, total_spots) VALUES
+{',\n'.join(sql_values)}
+ON CONFLICT DO NOTHING;
+"""
+
+print(sql)y
+python3 fetch_harbours.py > harbours.sql
+cat harbours.sql
+ls -lh harbours.sql 
+python3 fetch_harbours.py
+
+
+

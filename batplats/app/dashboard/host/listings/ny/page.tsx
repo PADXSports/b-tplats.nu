@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import AuthNavbar from "@/components/auth-navbar";
+import ListingImageUploader, { type ListingGalleryImage } from "@/components/listing-image-uploader";
 import { createClient } from "@/lib/supabase/client";
 
 type Harbour = {
@@ -21,6 +22,7 @@ function CreateListingContent() {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [galleryImages, setGalleryImages] = useState<ListingGalleryImage[]>([]);
 
   const [form, setForm] = useState({
     harbour_id: "",
@@ -31,21 +33,10 @@ function CreateListingContent() {
     max_boat_width: "",
     season_start: "",
     season_end: "",
-    image_file: null as File | null,
   });
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkCount, setBulkCount] = useState(1);
   const [namePattern, setNamePattern] = useState("Plats {N}");
-
-  const imagePreviewUrl = useMemo(() => {
-    if (form.image_file) return URL.createObjectURL(form.image_file);
-    return "";
-  }, [form.image_file]);
-
-  useEffect(() => {
-    if (!form.image_file || !imagePreviewUrl.startsWith("blob:")) return;
-    return () => URL.revokeObjectURL(imagePreviewUrl);
-  }, [form.image_file, imagePreviewUrl]);
 
   const generatedNamesPreview = useMemo(() => {
     if (!bulkMode || !namePattern.includes("{N}")) return [];
@@ -91,18 +82,6 @@ function CreateListingContent() {
 
     void init();
   }, [router, supabase]);
-
-  const uploadImage = async (file: File) => {
-    const ext = file.name.includes(".") ? file.name.split(".").pop() : "jpg";
-    const filePath = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from("listing-images").upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
-    if (uploadError) throw uploadError;
-    const { data } = supabase.storage.from("listing-images").getPublicUrl(filePath);
-    return data.publicUrl;
-  };
 
   const submit = async () => {
     if (!ownerId) return;
@@ -154,16 +133,7 @@ function CreateListingContent() {
     }
 
     setSaving(true);
-    let imageUrl: string | null = null;
-    if (form.image_file) {
-      try {
-        imageUrl = await uploadImage(form.image_file);
-      } catch {
-        setToast({ type: "error", message: "Bilduppladdning misslyckades." });
-        setSaving(false);
-        return;
-      }
-    }
+    const imageUrl = galleryImages[0]?.image_url ?? null;
 
     const selectedHarbour = harbours.find((h) => String(h.id) === form.harbour_id);
     const basePayload = {
@@ -188,11 +158,22 @@ function CreateListingContent() {
         }))
       : [{ ...basePayload, title }];
 
-    const { error } = await supabase.from("listings").insert(payload);
+    const { data: createdListings, error } = await supabase.from("listings").insert(payload).select("id");
     if (error) {
       setToast({ type: "error", message: bulkMode ? "Kunde inte skapa flera platser." : "Kunde inte skapa plats." });
       setSaving(false);
       return;
+    }
+
+    if (createdListings && galleryImages.length > 0) {
+      const imageRows = (createdListings as Array<{ id: string | number }>).flatMap((listing) =>
+        galleryImages.map((image, index) => ({
+          listing_id: listing.id,
+          image_url: image.image_url,
+          display_order: index,
+        })),
+      );
+      await supabase.from("listing_images").insert(imageRows);
     }
 
     setToast({ type: "success", message: bulkMode ? `Skapade ${bulkCount} nya platser!` : "Plats skapad!" });
@@ -345,29 +326,8 @@ function CreateListingContent() {
 
               <section className="border-b border-white/10 pb-6">
                 <h2 className="text-lg font-bold">Bild (valfritt)</h2>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  <div className="sm:col-span-2">
-                    <label className="inline-flex cursor-pointer items-center rounded-lg border border-white/20 bg-[#0b1b3f] px-4 py-2 text-sm font-semibold">
-                      Ladda upp bild
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => setForm((prev) => ({ ...prev, image_file: e.target.files?.[0] ?? null }))}
-                        className="hidden"
-                      />
-                    </label>
-                    <p className="mt-1 text-xs text-white/60">Ladda upp bild av bryggan eller platsen (valfritt)</p>
-                  </div>
-                  {imagePreviewUrl ? (
-                    <div className="sm:col-span-2">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={imagePreviewUrl}
-                        alt="Förhandsvisning"
-                        className="max-h-56 w-full rounded-lg border border-white/10 object-cover"
-                      />
-                    </div>
-                  ) : null}
+                <div className="mt-4">
+                  <ListingImageUploader existingImages={galleryImages} onChange={setGalleryImages} />
                 </div>
               </section>
 

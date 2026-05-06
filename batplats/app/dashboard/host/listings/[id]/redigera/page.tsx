@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import AuthNavbar from "@/components/auth-navbar";
+import ListingImageUploader, { type ListingGalleryImage } from "@/components/listing-image-uploader";
 import { createClient } from "@/lib/supabase/client";
 
 type Harbour = {
@@ -38,6 +39,7 @@ function EditListingContent() {
   const [harbours, setHarbours] = useState<Harbour[]>([]);
   const [listing, setListing] = useState<ListingRow | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [galleryImages, setGalleryImages] = useState<ListingGalleryImage[]>([]);
 
   const [form, setForm] = useState({
     harbour_id: "",
@@ -49,24 +51,14 @@ function EditListingContent() {
     season_start: "",
     season_end: "",
     image_url: "",
-    image_file: null as File | null,
     is_available: true,
   });
-  const imagePreviewUrl = useMemo(() => {
-    if (form.image_file) return URL.createObjectURL(form.image_file);
-    return form.image_url.trim();
-  }, [form.image_file, form.image_url]);
 
   useEffect(() => {
     if (!toast) return;
     const timeout = window.setTimeout(() => setToast(null), 3500);
     return () => window.clearTimeout(timeout);
   }, [toast]);
-
-  useEffect(() => {
-    if (!form.image_file || !imagePreviewUrl.startsWith("blob:")) return;
-    return () => URL.revokeObjectURL(imagePreviewUrl);
-  }, [form.image_file, imagePreviewUrl]);
 
   useEffect(() => {
     const init = async () => {
@@ -106,37 +98,19 @@ function EditListingContent() {
         season_start: current.season_start ?? "",
         season_end: current.season_end ?? "",
         image_url: current.image_url ?? "",
-        image_file: null,
         is_available: current.is_available ?? true,
       });
+      const { data: imageRows } = await supabase
+        .from("listing_images")
+        .select("id, image_url, display_order")
+        .eq("listing_id", listingId)
+        .order("display_order", { ascending: true });
+      setGalleryImages((imageRows ?? []) as ListingGalleryImage[]);
       setLoading(false);
     };
 
     void init();
   }, [listingId, router, supabase]);
-
-  const uploadImage = async (file: File) => {
-    const ext = file.name.includes(".") ? file.name.split(".").pop() : "jpg";
-    const filePath = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from("listing-images").upload(filePath, file, {
-      cacheControl: "3600",
-      upsert: false,
-    });
-    if (uploadError) throw uploadError;
-    const { data } = supabase.storage.from("listing-images").getPublicUrl(filePath);
-    return data.publicUrl;
-  };
-
-  const deleteImageFromStorage = async (url: string | null) => {
-    if (!url) return;
-    const marker = "/storage/v1/object/public/listing-images/";
-    const markerIndex = url.indexOf(marker);
-    if (markerIndex === -1) return;
-    const rawPath = url.slice(markerIndex + marker.length).split("?")[0];
-    const decodedPath = decodeURIComponent(rawPath);
-    if (!decodedPath) return;
-    await supabase.storage.from("listing-images").remove([decodedPath]);
-  };
 
   const submit = async () => {
     if (!listing) return;
@@ -146,17 +120,7 @@ function EditListingContent() {
     }
 
     setSaving(true);
-    let imageUrl = form.image_url.trim() || null;
-    if (form.image_file) {
-      try {
-        imageUrl = await uploadImage(form.image_file);
-        await deleteImageFromStorage(listing.image_url ?? null);
-      } catch {
-        setToast({ type: "error", message: "Bilduppladdning misslyckades." });
-        setSaving(false);
-        return;
-      }
-    }
+    const imageUrl = galleryImages[0]?.image_url ?? null;
 
     const selectedHarbour = harbours.find((h) => String(h.id) === form.harbour_id);
     const payload = {
@@ -219,29 +183,8 @@ function EditListingContent() {
             <div className="space-y-6">
               <section className="border-b border-white/10 pb-6">
                 <h2 className="text-lg font-bold">Bild</h2>
-                {imagePreviewUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={imagePreviewUrl}
-                    alt="Nuvarande bild"
-                    className="mt-3 h-40 w-full max-w-md rounded-lg border border-white/10 object-cover"
-                  />
-                ) : (
-                  <div className="mt-3 rounded-lg border border-dashed border-white/20 bg-[#0b1b3f] p-4 text-sm text-white/60">
-                    Ingen bild uppladdad ännu.
-                  </div>
-                )}
                 <div className="mt-3">
-                  <label className="inline-flex cursor-pointer items-center rounded-lg border border-white/20 bg-[#0b1b3f] px-4 py-2 text-sm font-semibold">
-                    Byt bild
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setForm((prev) => ({ ...prev, image_file: e.target.files?.[0] ?? null }))}
-                      className="hidden"
-                    />
-                  </label>
-                  <p className="mt-2 text-xs text-white/60">Ladda upp bild av bryggan eller platsen (valfritt)</p>
+                  <ListingImageUploader listingId={listingId} existingImages={galleryImages} onChange={setGalleryImages} />
                 </div>
               </section>
 

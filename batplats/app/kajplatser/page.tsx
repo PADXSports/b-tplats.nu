@@ -30,9 +30,16 @@ type KajplatsListing = {
   lat: number | null;
   lng: number | null;
   created_at: string | null;
+  listing_images: ListingImage[];
   distance_km?: number | null;
   user_distance_km?: number | null;
   user_drive_text?: string | null;
+};
+
+type ListingImage = {
+  id: number | string;
+  image_url: string;
+  display_order: number;
 };
 
 type ListingRow = {
@@ -53,6 +60,13 @@ type ListingRow = {
   lat: number | null;
   lng: number | null;
   created_at: string | null;
+  listing_images?:
+    | Array<{
+        id: number | string;
+        image_url: string;
+        display_order: number;
+      }>
+    | null;
   harbours:
     | {
         name: string | null;
@@ -73,6 +87,143 @@ type ListingRow = {
       }>
     | null;
 };
+
+function ListingCard({ listing }: { listing: KajplatsListing }) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isHovering, setIsHovering] = useState(false);
+  const images = listing.listing_images ?? [];
+  const totalImages = images.length;
+  const hasMultipleImages = totalImages > 1;
+  const currentImage = images[currentImageIndex]?.image_url ?? listing.image_url ?? null;
+
+  const handlePrevImage = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (totalImages <= 1) return;
+    setCurrentImageIndex((prev) => (prev - 1 + totalImages) % totalImages);
+  };
+
+  const handleNextImage = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (totalImages <= 1) return;
+    setCurrentImageIndex((prev) => (prev + 1) % totalImages);
+  };
+
+  return (
+    <Link
+      href={`/listings/${listing.id}`}
+      className="group block cursor-pointer overflow-hidden rounded-xl border border-[#dce3ee] bg-white shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] transition hover:-translate-y-0.5 hover:shadow-lg"
+    >
+      <div
+        className="relative h-44 w-full overflow-hidden bg-gradient-to-br from-[#c5d0de] to-[#dce3ee]"
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+      >
+        <Image
+          src={getListingImageSrc(currentImage)}
+          alt={listing.title}
+          fill
+          className="object-cover"
+          sizes="(max-width: 1024px) 100vw, 33vw"
+        />
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          className="absolute right-3 top-3 rounded-full p-2 transition hover:scale-110"
+          aria-label="Spara plats"
+        >
+          <svg className="h-6 w-6 fill-transparent stroke-white hover:fill-white/20" strokeWidth="2" viewBox="0 0 24 24">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+          </svg>
+        </button>
+
+        {hasMultipleImages && isHovering ? (
+          <>
+            <button
+              type="button"
+              onClick={handlePrevImage}
+              className="absolute left-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:scale-110 hover:bg-white"
+              aria-label="Föregående bild"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNextImage}
+              className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 shadow-md transition hover:scale-110 hover:bg-white"
+              aria-label="Nästa bild"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </>
+        ) : null}
+
+        {hasMultipleImages ? (
+          <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1">
+            {images.map((image, index) => (
+              <button
+                type="button"
+                key={image.id}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setCurrentImageIndex(index);
+                }}
+                className={`h-1.5 rounded-full transition ${
+                  index === currentImageIndex ? "w-2 bg-white" : "w-1.5 bg-white/60 hover:bg-white/80"
+                }`}
+                aria-label={`Visa bild ${index + 1}`}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <div className="p-5">
+        <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">{listing.harbour_name ?? "Hamn"}</p>
+        <h2 className="mt-1 text-base font-bold text-[#0f1f3d]">{listing.title}</h2>
+        <p className="mt-1 text-sm text-[#8a96a8]">{listing.city ?? "Okänd stad"}</p>
+        {listing.user_distance_km != null ? (
+          <div
+            className="mt-1 flex items-center gap-1 whitespace-nowrap text-[14px] font-normal text-[#64748b]"
+            style={{ fontFamily: '"DM Sans", sans-serif' }}
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="h-4 w-4 shrink-0 text-[#0d9488]"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z" />
+              <circle cx="12" cy="10" r="2.5" />
+            </svg>
+            <span>
+              {listing.user_distance_km.toFixed(1)} km
+              {listing.user_drive_text ? ` • ${listing.user_drive_text.replace(/\bmins?\b/gi, "min")} med bil` : ""}
+            </span>
+          </div>
+        ) : null}
+        <p className="mt-2 text-sm font-semibold text-[#0f1f3d]">
+          {(listing.price_per_season ?? 0).toLocaleString("sv-SE")} SEK / säsong
+        </p>
+        <p className="mt-1 text-xs text-[#8a96a8]">
+          Max: {listing.max_boat_length ?? "-"}m längd · {listing.max_boat_width ?? "-"}m bredd
+        </p>
+      </div>
+    </Link>
+  );
+}
 
 const normalizeValue = (value: string) => value.trim().toLowerCase();
 const normalizeZipValue = (value: string) => value.replace(/\D/g, "");
@@ -257,7 +408,7 @@ function KajplatserContent() {
         let listingQuery = supabase
           .from("listings")
           .select(
-            "id, owner_id, title, description, price_per_season, max_boat_length, max_boat_width, season_start, season_end, city, harbour_name, image_url, is_available, lat, lng, created_at, harbour_id, harbours!inner(id, name, city, address, area, zip_code, lat, lng, owner_id)",
+            "id, owner_id, title, description, price_per_season, max_boat_length, max_boat_width, season_start, season_end, city, harbour_name, image_url, is_available, lat, lng, created_at, harbour_id, harbours!inner(id, name, city, address, area, zip_code, lat, lng, owner_id), listing_images(id, image_url, display_order)",
           )
           .eq("is_available", true)
           .not("owner_id", "is", null)
@@ -288,6 +439,10 @@ function KajplatserContent() {
 
         const normalized = ((data ?? []) as ListingRow[]).map((row) => {
           const harbour = Array.isArray(row.harbours) ? (row.harbours[0] ?? null) : row.harbours;
+          const listingImages = (row.listing_images ?? [])
+            .slice()
+            .sort((a, b) => a.display_order - b.display_order)
+            .filter((image) => typeof image.image_url === "string" && image.image_url.length > 0);
 
           return {
             id: row.id,
@@ -304,6 +459,7 @@ function KajplatserContent() {
             area: harbour?.area ?? null,
             zip_code: harbour?.zip_code ?? null,
             image_url: row.image_url,
+            listing_images: listingImages,
             is_available: row.is_available,
             lat: row.lat ?? harbour?.lat ?? null,
             lng: row.lng ?? harbour?.lng ?? null,
@@ -725,58 +881,7 @@ function KajplatserContent() {
                 </p>
               </div>
               {visibleListings.map((listing) => (
-                <Link
-                  key={listing.id}
-                  href={`/listings/${listing.id}`}
-                  className="block cursor-pointer overflow-hidden rounded-xl border border-[#dce3ee] bg-white shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] transition hover:-translate-y-0.5 hover:shadow-lg"
-                >
-                  <div className="relative h-44 w-full bg-gradient-to-br from-[#c5d0de] to-[#dce3ee]">
-                    <Image
-                      src={getListingImageSrc(listing.image_url)}
-                      alt={listing.title}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 1024px) 100vw, 33vw"
-                    />
-                  </div>
-                  <div className="p-5">
-                    <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">
-                      {listing.harbour_name ?? "Hamn"}
-                    </p>
-                    <h2 className="mt-1 text-base font-bold text-[#0f1f3d]">{listing.title}</h2>
-                    <p className="mt-1 text-sm text-[#8a96a8]">{listing.city ?? "Okänd stad"}</p>
-                    {listing.user_distance_km != null ? (
-                      <div
-                        className="mt-1 flex items-center gap-1 whitespace-nowrap text-[14px] font-normal text-[#64748b]"
-                        style={{ fontFamily: '"DM Sans", sans-serif' }}
-                      >
-                        <svg
-                          aria-hidden="true"
-                          viewBox="0 0 24 24"
-                          className="h-4 w-4 shrink-0 text-[#0d9488]"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.8"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z" />
-                          <circle cx="12" cy="10" r="2.5" />
-                        </svg>
-                        <span>
-                          {travelMap[String(listing.id)]?.distanceText ?? `${listing.user_distance_km.toFixed(1)} km`}
-                          {listing.user_drive_text
-                            ? ` • ${listing.user_drive_text.replace(/\bmins?\b/gi, "min")} med bil`
-                            : ""}
-                        </span>
-                      </div>
-                    ) : null}
-                    <p className="mt-2 text-sm font-semibold text-[#0f1f3d]">
-                      {(listing.price_per_season ?? 0).toLocaleString("sv-SE")} SEK / säsong
-                    </p>
-                    <p className="mt-1 text-xs text-[#8a96a8]">
-                      Max: {listing.max_boat_length ?? "-"}m längd · {listing.max_boat_width ?? "-"}m bredd
-                    </p>
-                  </div>
-                </Link>
+                <ListingCard key={listing.id} listing={listing} />
               ))}
             </div>
           )}
