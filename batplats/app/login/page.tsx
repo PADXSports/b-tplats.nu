@@ -55,7 +55,8 @@ function LoginContent() {
         return;
       }
 
-      const normalizedRole = profileData?.role === "host" || profileData?.role === "owner" ? "host" : "renter";
+      const normalizedRole: string =
+        profileData?.role === "host" || profileData?.role === "owner" ? "host" : "renter";
       if (normalizedRole === "host") {
         await supabase.auth.signOut();
         localStorage.removeItem("userEmail");
