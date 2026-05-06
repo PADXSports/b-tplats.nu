@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import AuthNavbar from "@/components/auth-navbar";
 import BerthMap from "@/components/BerthMap";
 import Footer from "@/components/footer";
@@ -144,7 +144,7 @@ const renderHighlightedText = (text: string, query: string) => {
   );
 };
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [location, setLocation] = useState("");
@@ -1185,5 +1185,19 @@ export default function Home() {
 
       <Footer />
     </main>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-[#f5f0e8] text-[#0f1f3d]">
+          <p className="text-sm font-medium text-[#8a96a8]">Laddar...</p>
+        </main>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }
