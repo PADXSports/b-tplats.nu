@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import AuthNavbar from "@/components/auth-navbar";
@@ -27,7 +27,7 @@ type ListingRow = {
   is_available: boolean | null;
 };
 
-export default function EditListingPage() {
+function EditListingContent() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -371,5 +371,13 @@ export default function EditListingPage() {
         )}
       </section>
     </main>
+  );
+}
+
+export default function EditListingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0b1b3f]" />}>
+      <EditListingContent />
+    </Suspense>
   );
 }

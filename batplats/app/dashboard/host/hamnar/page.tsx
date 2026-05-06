@@ -25,6 +25,7 @@ function HamnarContent() {
   const [harbours, setHarbours] = useState<HarbourWithCount[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [deletingHarbourId, setDeletingHarbourId] = useState<string | number | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [form, setForm] = useState({
     name: "",
@@ -120,6 +121,26 @@ function HamnarContent() {
     setCreating(false);
   };
 
+  const deleteHarbour = async (harbour: HarbourWithCount) => {
+    const harbourName = harbour.name ?? "denna hamn";
+    const confirmed = window.confirm(
+      `Är du säker på att du vill ta bort ${harbourName}? Detta tar bort hamnen och alla dess platser permanent.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingHarbourId(harbour.id);
+    const { error } = await supabase.from("harbours").delete().eq("id", harbour.id);
+    if (error) {
+      setToast({ type: "error", message: "Kunde inte ta bort hamnen." });
+      setDeletingHarbourId(null);
+      return;
+    }
+
+    setHarbours((prev) => prev.filter((item) => String(item.id) !== String(harbour.id)));
+    setToast({ type: "success", message: "Hamn borttagen." });
+    setDeletingHarbourId(null);
+  };
+
   return (
     <main className="min-h-screen bg-[#0b1b3f] text-white">
       <AuthNavbar currentPage="dashboard" />
@@ -158,24 +179,32 @@ function HamnarContent() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {harbours.map((harbour) => (
-              <button
-                key={harbour.id}
-                onClick={() => router.push(`/dashboard/host/hamnar/${harbour.id}`)}
-                className="rounded-xl bg-[#122a5d] p-5 text-left transition hover:bg-[#173575]"
-              >
-                <p className="text-lg font-bold">{harbour.name ?? "Namnlös hamn"}</p>
-                <p className="mt-1 text-sm text-white/70">{harbour.city ?? "Stad saknas"}</p>
-                <div className="mt-4 flex items-center justify-between text-xs">
-                  <span className="rounded-full bg-white/10 px-2 py-1">{harbour.listingCount} platser</span>
-                  <span
-                    className={`rounded-full px-2 py-1 font-semibold ${
-                      harbour.is_active ? "bg-[#dff5ea] text-[#2d9e6b]" : "bg-[#dce3ee] text-[#6b7a8f]"
-                    }`}
-                  >
-                    {harbour.is_active ? "Aktiv" : "Inaktiv"}
-                  </span>
-                </div>
-              </button>
+              <article key={harbour.id} className="rounded-xl bg-[#122a5d] p-5">
+                <button
+                  onClick={() => router.push(`/dashboard/host/hamnar/${harbour.id}`)}
+                  className="w-full text-left transition hover:bg-[#173575]"
+                >
+                  <p className="text-lg font-bold">{harbour.name ?? "Namnlös hamn"}</p>
+                  <p className="mt-1 text-sm text-white/70">{harbour.city ?? "Stad saknas"}</p>
+                  <div className="mt-4 flex items-center justify-between text-xs">
+                    <span className="rounded-full bg-white/10 px-2 py-1">{harbour.listingCount} platser</span>
+                    <span
+                      className={`rounded-full px-2 py-1 font-semibold ${
+                        harbour.is_active ? "bg-[#dff5ea] text-[#2d9e6b]" : "bg-[#dce3ee] text-[#6b7a8f]"
+                      }`}
+                    >
+                      {harbour.is_active ? "Aktiv" : "Inaktiv"}
+                    </span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => void deleteHarbour(harbour)}
+                  disabled={deletingHarbourId === harbour.id}
+                  className="mt-4 rounded-md bg-[#dc2626] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#b91c1c] disabled:opacity-60"
+                >
+                  {deletingHarbourId === harbour.id ? "Tar bort..." : "Ta bort"}
+                </button>
+              </article>
             ))}
           </div>
         )}

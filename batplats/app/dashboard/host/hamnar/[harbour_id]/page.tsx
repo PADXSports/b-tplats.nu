@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import AuthNavbar from "@/components/auth-navbar";
@@ -88,7 +88,7 @@ const bookingStatus = (status: string) => {
   return { label: status, classes: "bg-[#dce3ee] text-[#6b7a8f]" };
 };
 
-export default function HarbourDetailPage() {
+function HarbourDetailContent() {
   const params = useParams<{ harbour_id: string }>();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -722,5 +722,13 @@ export default function HarbourDetailPage() {
         </div>
       ) : null}
     </main>
+  );
+}
+
+export default function HarbourDetailPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#0b1b3f]" />}>
+      <HarbourDetailContent />
+    </Suspense>
   );
 }
