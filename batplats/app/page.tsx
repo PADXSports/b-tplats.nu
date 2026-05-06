@@ -451,6 +451,9 @@ function HomeContent() {
               city: harbour?.city ?? null,
               price_per_season: row.price_per_season,
               is_available: row.is_available,
+              image_url: null,
+              season_start: null,
+              season_end: null,
               lat: Number(lat),
               lng: Number(lng),
             } satisfies MapListing;
