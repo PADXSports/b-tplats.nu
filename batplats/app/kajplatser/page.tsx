@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 
 import AuthNavbar from "@/components/auth-navbar";
 import BerthMap, { type MapListing } from "@/components/BerthMap";
@@ -94,7 +94,7 @@ const haversineDistanceKm = (lat1: number, lng1: number, lat2: number, lng2: num
   return earthRadiusKm * c;
 };
 
-export default function KajplatserPage() {
+function KajplatserContent() {
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
   const [listings, setListings] = useState<KajplatsListing[]>([]);
@@ -857,5 +857,19 @@ export default function KajplatserPage() {
         }
       `}</style>
     </main>
+  );
+}
+
+export default function KajplatserPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-[#f5f0e8] text-[#0f1f3d]">
+          <p className="text-sm font-medium text-[#8a96a8]">Laddar...</p>
+        </main>
+      }
+    >
+      <KajplatserContent />
+    </Suspense>
   );
 }
