@@ -840,39 +840,6 @@ function HomeContent() {
         </svg>
       </section>
 
-      {/* Beta — CTA banner style */}
-      <section className="relative overflow-hidden bg-[#0d9488] px-4 py-14 sm:px-6 md:px-12 md:py-20">
-        <svg
-          className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.08]"
-          viewBox="0 0 1440 200"
-          preserveAspectRatio="xMidYMid slice"
-          aria-hidden
-        >
-          <path
-            d="M0 60Q360 20 720 60Q1080 100 1440 60"
-            stroke="white"
-            strokeWidth="80"
-            fill="none"
-          />
-        </svg>
-        <div className="relative z-[1] mx-auto flex max-w-[1200px] flex-col items-start justify-between gap-8 md:flex-row md:items-center">
-          <div>
-            <h2 className="text-[clamp(1.5rem,4vw,3rem)] font-extrabold leading-tight tracking-[-0.04em] text-white">
-              Redo för beta?
-            </h2>
-            <p className="mt-2 max-w-xl text-base text-white/75">
-              Anmäl dig till betan och få exklusiv tidig tillgång till nya funktioner och platser.
-            </p>
-          </div>
-          <Link
-            href="/beta"
-            className="inline-flex shrink-0 items-center justify-center rounded-lg bg-white px-8 py-4 text-base font-semibold text-[#0d9488] shadow-none transition hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
-          >
-            Anmäl intresse →
-          </Link>
-        </div>
-      </section>
-
       {/* How it works */}
       <section id="how-it-works" className="scroll-mt-24 bg-[#f5f0e8] px-4 py-16 sm:px-6 md:px-12 md:py-24">
         <div className="mx-auto max-w-[1200px]">

@@ -15,6 +15,7 @@ import {
   HostToast,
   hostCardClass,
 } from "@/components/host-dashboard-shell";
+import CreateHarbourLocationField from "@/components/create-harbour-location-field";
 import { createClient } from "@/lib/supabase/client";
 
 type HarbourRow = {
@@ -126,11 +127,39 @@ function HamnarContent() {
 
     const harbour = data as HarbourRow;
     setHarbours((prev) => [...prev, { ...harbour, listingCount: 0 }].sort((a, b) => (a.name ?? "").localeCompare(b.name ?? "", "sv")));
-    setForm({ name: "", city: "", description: "", lat: "", lng: "" });
+    resetCreateForm();
     setShowCreateModal(false);
     setToast({ type: "success", message: "Hamn skapad." });
     setCreating(false);
   };
+
+  const resetCreateForm = () => {
+    setForm({ name: "", city: "", description: "", lat: "", lng: "" });
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    resetCreateForm();
+  };
+
+  const handleLocationChange = (next: { lat: number; lng: number; city?: string }) => {
+    setForm((prev) => ({
+      ...prev,
+      lat: String(next.lat),
+      lng: String(next.lng),
+      city: next.city?.trim() ? next.city.trim() : prev.city,
+    }));
+  };
+
+  const formLat = useMemo(() => {
+    const value = form.lat.trim() ? Number(form.lat) : null;
+    return value != null && !Number.isNaN(value) ? value : null;
+  }, [form.lat]);
+
+  const formLng = useMemo(() => {
+    const value = form.lng.trim() ? Number(form.lng) : null;
+    return value != null && !Number.isNaN(value) ? value : null;
+  }, [form.lng]);
 
   const deleteHarbour = async (harbourId: string | number) => {
     const harbour = harbours.find((h) => String(h.id) === String(harbourId));
@@ -230,7 +259,7 @@ function HamnarContent() {
 
       {showCreateModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className={`${hostCardClass} w-full max-w-xl p-6`}>
+          <div className={`${hostCardClass} max-h-[90vh] w-full max-w-xl overflow-y-auto p-6`}>
             <h2 className="text-xl font-bold text-gray-900">Skapa ny hamn</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <input
@@ -245,17 +274,10 @@ function HamnarContent() {
                 placeholder="Stad"
                 className={HOST_INPUT_CLASS}
               />
-              <input
-                value={form.lat}
-                onChange={(e) => setForm((prev) => ({ ...prev, lat: e.target.value }))}
-                placeholder="Latitud"
-                className={HOST_INPUT_CLASS}
-              />
-              <input
-                value={form.lng}
-                onChange={(e) => setForm((prev) => ({ ...prev, lng: e.target.value }))}
-                placeholder="Longitud"
-                className={HOST_INPUT_CLASS}
+              <CreateHarbourLocationField
+                lat={formLat}
+                lng={formLng}
+                onLocationChange={handleLocationChange}
               />
               <textarea
                 value={form.description}
@@ -267,7 +289,7 @@ function HamnarContent() {
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setShowCreateModal(false)}
+                onClick={closeCreateModal}
                 className={HOST_SECONDARY_BTN}
                 disabled={creating}
               >
