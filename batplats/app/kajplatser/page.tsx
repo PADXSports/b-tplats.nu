@@ -34,6 +34,9 @@ type KajplatsListing = {
   distance_km?: number | null;
   user_distance_km?: number | null;
   user_drive_text?: string | null;
+  average_rating?: number | null;
+  review_count?: number;
+  listing_type?: string | null;
 };
 
 type ListingImage = {
@@ -56,6 +59,7 @@ type ListingRow = {
   city: string | null;
   harbour_name: string | null;
   image_url?: string | null;
+  listing_type?: string | null;
   is_available: boolean;
   lat: number | null;
   lng: number | null;
@@ -95,6 +99,10 @@ function ListingCard({ listing }: { listing: KajplatsListing }) {
   const totalImages = images.length;
   const hasMultipleImages = totalImages > 1;
   const currentImage = images[currentImageIndex]?.image_url ?? listing.image_url ?? null;
+  const harbourLabel =
+    listing.listing_type === "private"
+      ? `Privat plats · ${listing.city ?? "Okänd stad"}`
+      : (listing.harbour_name ?? "Hamn");
 
   const handlePrevImage = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -189,7 +197,16 @@ function ListingCard({ listing }: { listing: KajplatsListing }) {
         ) : null}
       </div>
       <div className="p-5">
-        <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">{listing.harbour_name ?? "Hamn"}</p>
+        <p className="text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0d9488]">{harbourLabel}</p>
+        {listing.average_rating != null ? (
+          <div className="mt-1 flex items-center gap-1 text-sm">
+            <svg className="h-4 w-4 fill-yellow-400 text-yellow-400" viewBox="0 0 24 24">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+            <span className="font-medium text-gray-900">{listing.average_rating.toFixed(1)}</span>
+            <span className="text-gray-500">({listing.review_count ?? 0})</span>
+          </div>
+        ) : null}
         <h2 className="mt-1 text-base font-bold text-[#0f1f3d]">{listing.title}</h2>
         <p className="mt-1 text-sm text-[#8a96a8]">{listing.city ?? "Okänd stad"}</p>
         {listing.user_distance_km != null ? (
@@ -313,7 +330,7 @@ function KajplatserContent() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    console.log("🔍 Kajplatser page mounted");
+    console.log("🔍 Båtplatser page mounted");
     console.log("📍 Checking for cached location...");
     const cached = localStorage.getItem(storageKey);
     if (cached) {
@@ -408,7 +425,7 @@ function KajplatserContent() {
         let listingQuery = supabase
           .from("listings")
           .select(
-            "id, owner_id, title, description, price_per_season, max_boat_length, max_boat_width, season_start, season_end, city, harbour_name, image_url, is_available, lat, lng, created_at, harbour_id, harbours!inner(id, name, city, address, area, zip_code, lat, lng, owner_id), listing_images(id, image_url, display_order)",
+            "id, owner_id, title, description, price_per_season, max_boat_length, max_boat_width, season_start, season_end, city, harbour_name, image_url, listing_type, is_available, lat, lng, created_at, harbour_id, harbours!inner(id, name, city, address, area, zip_code, lat, lng, owner_id), listing_images(id, image_url, display_order)",
           )
           .eq("is_available", true)
           .not("owner_id", "is", null)
@@ -437,12 +454,34 @@ function KajplatserContent() {
         console.log("✅ Listings with valid coordinates:", listingsWithCoords.length);
         console.log("Sample:", listingsWithCoords[0] ?? null);
 
-        const normalized = ((data ?? []) as ListingRow[]).map((row) => {
+        const listingsData = (data ?? []) as ListingRow[];
+        const harbourIds = [
+          ...new Set(
+            listingsData
+              .map((l) => l.harbour_id)
+              .filter((id): id is string | number => id != null && id !== ""),
+          ),
+        ];
+        const { data: reviewStats } =
+          harbourIds.length > 0
+            ? await supabase.from("reviews").select("harbour_id, rating").in("harbour_id", harbourIds)
+            : { data: [] as Array<{ harbour_id: string | number; rating: number }> };
+
+        const normalized = listingsData.map((row) => {
           const harbour = Array.isArray(row.harbours) ? (row.harbours[0] ?? null) : row.harbours;
           const listingImages = (row.listing_images ?? [])
             .slice()
             .sort((a, b) => a.display_order - b.display_order)
             .filter((image) => typeof image.image_url === "string" && image.image_url.length > 0);
+
+          const harbourReviews =
+            row.harbour_id != null
+              ? reviewStats?.filter((r) => String(r.harbour_id) === String(row.harbour_id)) || []
+              : [];
+          const avgRating =
+            harbourReviews.length > 0
+              ? harbourReviews.reduce((sum, r) => sum + r.rating, 0) / harbourReviews.length
+              : null;
 
           return {
             id: row.id,
@@ -456,6 +495,7 @@ function KajplatserContent() {
             season_end: row.season_end,
             city: row.city ?? harbour?.city ?? null,
             harbour_name: row.harbour_name ?? harbour?.name ?? null,
+            listing_type: row.listing_type ?? null,
             area: harbour?.area ?? null,
             zip_code: harbour?.zip_code ?? null,
             image_url: row.image_url,
@@ -464,6 +504,8 @@ function KajplatserContent() {
             lat: row.lat ?? harbour?.lat ?? null,
             lng: row.lng ?? harbour?.lng ?? null,
             created_at: row.created_at,
+            average_rating: avgRating,
+            review_count: harbourReviews.length,
           } satisfies KajplatsListing;
         });
 
@@ -730,7 +772,7 @@ function KajplatserContent() {
 
       <section className="bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 py-12 text-white">
         <div className="mx-auto w-full max-w-[1280px]">
-          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">Kajplatser</p>
+          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">Båtplatser</p>
           <h1 className="mt-2 text-[2rem] font-extrabold leading-tight">Alla tillgängliga båtplatser</h1>
           <p className="mt-2 text-sm text-white/80">
             {loading ? "Laddar..." : `${listings.length} ${listings.length === 1 ? "plats" : "platser"}`}

@@ -2,11 +2,17 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useState } from "react";
+import { FormEvent, Suspense, useMemo, useState } from "react";
 
-import Footer from "@/components/footer";
 import { AuthOAuthDivider, GoogleOAuthButton } from "@/components/google-oauth-button";
+import { RenterAuthBrandingPanel } from "@/components/renter-auth-panel";
 import { createClient } from "@/lib/supabase/client";
+
+const NAVY = "#0a1628";
+const TEAL = "#0d9488";
+
+const inputClass =
+  "w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-teal-500 transition bg-white text-gray-900 placeholder-gray-400";
 
 function LoginContent() {
   const router = useRouter();
@@ -16,6 +22,14 @@ function LoginContent() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [roleMismatch, setRoleMismatch] = useState<"host" | null>(null);
+
+  const oauthRedirectPath = useMemo(() => {
+    const redirectTo = searchParams.get("redirect") ?? searchParams.get("redirect_to");
+    if (redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")) {
+      return redirectTo;
+    }
+    return undefined;
+  }, [searchParams]);
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -57,24 +71,45 @@ function LoginContent() {
 
       const normalizedRole: string =
         profileData?.role === "host" || profileData?.role === "owner" ? "host" : "renter";
+
+      const redirectTo =
+        searchParams.get("redirect") ?? searchParams.get("redirect_to");
+      const safeRedirect =
+        redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//")
+          ? redirectTo
+          : null;
+
       if (normalizedRole === "host") {
-        await supabase.auth.signOut();
-        localStorage.removeItem("userEmail");
-        localStorage.removeItem("userRole");
-        setRoleMismatch("host");
-        setError("Du är registrerad som hamnägare. Vänligen logga in via hamnägarsidan.");
+        const { data: privateListing } = await supabase
+          .from("listings")
+          .select("id")
+          .eq("owner_id", user.id)
+          .eq("listing_type", "private")
+          .maybeSingle();
+
+        if (!privateListing) {
+          await supabase.auth.signOut();
+          localStorage.removeItem("userEmail");
+          localStorage.removeItem("userRole");
+          setRoleMismatch("host");
+          setError("Du är registrerad som hamnägare. Vänligen logga in via hamnägarsidan.");
+          return;
+        }
+
+        localStorage.setItem("userEmail", user.email ?? "");
+        localStorage.setItem("userRole", "host");
+        router.push(safeRedirect ?? "/mitt-konto");
+        router.refresh();
         return;
       }
+
       localStorage.setItem("userEmail", user.email ?? "");
       localStorage.setItem("userRole", normalizedRole);
-      const redirectToPath = searchParams.get("redirect_to");
-      const redirectPath = searchParams.get("redirect");
-      if (redirectToPath) {
-        router.push(redirectToPath);
-      } else if (redirectPath) {
-        router.push(redirectPath);
+
+      if (safeRedirect) {
+        router.push(safeRedirect);
       } else {
-        router.push(normalizedRole === "host" ? "/dashboard/host" : "/dashboard/renter");
+        router.push("/dashboard/renter");
       }
       router.refresh();
     } finally {
@@ -84,56 +119,60 @@ function LoginContent() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f5f0e8] text-[#0f1f3d]">
-      <section className="bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 py-16 text-white">
-        <div className="mx-auto w-full max-w-[520px]">
-          <Link
-            href="/"
-            className="mb-4 inline-flex rounded-full border border-white/20 bg-white/10 px-[14px] py-[6px] text-[0.85rem] font-medium text-white transition hover:bg-white/20"
-          >
-            ← Startsidan
-          </Link>
-          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
-            Logga in som båtägare
-          </p>
-          <h1 className="mt-2 text-[2rem] font-extrabold">Logga in</h1>
-        </div>
-      </section>
+    <div className="flex min-h-screen">
+      <RenterAuthBrandingPanel
+        headline="Hitta din perfekta båtplats"
+        subtitle="Boka säsongsplats direkt från hamnar och privatpersoner i hela Sverige."
+      />
 
-      <section className="px-6 py-10">
-        <div className="mx-auto w-full max-w-[520px] rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
-          <GoogleOAuthButton newUserRole="renter" />
-          <div className="my-4">
+      <div className="flex flex-1 flex-col justify-center bg-white px-6 py-12 lg:px-16">
+        <Link href="/" className="mb-8 text-xl font-bold lg:hidden" style={{ color: NAVY }}>
+          Båtplats.nu
+        </Link>
+
+        <div className="mx-auto w-full max-w-md">
+          <h2 className="mb-2 text-2xl font-bold" style={{ color: NAVY }}>
+            Logga in
+          </h2>
+          <p className="mb-8 text-gray-500">
+            Välkommen tillbaka! Logga in för att hantera dina bokningar.
+          </p>
+
+          <GoogleOAuthButton newUserRole="renter" redirectPath={oauthRedirectPath} />
+          <div className="my-5">
             <AuthOAuthDivider />
           </div>
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">E-post</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">E-post</label>
               <input
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
-                className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                placeholder="din@email.se"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Lösenord</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Lösenord</label>
               <input
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
-                className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                placeholder="Ditt lösenord"
+                className={inputClass}
               />
             </div>
 
-            {error ? <p className="text-sm text-[#d64c3b]">{error}</p> : null}
+            {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
             {roleMismatch === "host" ? (
               <Link
                 href="/hamnar/logga-in"
-                className="inline-flex w-full items-center justify-center rounded-lg border-2 border-[#0d9488] px-4 py-2.5 text-sm font-semibold text-[#0d9488] transition hover:bg-[#0d9488] hover:text-white"
+                className="mt-3 inline-flex w-full items-center justify-center rounded-xl border-2 border-teal-500 px-4 py-2.5 text-sm font-semibold text-teal-600 transition hover:bg-teal-50"
               >
                 Gå till hamnägarsidan
               </Link>
@@ -142,32 +181,35 @@ function LoginContent() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:opacity-60"
+              className="mt-6 w-full rounded-xl py-4 font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              style={{ background: TEAL }}
             >
-              {loading ? "Loggar in..." : "Logga in"}
+              {loading ? "Loggar in..." : "Logga in →"}
             </button>
           </form>
 
-          <p className="mt-5 text-center text-sm text-[#8a96a8]">
+          <p className="mt-4 text-center text-sm text-gray-500">
             Inget konto?{" "}
-            <Link href="/signup" className="font-semibold text-[#0d9488] hover:underline">
+            <Link href="/signup" className="font-medium text-teal-600 hover:underline">
               Skapa konto
             </Link>
           </p>
 
-          <div className="my-5 border-t border-[#dce3ee]" />
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-gray-100" />
+            <span className="text-xs text-gray-400">Är du hamnägare?</span>
+            <div className="h-px flex-1 bg-gray-100" />
+          </div>
 
-          <p className="text-center text-sm text-[#8a96a8]">Är du hamnägare?</p>
           <Link
             href="/hamnar/logga-in"
-            className="mt-3 inline-flex w-full items-center justify-center rounded-lg border-2 border-[#0d9488] px-4 py-2.5 text-sm font-semibold text-[#0d9488] transition hover:bg-[#0d9488] hover:text-white"
+            className="block w-full rounded-xl border-2 border-gray-200 py-3 text-center text-sm font-medium text-gray-600 transition hover:bg-gray-50"
           >
             Logga in som hamnägare
           </Link>
         </div>
-      </section>
-      <Footer />
-    </main>
+      </div>
+    </div>
   );
 }
 
@@ -175,11 +217,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-[#f5f0e8] text-[#0f1f3d]">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#c5d0de] border-t-[#0d9488]" />
-            <p className="text-sm font-medium text-[#8a96a8]">Laddar inloggning...</p>
-          </div>
+        <main className="flex min-h-screen items-center justify-center bg-white text-gray-600">
+          <p className="text-sm font-medium">Laddar inloggning...</p>
         </main>
       }
     >

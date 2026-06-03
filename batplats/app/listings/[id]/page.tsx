@@ -6,6 +6,8 @@ import BookBerthButton from "@/components/book-berth-button";
 import Footer from "@/components/footer";
 import ListingGallery from "@/components/listing-gallery";
 import ListingLocationMap from "@/components/listing-location-map";
+import ListingPublishedBanner from "@/components/listing-published-banner";
+import ListingReviewsSection from "@/components/listing-reviews-section";
 import ListingTravelInfo from "@/components/listing-travel-info";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 
@@ -17,6 +19,8 @@ type ListingPageProps = {
 
 type ListingRecord = {
   id: number | string;
+  owner_id?: string | null;
+  listing_type?: string | null;
   harbour_id?: number | string | null;
   harbour_name?: string | null;
   city?: string | null;
@@ -176,6 +180,44 @@ export default async function ListingPage({ params }: ListingPageProps) {
     galleryImages.push({ id: "legacy-main", image_url: resolvedListing.image_url, display_order: 0 });
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const isOwner = user?.id === resolvedListing.owner_id;
+  const ownerDashboardHref =
+    resolvedListing.listing_type === "private" ? "/mitt-konto" : "/dashboard/host";
+
+  const bookBerthButtonClass =
+    "w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:cursor-not-allowed disabled:bg-[#8a96a8]";
+
+  const bookingAction = isOwner ? (
+    <div className="mt-5 rounded-xl border-2 border-teal-200 bg-teal-50 p-5 text-center">
+      <p className="mb-3 font-semibold text-teal-700">✓ Detta är din annons</p>
+      <Link
+        href={ownerDashboardHref}
+        className="block w-full rounded-xl py-3 text-center text-sm font-medium text-white transition hover:opacity-90"
+        style={{ background: "#0d9488" }}
+      >
+        Hantera annons →
+      </Link>
+    </div>
+  ) : resolvedListing.is_available ? (
+    <BookBerthButton
+      listingId={id}
+      listingTitle={resolvedListing.title}
+      harbourName={resolvedListing.harbours?.name ?? "Hamn"}
+      pricePerSeason={resolvedListing.price_per_season}
+      bookedRanges={serializedBookedRanges}
+      isAvailable
+      className={`mt-5 ${bookBerthButtonClass}`}
+    />
+  ) : (
+    <p className="mt-5 rounded-lg border border-[#fecaca] bg-[#fff1f2] px-4 py-3 text-sm font-semibold text-[#d64c3b]">
+      Denna båtplats är inte tillgänglig just nu
+    </p>
+  );
+
   return (
     <main className="min-h-screen bg-[#f5f0e8] pb-24 text-[#0f1f3d] md:pb-0">
       <AuthNavbar currentPage="listing" />
@@ -184,13 +226,14 @@ export default async function ListingPage({ params }: ListingPageProps) {
         <div className="mx-auto w-full max-w-[1280px]">
           <Link
             href="/kajplatser"
-            className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-teal-400 transition-colors hover:text-teal-300"
-            style={{ fontFamily: "DM Sans, sans-serif" }}
+            className="group mb-6 inline-flex items-center gap-2 text-sm font-medium text-white/80 transition hover:text-white"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="15 18 9 12 15 6"></polyline>
-            </svg>
-            <span>Tillbaka till alla båtplatser</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 transition group-hover:bg-white/20">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </div>
+            Tillbaka till alla båtplatser
           </Link>
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
             {resolvedListing.harbours?.name ?? "Hamn"}
@@ -208,6 +251,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
       <section className="px-6 py-10">
         <div className="mx-auto grid w-full max-w-[1280px] gap-8 lg:grid-cols-[1fr_340px]">
           <div>
+            <ListingPublishedBanner />
             <ListingGallery title={resolvedListing.title} images={galleryImages} />
 
             <div className="rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
@@ -301,6 +345,10 @@ export default async function ListingPage({ params }: ListingPageProps) {
                   </ul>
                 )}
               </div>
+
+              {resolvedListing.harbour_id ? (
+                <ListingReviewsSection listingId={id} harbourId={String(resolvedListing.harbour_id)} />
+              ) : null}
             </div>
           </div>
 
@@ -313,37 +361,36 @@ export default async function ListingPage({ params }: ListingPageProps) {
                 {resolvedListing.price_per_season.toLocaleString("sv-SE")} SEK
               </p>
               <p className="text-sm text-[#8a96a8]">per säsong</p>
-              {resolvedListing.is_available ? (
-                <BookBerthButton
-                  listingId={id}
-                  listingTitle={resolvedListing.title}
-                  harbourName={resolvedListing.harbours?.name ?? "Hamn"}
-                  pricePerSeason={resolvedListing.price_per_season}
-                  bookedRanges={serializedBookedRanges}
-                  isAvailable
-                  className="mt-5 w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:cursor-not-allowed disabled:bg-[#8a96a8]"
-                />
-              ) : (
-                <p className="mt-5 rounded-lg border border-[#fecaca] bg-[#fff1f2] px-4 py-3 text-sm font-semibold text-[#d64c3b]">
-                  Denna båtplats är inte tillgänglig just nu
-                </p>
-              )}
+              {bookingAction}
             </div>
           </aside>
         </div>
       </section>
 
-      {resolvedListing.is_available ? (
+      {isOwner || resolvedListing.is_available ? (
         <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[#dce3ee] bg-white/95 p-4 backdrop-blur md:hidden">
-          <BookBerthButton
-            listingId={id}
-            listingTitle={resolvedListing.title}
-            harbourName={resolvedListing.harbours?.name ?? "Hamn"}
-            pricePerSeason={resolvedListing.price_per_season}
-            bookedRanges={serializedBookedRanges}
-            isAvailable
-            className="w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:cursor-not-allowed disabled:bg-[#8a96a8]"
-          />
+          {isOwner ? (
+            <div className="rounded-xl border-2 border-teal-200 bg-teal-50 p-4 text-center">
+              <p className="mb-2 font-semibold text-teal-700">✓ Detta är din annons</p>
+              <Link
+                href={ownerDashboardHref}
+                className="block w-full rounded-xl py-3 text-center text-sm font-medium text-white transition hover:opacity-90"
+                style={{ background: "#0d9488" }}
+              >
+                Hantera annons →
+              </Link>
+            </div>
+          ) : (
+            <BookBerthButton
+              listingId={id}
+              listingTitle={resolvedListing.title}
+              harbourName={resolvedListing.harbours?.name ?? "Hamn"}
+              pricePerSeason={resolvedListing.price_per_season}
+              bookedRanges={serializedBookedRanges}
+              isAvailable
+              className={bookBerthButtonClass}
+            />
+          )}
         </div>
       ) : null}
       <Footer />

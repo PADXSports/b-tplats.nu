@@ -19,6 +19,12 @@ export async function GET(request: NextRequest) {
         .eq("id", data.user.id)
         .maybeSingle();
 
+      const redirectParam = searchParams.get("redirect");
+      const safeRedirect =
+        redirectParam && redirectParam.startsWith("/") && !redirectParam.startsWith("//")
+          ? redirectParam
+          : null;
+
       if (!profile) {
         await supabase.from("profiles").insert({
           id: data.user.id,
@@ -28,13 +34,34 @@ export async function GET(request: NextRequest) {
             (data.user.user_metadata?.name as string | undefined) ||
             "",
         });
-        const redirectTo = newProfileRole === "host" ? "/dashboard/host" : "/dashboard/renter";
+        let hostDefault = "/dashboard/host";
+        if (newProfileRole === "host") {
+          const { data: privateListing } = await supabase
+            .from("listings")
+            .select("id")
+            .eq("owner_id", data.user.id)
+            .eq("listing_type", "private")
+            .maybeSingle();
+          if (privateListing) hostDefault = "/mitt-konto";
+        }
+        const redirectTo =
+          safeRedirect ?? (newProfileRole === "host" ? hostDefault : "/dashboard/renter");
         return NextResponse.redirect(new URL(redirectTo, origin));
       }
 
       const r = profile.role as string | null;
       const isHost = r === "host" || r === "owner";
-      const redirectTo = isHost ? "/dashboard/host" : "/dashboard/renter";
+      let hostDefault = "/dashboard/host";
+      if (isHost) {
+        const { data: privateListing } = await supabase
+          .from("listings")
+          .select("id")
+          .eq("owner_id", data.user.id)
+          .eq("listing_type", "private")
+          .maybeSingle();
+        if (privateListing) hostDefault = "/mitt-konto";
+      }
+      const redirectTo = safeRedirect ?? (isHost ? hostDefault : "/dashboard/renter");
       return NextResponse.redirect(new URL(redirectTo, origin));
     }
   }

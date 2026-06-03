@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -85,6 +86,8 @@ export default function BookBerthButton({
   className,
   bookedRanges,
 }: BookBerthButtonProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const supabase = useMemo(() => createClient(), []);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isOpen, setIsOpen] = useState(false);
@@ -223,8 +226,19 @@ export default function BookBerthButton({
     window.setTimeout(() => setBookedTooltipYmd(null), 2000);
   }, []);
 
-  const handleBook = () => {
+  const handleBook = async () => {
     if (!isAvailable) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      const returnPath = pathname || redirectPath;
+      router.push(`/login?redirect=${encodeURIComponent(returnPath)}`);
+      return;
+    }
+
     resetFlow();
     setIsOpen(true);
   };
@@ -344,7 +358,7 @@ export default function BookBerthButton({
   return (
     <>
       <button
-        onClick={handleBook}
+        onClick={() => void handleBook()}
         disabled={!isAvailable}
         className={
           className ??
@@ -544,13 +558,13 @@ export default function BookBerthButton({
                         <p className="text-sm text-[#8a96a8]">Enklare att hantera dina bokningar</p>
                         <div className="flex gap-2">
                           <Link
-                            href={`/login?redirect=${encodeURIComponent(redirectPath)}`}
+                            href={`/login?redirect=${encodeURIComponent(pathname || redirectPath)}`}
                             className="rounded-lg bg-[#0f1f3d] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0d2252]"
                           >
                             Logga in
                           </Link>
                           <Link
-                            href={`/signup?redirect=${encodeURIComponent(redirectPath)}`}
+                            href={`/signup?redirect=${encodeURIComponent(pathname || redirectPath)}`}
                             className="rounded-lg border border-[#0f1f3d] px-4 py-2 text-sm font-semibold text-[#0f1f3d] transition hover:bg-[#f5f0e8]"
                           >
                             Skapa konto

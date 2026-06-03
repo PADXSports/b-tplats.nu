@@ -53,6 +53,7 @@ type FeaturedListing = {
   price_per_season: number;
   image_url: string | null;
   listing_images: FeaturedListingImage[];
+  listing_type?: string | null;
 };
 
 const LOCATION_TYPE_LABELS: Record<LocationSuggestionType, string> = {
@@ -264,6 +265,11 @@ function FeaturedListingCard({ listing }: { listing: FeaturedListing }) {
 
       <div className="space-y-1">
         <p className="text-xs font-semibold uppercase tracking-wide text-teal-600">{listing.harbour_name}</p>
+        {listing.listing_type === "private" ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-700">
+            🚤 Privat uthyrning
+          </span>
+        ) : null}
         <h3 className="text-base font-semibold text-gray-900">{listing.title}</h3>
         <p className="text-sm text-gray-600">
           <span className="inline-flex items-center gap-1">
@@ -492,7 +498,7 @@ function HomeContent() {
           supabase
             .from("listings")
             .select(
-              "id, harbour_id, title, image_url, price_per_season, max_boat_length, max_boat_width, owner_id, harbours!inner(id, name, city, owner_id), listing_images(id, image_url, display_order)",
+              "id, harbour_id, title, image_url, price_per_season, max_boat_length, max_boat_width, listing_type, owner_id, harbours!inner(id, name, city, owner_id), listing_images(id, image_url, display_order)",
             )
             .eq("is_available", true)
             .not("owner_id", "is", null)
@@ -546,6 +552,7 @@ function HomeContent() {
                 price_per_season: listing.price_per_season ?? 0,
                 image_url: listing.image_url ?? null,
                 listing_images: listingImages,
+                listing_type: (listing as { listing_type?: string | null }).listing_type ?? null,
               };
             }),
           );
@@ -645,24 +652,17 @@ function HomeContent() {
         />
 
         <div className="relative z-[2] mx-auto w-full max-w-[760px] text-center">
-          <div className="mb-5 flex items-center justify-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#14b8a6]">
-            <span className="h-px w-6 bg-[#0d9488]/60" />
-            Säsong 2026 — Öppet för bokning
-            <span className="h-px w-6 bg-[#0d9488]/60" />
-          </div>
           <h1 className="text-[clamp(2.5rem,7vw,5.5rem)] font-extrabold leading-[0.95] tracking-[-0.04em] text-white">
-            Din plats
-            <br />
-            på <span className="text-[#14b8a6]">vattnet</span>
+            Hitta din båtplats
+            <span className="text-[#14b8a6]"> — eller hyr ut din</span>
           </h1>
-          <p className="mx-auto mb-10 mt-6 max-w-[520px] text-base font-normal leading-relaxed text-white/60 sm:text-lg">
-            Sveriges enklaste sätt att hyra säsongsplats för båt. Hundratals bryggor i Stockholms skärgård — hitta,
-            boka och betala direkt via båtplats.nu.
+          <p className="mx-auto mt-6 max-w-[520px] text-base font-normal leading-relaxed text-white/60 sm:text-lg">
+            Sveriges marketplace för båtplatser. Boka direkt från hamnar och privatpersoner i hela Sverige.
           </p>
 
           <div
             id="search-hero"
-            className="mx-auto w-full max-w-[700px] rounded-[2.25rem] bg-white p-1.5 shadow-[0_8px_40px_rgba(0,0,0,0.3)] ring-1 ring-white/10 sm:p-1.5"
+            className="mx-auto mt-10 w-full max-w-[700px] rounded-[2.25rem] bg-white p-1.5 shadow-[0_8px_40px_rgba(0,0,0,0.3)] ring-1 ring-white/10 sm:p-1.5"
           >
             <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-0 sm:pr-1">
               <label className="search-field group flex flex-1 cursor-text flex-col rounded-[2rem] px-4 py-2.5 transition-colors hover:bg-[#f5f0e8] sm:px-5 sm:py-2.5">
@@ -806,21 +806,22 @@ function HomeContent() {
           <div className="mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[13px] text-white/50 sm:gap-x-7">
             <div className="flex items-center gap-2">
               <strong className="font-semibold text-white/85">{stats.listings}+</strong>
-              tillgängliga platser
+              Tillgängliga platser
             </div>
             <span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" />
             <div className="flex items-center gap-2">
               <strong className="font-semibold text-white/85">{stats.marinas}+</strong>
-              partnerhamnar
+              Partnerhamnar
             </div>
             <span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" />
             <div className="flex items-center gap-2">
-              <strong className="font-semibold text-white/85">{stats.bookings}+</strong>
-              bokningar
+              <strong className="font-semibold text-white/85">{stats.cities}+</strong>
+              Städer
             </div>
             <span className="hidden h-1 w-1 rounded-full bg-white/20 sm:block" />
             <div className="flex items-center gap-2">
-              Bokning på <strong className="font-semibold text-white/85">några minuter</strong>
+              <strong className="font-semibold text-white/85">Direkt</strong>
+              Bokning
             </div>
           </div>
         </div>
@@ -889,11 +890,14 @@ function HomeContent() {
                   några minuter
                 </h2>
               </RevealOnView>
+              <RevealOnView delayClass="delay-150">
+                <h3 className="mt-4 text-lg font-bold text-[#0f1f3d]">För båtägare</h3>
+              </RevealOnView>
             </div>
             <RevealOnView delayClass="delay-150">
               <p className="text-[17px] leading-relaxed text-[#4a5568]">
-                Ingen lång väntelista, inga telefonsamtal. Hitta en ledig plats, välj din säsong och betala säkert direkt
-                via Båtplats.
+                Ingen lång väntelista, inga telefonsamtal. Hitta en ledig plats från hamnar och privatpersoner, välj din
+                säsong och betala säkert direkt via Båtplats.nu.
               </p>
             </RevealOnView>
           </div>
@@ -903,7 +907,7 @@ function HomeContent() {
               {
                 num: "01",
                 title: "Sök & filtrera",
-                desc: "Ange ditt område, båtlängd och önskad säsong. Se lediga platser på karta eller lista med full information om mått, faciliteter och pris.",
+                desc: "Ange ditt område, båtlängd och önskad säsong. Se lediga platser från hamnar och privatpersoner.",
                 icon: (
                   <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden>
                     <circle cx="12" cy="12" r="7" stroke="#0d9488" strokeWidth="1.8" />
@@ -914,7 +918,7 @@ function HomeContent() {
               {
                 num: "02",
                 title: "Välj & boka",
-                desc: "Välj din plats och säsong. Hamnen bekräftar inom kort — ofta direkt. Du ser status och besked i din profil.",
+                desc: "Välj din plats och säsong. Betala säkert direkt — ofta utan väntetid.",
                 icon: (
                   <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden>
                     <rect x="3" y="5" width="20" height="16" rx="3" stroke="#0d9488" strokeWidth="1.8" />
@@ -928,7 +932,7 @@ function HomeContent() {
               {
                 num: "03",
                 title: "Förtöj & njut",
-                desc: "Få information om platsen direkt efter bekräftad bokning. Allt du behöver — kontakt, villkor och översikt — samlat på ett ställe.",
+                desc: "Få all information om platsen direkt efter bekräftad bokning.",
                 icon: (
                   <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden>
                     <path
@@ -962,19 +966,74 @@ function HomeContent() {
         </div>
       </section>
 
+      {/* För vem? */}
+      <section className="bg-[#f5f0e8] px-4 py-16 sm:px-6 md:py-16">
+        <div className="mx-auto max-w-5xl px-4">
+          <p className="mb-2 text-center text-sm font-semibold uppercase tracking-wide text-[#0d9488]">För vem?</p>
+          <h2 className="mb-12 text-center text-3xl font-bold text-[#0f1f3d]">Två sätt att använda Båtplats.nu</h2>
+
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+            <div className="rounded-2xl border border-[#dce3ee] bg-white p-8 shadow-[0_1px_4px_rgba(15,31,61,0.08)]">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#d4f0ec]">
+                <svg className="h-6 w-6 text-[#0d9488]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+              <h3 className="mb-3 text-xl font-bold text-[#0f1f3d]">Letar du efter en plats?</h3>
+              <p className="mb-6 text-[#4a5568]">
+                Boka säsongsplats direkt från hamnar och privatpersoner. Filtrera på storlek, pris och område — betala
+                säkert online.
+              </p>
+              <Link
+                href="/kajplatser"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0d9488] px-6 py-3 font-medium text-white transition hover:bg-[#14b8a6]"
+              >
+                Sök båtplatser →
+              </Link>
+            </div>
+
+            <div className="rounded-2xl bg-[#0f2942] p-8 shadow-[0_1px_4px_rgba(15,31,61,0.08)]">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#0d2252]">
+                <svg className="h-6 w-6 text-[#14b8a6]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </div>
+              <h3 className="mb-3 text-xl font-bold text-white">Har du en plats att hyra ut?</h3>
+              <p className="mb-6 text-gray-300">
+                Oavsett om du driver en marina eller har en privat plats du inte använder — lista den och tjäna pengar på
+                din plats.
+              </p>
+              <Link
+                href="/hyr-ut"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#14b8a6] px-6 py-3 font-medium text-white transition hover:bg-[#0d9488]"
+              >
+                Hyr ut din plats →
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Stats — live data */}
       <section className="bg-[#0f1f3d] px-4 py-14 sm:px-6 md:px-12 md:py-16">
         <div className="mx-auto grid max-w-[1200px] gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-12">
-          {[
-            [stats.marinas, "Partnerhamnar", "/kajplatser"],
-            [stats.listings, "Tillgängliga båtplatser", "/kajplatser"],
-            [stats.cities, "Städer", "/kajplatser"],
-            [stats.bookings, "Bokningar gjorda", "/dashboard/renter"],
-          ].map(([value, label, href]) => (
+          {(
+            [
+              { value: stats.listings, label: "Tillgängliga platser", href: "/kajplatser", showPlus: true },
+              { value: stats.marinas, label: "Partnerhamnar", href: "/kajplatser", showPlus: true },
+              { value: stats.cities, label: "Städer", href: "/kajplatser", showPlus: true },
+              { value: "Direkt", label: "Bokning", href: "/kajplatser", showPlus: false },
+            ] as const
+          ).map(({ value, label, href, showPlus }) => (
             <Link key={label} href={href} className="block text-center transition hover:opacity-90">
               <p className="text-[clamp(2rem,4vw,3.5rem)] font-extrabold leading-none tracking-[-0.04em] text-white">
                 {value}
-                <em className="not-italic text-[#14b8a6]">+</em>
+                {showPlus ? <em className="not-italic text-[#14b8a6]">+</em> : null}
               </p>
               <p className="mt-2 text-[13px] text-white/50">{label}</p>
             </Link>

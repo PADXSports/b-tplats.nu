@@ -1,20 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 
-import Footer from "@/components/footer";
 import { AuthOAuthDivider, GoogleOAuthButton } from "@/components/google-oauth-button";
 import { createClient } from "@/lib/supabase/client";
 
-export default function HarbourSignupPage() {
+const NAVY = "#0a1628";
+const TEAL = "#0d9488";
+
+const inputClass =
+  "w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-teal-500 transition bg-white text-gray-900 placeholder-gray-400";
+
+const BENEFITS = [
+  { icon: "👥", text: "Nå tusentals båtägare varje säsong" },
+  { icon: "💰", text: "Säker betalning direkt till ditt konto" },
+  { icon: "📱", text: "Hantera allt enkelt i din dashboard" },
+  { icon: "⭐", text: "Bygg förtroende med omdömen" },
+] as const;
+
+function HarbourSignupContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const listingTypeParam = searchParams.get("type") || "marina";
+  const [type, setType] = useState(listingTypeParam === "private" ? "private" : "marina");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setType(listingTypeParam === "private" ? "private" : "marina");
+  }, [listingTypeParam]);
 
   const handleSignup = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -33,6 +52,7 @@ export default function HarbourSignupPage() {
         options: {
           data: {
             name,
+            listing_type: type,
           },
         },
       });
@@ -65,83 +85,159 @@ export default function HarbourSignupPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f5f0e8] text-[#0f1f3d]">
-      <section className="bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 py-16 text-white">
-        <div className="mx-auto w-full max-w-[520px]">
-          <Link
-            href="/"
-            className="mb-4 inline-flex rounded-full border border-white/20 bg-white/10 px-[14px] py-[6px] text-[0.85rem] font-medium text-white transition hover:bg-white/20"
-          >
-            ← Startsidan
-          </Link>
-          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
-            För hamnägare
-          </p>
-          <h1 className="mt-2 text-[2rem] font-extrabold">Registrera din hamn</h1>
-        </div>
-      </section>
+    <div className="flex min-h-screen">
+      <div
+        className="hidden flex-col justify-between p-12 lg:flex lg:w-5/12"
+        style={{ background: NAVY }}
+      >
+        <Link href="/" className="text-xl font-bold text-white">
+          Båtplats.nu
+        </Link>
 
-      <section className="px-6 py-10">
-        <div className="mx-auto w-full max-w-[520px] rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
+        <div>
+          <h1 className="mb-4 text-4xl font-bold leading-tight text-white">
+            Välkommen till Sveriges båtplatsmarknad
+          </h1>
+          <p className="mb-10 text-lg text-gray-400">Registrera dig och börja ta emot bokningar direkt.</p>
+
+          <div className="space-y-5">
+            {BENEFITS.map((benefit, i) => (
+              <div key={i} className="flex items-center gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-xl">
+                  {benefit.icon}
+                </div>
+                <p className="text-gray-300">{benefit.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl bg-white/5 p-5">
+          <p className="mb-3 text-sm italic text-gray-300">
+            &ldquo;Vi fyllde alla våra platser inom första veckan på Båtplats.nu!&rdquo;
+          </p>
+          <p className="text-sm font-medium text-teal-400">— Bockholmens Marina</p>
+        </div>
+      </div>
+
+      <div className="flex flex-1 flex-col justify-center bg-white px-6 py-12 lg:px-16">
+        <Link href="/" className="mb-8 text-xl font-bold lg:hidden" style={{ color: NAVY }}>
+          Båtplats.nu
+        </Link>
+
+        <div className="mx-auto w-full max-w-md">
+          <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-gray-500">Jag är:</p>
+          <div className="mb-8 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setType("marina")}
+              className={`rounded-xl border-2 p-4 text-left transition-all ${
+                type === "marina"
+                  ? "border-teal-500 bg-teal-50"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
+            >
+              <span className="mb-2 block text-2xl">🏗️</span>
+              <p className="text-sm font-semibold" style={{ color: NAVY }}>
+                Hamnägare
+              </p>
+              <p className="mt-0.5 text-xs text-gray-500">Marina eller klubb</p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push("/hyr-ut")}
+              className="rounded-xl border-2 border-gray-200 bg-white p-4 text-left transition-all hover:border-teal-500"
+            >
+              <span className="mb-2 block text-2xl">🚤</span>
+              <p className="text-sm font-semibold" style={{ color: NAVY }}>
+                Privatperson
+              </p>
+              <p className="mt-0.5 text-xs text-gray-500">Privat plats →</p>
+            </button>
+          </div>
+
+          <h2 className="mb-6 text-2xl font-bold" style={{ color: NAVY }}>
+            Skapa ditt konto
+          </h2>
+
           <GoogleOAuthButton newUserRole="host" />
-          <div className="my-4">
+          <div className="my-5">
             <AuthOAuthDivider />
           </div>
+
           <form onSubmit={handleSignup} className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Namn</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Namn</label>
               <input
                 type="text"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 required
-                className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                className={inputClass}
+                placeholder="Ditt namn eller marinans namn"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">E-post</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">E-post</label>
               <input
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
-                className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                className={inputClass}
+                placeholder="din@email.se"
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Lösenord</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Lösenord</label>
               <input
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
                 minLength={6}
-                className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                className={inputClass}
+                placeholder="Minst 6 tecken"
               />
             </div>
 
-            {error ? <p className="text-sm text-[#d64c3b]">{error}</p> : null}
+            {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:opacity-60"
+              className="mt-2 w-full rounded-xl py-4 font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+              style={{ background: TEAL }}
             >
-              {loading ? "Skapar konto..." : "Registrera din hamn"}
+              {loading ? "Skapar konto..." : "Skapa konto & kom igång →"}
             </button>
           </form>
 
-          <p className="mt-5 text-center text-sm text-[#8a96a8]">
-            Har du redan konto?{" "}
-            <Link href="/hamnar/logga-in" className="font-semibold text-[#0d9488] hover:underline">
-              Logga in som hamnägare
+          <p className="mt-4 text-center text-sm text-gray-500">
+            Har du redan ett konto?{" "}
+            <Link href="/hamnar/logga-in" className="font-medium text-teal-600 hover:underline">
+              Logga in
             </Link>
           </p>
         </div>
-      </section>
-      <Footer />
-    </main>
+      </div>
+    </div>
+  );
+}
+
+export default function HarbourSignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-white text-gray-600">
+          <p className="text-sm font-medium">Laddar...</p>
+        </main>
+      }
+    >
+      <HarbourSignupContent />
+    </Suspense>
   );
 }

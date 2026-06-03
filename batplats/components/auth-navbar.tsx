@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import { useAuth } from "@/providers/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 
 type AuthNavbarProps = {
@@ -14,81 +15,35 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const supabase = useMemo(() => createClient(), []);
+  const { user, role, isPrivateHost, loading } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showLoginDropdown, setShowLoginDropdown] = useState(false);
   const mobileCloseButtonRef = useRef<HTMLButtonElement | null>(null);
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState("");
-
-  useEffect(() => {
-    let mounted = true;
-
-    const syncFromServer = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user?.id) {
-        localStorage.removeItem("userEmail");
-        localStorage.removeItem("userRole");
-        if (mounted) {
-          setEmail("");
-          setRole("");
-        }
-        return;
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-      if (profileError) {
-        console.error(profileError);
-      }
-
-      const profileRole = profile?.role ?? "renter";
-      localStorage.setItem("userEmail", user.email ?? "");
-      localStorage.setItem("userRole", profileRole);
-
-      if (mounted) {
-        setEmail(user.email ?? "");
-        setRole(profileRole);
-      }
-    };
-
-    void syncFromServer();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_OUT") {
-        localStorage.removeItem("userEmail");
-        localStorage.removeItem("userRole");
-        if (mounted) {
-          setEmail("");
-          setRole("");
-        }
-        return;
-      }
-      void syncFromServer();
-    });
-
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, [supabase]);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const email = user?.email ?? "";
 
   const handleLogout = async () => {
     const client = createClient();
-    localStorage.removeItem("userEmail");
-    localStorage.removeItem("userRole");
     await client.auth.signOut();
     setIsMobileMenuOpen(false);
+    setShowLoginDropdown(false);
     router.push("/");
     router.refresh();
   };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowLoginDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    setShowLoginDropdown(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isMobileMenuOpen) return;
@@ -112,10 +67,269 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
 
   const isSearchActive =
     currentPage === "search" || pathname?.startsWith("/search") || pathname?.startsWith("/kajplatser");
-  const isProfileActive = currentPage === "profile" || pathname?.startsWith("/profile");
   const activeHostTab = searchParams.get("tab");
   const isHost = (role === "host" || role === "owner") && Boolean(email);
+  const isMarinaHost = isHost && !isPrivateHost;
   const isRenter = role === "renter" && Boolean(email);
+  const hostDashboardHref = isPrivateHost ? "/mitt-konto" : "/dashboard/host";
+  const loginHref =
+    pathname && pathname !== "/"
+      ? `/login?redirect=${encodeURIComponent(pathname)}`
+      : "/login";
+  const userDashboardHref = isPrivateHost
+    ? "/mitt-konto"
+    : isHost
+      ? "/dashboard/host"
+      : "/dashboard/renter";
+
+  const guestLoginDropdown = (
+    <div className="relative ml-2" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setShowLoginDropdown(!showLoginDropdown)}
+        className="flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+        style={{ background: "#0d9488" }}
+        aria-expanded={showLoginDropdown}
+        aria-haspopup="true"
+      >
+        Logga in
+        <svg
+          className={`h-4 w-4 transition-transform ${showLoginDropdown ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {showLoginDropdown ? (
+        <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
+          <div className="border-b border-gray-100 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Vem är du?</p>
+          </div>
+
+          <Link
+            href={loginHref}
+            onClick={() => setShowLoginDropdown(false)}
+            className="group flex items-center gap-4 px-4 py-4 transition hover:bg-gray-50"
+          >
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-teal-50 transition group-hover:bg-teal-100">
+              <svg className="h-5 w-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "#0a1628" }}>
+                Jag söker en båtplats
+              </p>
+              <p className="text-xs text-gray-500">Logga in som båtägare</p>
+            </div>
+            <svg
+              className="ml-auto h-4 w-4 text-gray-300 transition group-hover:text-teal-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+
+          <Link
+            href="/hyr-ut?skip=1"
+            onClick={() => setShowLoginDropdown(false)}
+            className="group flex items-center gap-4 border-t border-gray-50 px-4 py-4 transition hover:bg-gray-50"
+          >
+            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-50 transition group-hover:bg-blue-100">
+              <svg className="h-5 w-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "#0a1628" }}>
+                Jag hyr ut min plats
+              </p>
+              <p className="text-xs text-gray-500">Privatperson med en ledig plats</p>
+            </div>
+            <svg
+              className="ml-auto h-4 w-4 text-gray-300 transition group-hover:text-blue-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+
+          <Link
+            href="/hamnar/logga-in"
+            onClick={() => setShowLoginDropdown(false)}
+            className="group flex items-center gap-4 border-t border-gray-50 px-4 py-4 transition hover:bg-gray-50"
+          >
+            <div
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl transition group-hover:bg-gray-100"
+              style={{ background: "#f0f4f8" }}
+            >
+              <svg className="h-5 w-5" style={{ color: "#0a1628" }} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "#0a1628" }}>
+                Jag är hamnägare
+              </p>
+              <p className="text-xs text-gray-500">Marina eller båtklubb</p>
+            </div>
+            <svg
+              className="ml-auto h-4 w-4 text-gray-300 transition group-hover:text-gray-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </Link>
+
+          <div className="border-t border-gray-100 bg-gray-50 px-4 py-3">
+            <p className="text-center text-xs text-gray-400">
+              Nytt på Båtplats.nu?{" "}
+              <Link
+                href="/signup"
+                className="font-medium text-teal-600 hover:underline"
+                onClick={() => setShowLoginDropdown(false)}
+              >
+                Skapa gratis konto
+              </Link>
+            </p>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const userAccountDropdown = user ? (
+    <div className="relative ml-2" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setShowLoginDropdown(!showLoginDropdown)}
+        className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 transition hover:bg-gray-50"
+        aria-expanded={showLoginDropdown}
+        aria-haspopup="true"
+      >
+        <div
+          className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white"
+          style={{ background: "#0d9488" }}
+        >
+          {user.email?.charAt(0).toUpperCase()}
+        </div>
+        <span className="hidden text-sm font-medium text-[#0a1628] sm:block">
+          {user.email?.split("@")[0]}
+        </span>
+        <svg
+          className={`h-4 w-4 text-gray-400 transition-transform ${showLoginDropdown ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+          aria-hidden
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      {showLoginDropdown ? (
+        <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
+          <div className="border-b border-gray-100 px-4 py-3">
+            <p className="text-sm font-semibold" style={{ color: "#0a1628" }}>
+              {user.email?.split("@")[0]}
+            </p>
+            <p className="text-xs text-gray-400">{user.email}</p>
+          </div>
+
+          <Link
+            href={userDashboardHref}
+            onClick={() => setShowLoginDropdown(false)}
+            className="flex items-center gap-3 px-4 py-3 transition hover:bg-gray-50"
+          >
+            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+              />
+            </svg>
+            <span className="text-sm text-gray-700">Min sida</span>
+          </Link>
+
+          <Link
+            href="/kajplatser"
+            onClick={() => setShowLoginDropdown(false)}
+            className="flex items-center gap-3 px-4 py-3 transition hover:bg-gray-50"
+          >
+            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <span className="text-sm text-gray-700">Sök båtplatser</span>
+          </Link>
+
+          <div className="border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => {
+                void handleLogout();
+                setShowLoginDropdown(false);
+              }}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-red-50"
+            >
+              <svg className="h-4 w-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                />
+              </svg>
+              <span className="text-sm text-red-600">Logga ut</span>
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  ) : null;
+
+  const authSlot = loading ? (
+    <div className="ml-2 flex w-36 items-center justify-end">
+      <div className="h-10 w-24 animate-pulse rounded-full bg-white/10" aria-hidden />
+    </div>
+  ) : user ? (
+    userAccountDropdown
+  ) : (
+    guestLoginDropdown
+  );
 
   return (
     <nav className="sticky top-0 z-50 border-b border-[#0d2252]/40 bg-[#0f1f3d] shadow-[0_1px_4px_rgba(15,31,61,0.18)]">
@@ -145,69 +359,96 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
           ☰
         </button>
 
-        <div className="ml-auto hidden items-center gap-2 transition-opacity duration-200 md:flex">
+        <div className="ml-auto hidden items-center gap-2 md:flex">
           {isHost ? (
             <>
               <div className="flex items-center gap-1">
-                <Link
-                  href="/dashboard/host"
-                  className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
-                    pathname?.startsWith("/dashboard/host") && !activeHostTab
-                      ? "text-white"
-                      : "text-white/80 hover:text-white"
-                  }`}
-                >
-                  Översikt
-                </Link>
-                <Link
-                  href="/dashboard/host/hamnar"
-                  className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
-                    pathname?.startsWith("/dashboard/host/hamnar")
-                      ? "text-white"
-                      : "text-white/80 hover:text-white"
-                  }`}
-                >
-                  Mina Hamnar
-                </Link>
-                <Link
-                  href="/dashboard/host?tab=annonser"
-                  className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
-                    activeHostTab === "annonser" ? "text-white" : "text-white/80 hover:text-white"
-                  }`}
-                >
-                  Mina Annonser
-                </Link>
-                <Link
-                  href="/dashboard/host?tab=bokningar"
-                  className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
-                    activeHostTab === "bokningar" ? "text-white" : "text-white/80 hover:text-white"
-                  }`}
-                >
-                  Bokningar
-                </Link>
-                <Link
-                  href="/dashboard/host/profil"
-                  className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
-                    pathname?.startsWith("/dashboard/host/profil")
-                      ? "text-white"
-                      : "text-white/80 hover:text-white"
-                  }`}
-                >
-                  Profil
-                </Link>
+                {isPrivateHost ? (
+                  <>
+                    <Link
+                      href="/"
+                      className="rounded-lg px-3.5 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
+                    >
+                      Hem
+                    </Link>
+                    <Link
+                      href="/kajplatser"
+                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
+                        isSearchActive ? "text-white" : "text-white/80 hover:text-white"
+                      }`}
+                    >
+                      Båtplatser
+                    </Link>
+                    <Link
+                      href={hostDashboardHref}
+                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
+                        pathname?.startsWith("/mitt-konto")
+                          ? "text-white"
+                          : "text-white/80 hover:text-white"
+                      }`}
+                    >
+                      Min båtplats
+                    </Link>
+                  </>
+                ) : isMarinaHost ? (
+                  <>
+                    <Link
+                      href="/dashboard/host"
+                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
+                        pathname?.startsWith("/dashboard/host") && !activeHostTab
+                          ? "text-white"
+                          : "text-white/80 hover:text-white"
+                      }`}
+                    >
+                      Översikt
+                    </Link>
+                    <Link
+                      href="/dashboard/host/hamnar"
+                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
+                        pathname?.startsWith("/dashboard/host/hamnar")
+                          ? "text-white"
+                          : "text-white/80 hover:text-white"
+                      }`}
+                    >
+                      Mina Hamnar
+                    </Link>
+                    <Link
+                      href="/dashboard/host?tab=annonser"
+                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
+                        activeHostTab === "annonser" ? "text-white" : "text-white/80 hover:text-white"
+                      }`}
+                    >
+                      Mina Annonser
+                    </Link>
+                    <Link
+                      href="/dashboard/host?tab=bokningar"
+                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
+                        activeHostTab === "bokningar" ? "text-white" : "text-white/80 hover:text-white"
+                      }`}
+                    >
+                      Bokningar
+                    </Link>
+                    <Link
+                      href="/dashboard/host/profil"
+                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
+                        pathname?.startsWith("/dashboard/host/profil")
+                          ? "text-white"
+                          : "text-white/80 hover:text-white"
+                      }`}
+                    >
+                      Profil
+                    </Link>
+                  </>
+                ) : (
+                  <Link
+                    href={hostDashboardHref}
+                    className="rounded-lg px-3.5 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
+                  >
+                    Min sida
+                  </Link>
+                )}
               </div>
-              <div className="ml-2 flex items-center gap-2">
-                <span className="rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-white">
-                  {email}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-lg bg-[#0d9488] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#14b8a6]"
-                >
-                  Logga ut
-                </button>
-              </div>
+              {authSlot}
             </>
           ) : isRenter ? (
             <>
@@ -224,7 +465,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                     isSearchActive ? "text-white" : "text-white/80 hover:text-white"
                   }`}
                 >
-                  Kajplatser
+                  Båtplatser
                 </Link>
                 <Link
                   href="/for-hamnar"
@@ -239,28 +480,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                   Om oss
                 </Link>
               </div>
-              <div className="ml-2 flex items-center gap-2">
-                <Link
-                  href="/dashboard/renter"
-                  className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
-                    pathname?.startsWith("/dashboard/renter")
-                      ? "text-white"
-                      : "text-white/80 hover:text-white"
-                  }`}
-                >
-                  Min profil
-                </Link>
-                <span className="rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-white">
-                  {email}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-lg bg-[#0d9488] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#14b8a6]"
-                >
-                  Logga ut
-                </button>
-              </div>
+              {authSlot}
             </>
           ) : (
             <>
@@ -276,7 +496,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                   isSearchActive ? "text-white" : "text-white/80 hover:text-white"
                 }`}
               >
-                Kajplatser
+                Båtplatser
               </Link>
               <Link
                 href="/for-hamnar"
@@ -290,42 +510,14 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
               >
                 Om oss
               </Link>
+              <Link
+                href="/hyr-ut"
+                className="rounded-lg px-3.5 py-2 text-sm font-medium text-[#14b8a6] transition hover:bg-white/10 hover:text-[#5eead4]"
+              >
+                Hyr ut din plats
+              </Link>
 
-              {email ? (
-                <div className="ml-2 flex items-center gap-2">
-                  {isRenter ? (
-                    <>
-                      <span className="rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-white">
-                        {email}
-                      </span>
-                      <Link
-                        href="/dashboard/renter"
-                        className={`rounded-lg px-3 py-2 text-xs font-semibold transition ${
-                          isProfileActive
-                            ? "bg-white/20 text-white"
-                            : "bg-white/10 text-white hover:bg-white/20"
-                        }`}
-                      >
-                        Min profil
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={handleLogout}
-                        className="rounded-lg bg-[#0d9488] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#14b8a6]"
-                      >
-                        Logga ut
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-              ) : (
-                <Link
-                  href="/login"
-                  className="ml-2 rounded-lg bg-[#0d9488] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#14b8a6]"
-                >
-                  Logga in
-                </Link>
-              )}
+              {authSlot}
             </>
           )}
         </div>
@@ -355,25 +547,68 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
             </div>
 
             <div className="mb-5 rounded-xl border border-white/15 bg-white/5 p-3">
-              {email ? (
+              {loading && !user ? (
+                <div className="h-12 w-full animate-pulse rounded-lg bg-white/20" aria-hidden />
+              ) : user ? (
                 <>
-                  <p className="truncate text-sm font-medium text-white">{email}</p>
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white"
+                      style={{ background: "#0d9488" }}
+                    >
+                      {user.email?.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-white">{user.email?.split("@")[0]}</p>
+                      <p className="truncate text-xs text-white/60">{user.email}</p>
+                    </div>
+                  </div>
+                  <Link
+                    href={userDashboardHref}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-white/20 px-4 py-3 text-sm font-medium text-white transition active:bg-white/10"
+                  >
+                    Min sida
+                  </Link>
                   <button
                     type="button"
                     onClick={() => void handleLogout()}
-                    className="mt-3 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a6]"
+                    className="mt-2 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a6]"
                   >
                     Logga ut
                   </button>
                 </>
               ) : (
-                <Link
-                  href="/login"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a6]"
-                >
-                  Logga in
-                </Link>
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-white/50">Vem är du?</p>
+                  <Link
+                    href={loginHref}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-white/10 px-4 py-3 text-sm font-medium text-white transition active:bg-white/15"
+                  >
+                    Jag söker en båtplats
+                  </Link>
+                  <Link
+                    href="/hyr-ut?skip=1"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-white/10 px-4 py-3 text-sm font-medium text-white transition active:bg-white/15"
+                  >
+                    Jag hyr ut min plats
+                  </Link>
+                  <Link
+                    href="/hamnar/logga-in"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-white/10 px-4 py-3 text-sm font-medium text-white transition active:bg-white/15"
+                  >
+                    Jag är hamnägare
+                  </Link>
+                  <p className="pt-1 text-center text-xs text-white/50">
+                    Nytt här?{" "}
+                    <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)} className="text-[#5eead4] hover:underline">
+                      Skapa konto
+                    </Link>
+                  </p>
+                </div>
               )}
             </div>
 
@@ -390,7 +625,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium transition active:bg-white/10"
               >
-                Kajplatser
+                Båtplatser
               </Link>
               <Link
                 href="/for-hamnar"
@@ -406,30 +641,47 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
               >
                 Om oss
               </Link>
+              <Link
+                href="/hyr-ut"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
+              >
+                Hyr ut din plats
+              </Link>
               {isHost ? (
-                <>
+                isPrivateHost ? (
                   <Link
-                    href="/dashboard/host"
+                    href="/mitt-konto"
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
                   >
-                    Host dashboard
+                    Min båtplats
                   </Link>
-                  <Link
-                    href="/dashboard/host/hamnar"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
-                  >
-                    Mina Hamnar
-                  </Link>
-                  <Link
-                    href="/dashboard/host/profil"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
-                  >
-                    Profil
-                  </Link>
-                </>
+                ) : (
+                  <>
+                    <Link
+                      href="/dashboard/host"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
+                    >
+                      Host dashboard
+                    </Link>
+                    <Link
+                      href="/dashboard/host/hamnar"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
+                    >
+                      Mina Hamnar
+                    </Link>
+                    <Link
+                      href="/dashboard/host/profil"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
+                    >
+                      Profil
+                    </Link>
+                  </>
+                )
               ) : null}
               {isRenter ? (
                 <Link

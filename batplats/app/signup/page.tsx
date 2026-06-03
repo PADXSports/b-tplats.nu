@@ -4,9 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
-import Footer from "@/components/footer";
 import { AuthOAuthDivider, GoogleOAuthButton } from "@/components/google-oauth-button";
+import { RenterAuthBrandingPanel } from "@/components/renter-auth-panel";
 import { createClient } from "@/lib/supabase/client";
+
+const NAVY = "#0a1628";
+const TEAL = "#0d9488";
+
+const inputClass =
+  "w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-teal-500 transition bg-white text-gray-900 placeholder-gray-400";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -65,83 +71,86 @@ export default function SignupPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#f5f0e8] text-[#0f1f3d]">
-      <section className="bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 py-16 text-white">
-        <div className="mx-auto w-full max-w-[520px]">
-          <Link
-            href="/"
-            className="mb-4 inline-flex rounded-full border border-white/20 bg-white/10 px-[14px] py-[6px] text-[0.85rem] font-medium text-white transition hover:bg-white/20"
-          >
-            ← Startsidan
-          </Link>
-          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
-            Bli medlem
-          </p>
-          <h1 className="mt-2 text-[2rem] font-extrabold">Skapa konto</h1>
-        </div>
-      </section>
+    <div className="flex min-h-screen">
+      <RenterAuthBrandingPanel
+        headline="Kom igång gratis idag"
+        subtitle="Boka säsongsplats direkt från hamnar och privatpersoner i hela Sverige."
+      />
 
-      <section className="px-6 py-10">
-        <div className="mx-auto w-full max-w-[520px] rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
+      <div className="flex flex-1 flex-col justify-center bg-white px-6 py-12 lg:px-16">
+        <Link href="/" className="mb-8 text-xl font-bold lg:hidden" style={{ color: NAVY }}>
+          Båtplats.nu
+        </Link>
+
+        <div className="mx-auto w-full max-w-md">
+          <h2 className="mb-2 text-2xl font-bold" style={{ color: NAVY }}>
+            Skapa ett gratis konto
+          </h2>
+          <p className="mb-8 text-gray-500">Kom igång på under en minut.</p>
+
           <GoogleOAuthButton newUserRole="renter" />
-          <div className="my-4">
+          <div className="my-5">
             <AuthOAuthDivider />
           </div>
+
           <form onSubmit={handleSignup} className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Namn</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Namn</label>
               <input
                 type="text"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 required
-                className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                placeholder="Ditt namn"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">E-post</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">E-post</label>
               <input
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
-                className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                placeholder="din@email.se"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="mb-1 block text-sm font-semibold text-[#0f1f3d]">Lösenord</label>
+              <label className="mb-1.5 block text-sm font-medium text-gray-700">Lösenord</label>
               <input
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
                 minLength={6}
-                className="w-full rounded-lg border border-[#c5d0de] px-3 py-2 text-sm outline-none transition focus:border-[#0d9488]"
+                placeholder="Minst 6 tecken"
+                className={inputClass}
               />
             </div>
 
-            {error ? <p className="text-sm text-[#d64c3b]">{error}</p> : null}
+            {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-[#0d9488] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:opacity-60"
+              className="mt-6 w-full rounded-xl py-4 font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
+              style={{ background: TEAL }}
             >
-              {loading ? "Skapar konto..." : "Skapa konto"}
+              {loading ? "Skapar konto..." : "Skapa konto →"}
             </button>
           </form>
 
-          <p className="mt-5 text-center text-sm text-[#8a96a8]">
-            Har du redan konto?{" "}
-            <Link href="/login" className="font-semibold text-[#0d9488] hover:underline">
+          <p className="mt-4 text-center text-sm text-gray-500">
+            Har du redan ett konto?{" "}
+            <Link href="/login" className="font-medium text-teal-600 hover:underline">
               Logga in
             </Link>
           </p>
         </div>
-      </section>
-      <Footer />
-    </main>
+      </div>
+    </div>
   );
 }

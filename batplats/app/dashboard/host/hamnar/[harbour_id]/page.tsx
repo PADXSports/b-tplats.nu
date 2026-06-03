@@ -3,10 +3,21 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-import AuthNavbar from "@/components/auth-navbar";
+import { DASHBOARD_TEAL } from "@/components/dashboard-icons";
+import {
+  HOST_DANGER_BTN,
+  HOST_INPUT_CLASS,
+  HOST_LOADING_FALLBACK,
+  HOST_PRIMARY_BTN,
+  HOST_SECONDARY_BTN,
+  HostDashboardShell,
+  HostToast,
+  hostCardClass,
+} from "@/components/host-dashboard-shell";
+import { StarRating } from "@/components/StarRating";
 import { createClient } from "@/lib/supabase/client";
 
-type Tab = "listings" | "bookings" | "info";
+type Tab = "listings" | "bookings" | "reviews" | "info";
 
 type Harbour = {
   id: string | number;
@@ -42,6 +53,16 @@ type Booking = {
   guest_email: string | null;
   listings: { id: string | number; title: string } | null;
   renter: { full_name: string | null; email: string | null } | null;
+};
+
+type HarbourReview = {
+  id: string;
+  harbour_id: string | number;
+  rating: number;
+  comment: string | null;
+  host_response: string | null;
+  created_at: string;
+  reviewer_name: string;
 };
 
 type ListingForm = {
@@ -100,6 +121,7 @@ function HarbourDetailContent() {
   const [harbour, setHarbour] = useState<Harbour | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [reviews, setReviews] = useState<HarbourReview[]>([]);
   const [showListingModal, setShowListingModal] = useState(false);
   const [listingForm, setListingForm] = useState<ListingForm>(emptyListingForm);
   const [savingListing, setSavingListing] = useState(false);
@@ -166,6 +188,53 @@ function HarbourDetailContent() {
     setBookings(normalized);
   };
 
+  const fetchReviews = async (listingRows: Listing[]) => {
+    void listingRows;
+
+    const { data: reviewsData, error: reviewsError } = await supabase
+      .from("reviews")
+      .select("*")
+      .eq("harbour_id", harbourId)
+      .order("created_at", { ascending: false });
+
+    if (reviewsError) {
+      setToast({ type: "error", message: "Kunde inte hämta omdömen." });
+      return;
+    }
+
+    if (!reviewsData || reviewsData.length === 0) {
+      setReviews([]);
+      return;
+    }
+
+    const reviewerIds = reviewsData.map((r) => r.reviewer_id);
+    const { data: profilesData } = await supabase.from("profiles").select("id, full_name").in("id", reviewerIds);
+
+    const normalized: HarbourReview[] = reviewsData.map((review) => ({
+      id: review.id,
+      harbour_id: review.harbour_id,
+      rating: review.rating,
+      comment: review.comment,
+      host_response: review.host_response,
+      created_at: review.created_at,
+      reviewer_name: profilesData?.find((p) => p.id === review.reviewer_id)?.full_name || "Anonym",
+    }));
+
+    setReviews(normalized);
+  };
+
+  const respondToReview = async (reviewId: string, response: string) => {
+    const { error } = await supabase.from("reviews").update({ host_response: response }).eq("id", reviewId);
+
+    if (error) {
+      setToast({ type: "error", message: "Kunde inte spara svar." });
+      return;
+    }
+
+    setToast({ type: "success", message: "Svar sparat." });
+    await fetchReviews(listings);
+  };
+
   const loadData = async () => {
     const {
       data: { user },
@@ -216,6 +285,7 @@ function HarbourDetailContent() {
     const typedListings = (listingRows ?? []) as Listing[];
     setListings(typedListings);
     await fetchBookings(typedListings);
+    await fetchReviews(typedListings);
     setLoading(false);
   };
 
@@ -375,66 +445,64 @@ function HarbourDetailContent() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0b1b3f] text-white">
-      <AuthNavbar currentPage="dashboard" />
-      <section className="mx-auto w-full max-w-[1280px] px-4 py-8 sm:px-6">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <button onClick={() => router.push("/dashboard/host/hamnar")} className="text-sm text-white/70 hover:text-white">
-              ← Tillbaka till hamnar
-            </button>
-            <h1 className="mt-1 text-2xl font-extrabold">{harbour?.name ?? "Hamn"}</h1>
-            <p className="text-sm text-white/70">{harbour?.city ?? "-"}</p>
-          </div>
-        </div>
+    <HostDashboardShell
+      activeNav="hamnar"
+      pageTitle={harbour?.name ?? "Hamn"}
+      headerAction={
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/host/hamnar")}
+          className="text-sm text-gray-500 hover:text-gray-700"
+        >
+          ← Tillbaka till hamnar
+        </button>
+      }
+    >
+      <p className="-mt-4 mb-6 text-sm text-gray-500">{harbour?.city ?? "-"}</p>
 
-        {toast ? (
-          <div
-            className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
-              toast.type === "success"
-                ? "border-[#2d9e6b]/40 bg-[#dff5ea] text-[#14532d]"
-                : "border-[#d64c3b]/40 bg-[#fee2e2] text-[#7f1d1d]"
+      <HostToast toast={toast} />
+
+      <div className="mb-6 flex flex-wrap gap-2 rounded-xl bg-gray-200/60 p-1">
+        {[
+          ["listings", "Platser"],
+          ["bookings", "Bokningar"],
+          ["reviews", "Omdömen"],
+          ["info", "Hamninfo"],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setActiveTab(value as Tab)}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              activeTab === value ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
             }`}
           >
-            {toast.message}
-          </div>
-        ) : null}
+            {label}
+          </button>
+        ))}
+      </div>
 
-        <div className="mb-6 flex gap-2 rounded-xl bg-[#122a5d] p-1">
-          {[
-            ["listings", "Platser"],
-            ["bookings", "Bokningar"],
-            ["info", "Hamninfo"],
-          ].map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setActiveTab(value as Tab)}
-              className={`rounded-lg px-4 py-2 text-sm ${activeTab === value ? "bg-[#14b8a6] text-[#0b1b3f]" : "text-white/80"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {loading ? <div className="rounded-xl bg-[#122a5d] p-5 text-sm text-white/70">Laddar...</div> : null}
+      {loading ? <div className={`${hostCardClass} p-5 text-sm text-gray-500`}>Laddar...</div> : null}
 
         {!loading && activeTab === "listings" ? (
           <div className="space-y-4">
             <div className="flex justify-end">
               <button
+                type="button"
                 onClick={() => router.push("/dashboard/host/listings/ny")}
-                className="rounded-lg bg-[#14b8a6] px-4 py-2 text-sm font-semibold text-[#0b1b3f]"
+                className={HOST_PRIMARY_BTN}
+                style={{ background: DASHBOARD_TEAL }}
               >
                 Lägg till ny plats
               </button>
             </div>
             {listings.length === 0 ? (
-              <p className="rounded-xl bg-[#122a5d] p-4 text-sm text-white/70">Inga platser registrerade ännu.</p>
+              <p className={`${hostCardClass} p-4 text-sm text-gray-500`}>Inga platser registrerade ännu.</p>
             ) : (
               <div className="grid gap-4 md:grid-cols-2">
                 {listings.map((listing) => (
-                  <article key={listing.id} className="rounded-xl bg-[#122a5d] p-4">
-                    <div className="flex h-36 items-center justify-center overflow-hidden rounded-lg bg-[#0b1b3f] text-sm text-white/60">
+                  <article key={listing.id} className={`${hostCardClass} p-4`}>
+                    <div className="flex h-36 items-center justify-center overflow-hidden rounded-lg bg-gray-100 text-sm text-gray-500">
                       {listing.image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={listing.image_url} alt={listing.title} className="h-full w-full object-cover" />
@@ -442,29 +510,31 @@ function HarbourDetailContent() {
                         "Ingen bild"
                       )}
                     </div>
-                    <p className="mt-3 font-bold">{listing.title}</p>
-                    <p className="text-xs text-white/70">{formatPrice(listing.price_per_season)}</p>
-                    <p className="text-xs text-white/70">
+                    <p className="mt-3 font-bold text-gray-900">{listing.title}</p>
+                    <p className="text-xs text-gray-500">{formatPrice(listing.price_per_season)}</p>
+                    <p className="text-xs text-gray-500">
                       Max: {listing.max_boat_length ?? "-"} m längd · {listing.max_boat_width ?? "-"} m bredd
                     </p>
                     <span
                       className={`mt-2 inline-block rounded-full px-2 py-1 text-[11px] font-semibold ${
-                        listing.is_available ? "bg-[#dff5ea] text-[#2d9e6b]" : "bg-[#dce3ee] text-[#6b7a8f]"
+                        listing.is_available ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
                       }`}
                     >
                       {listing.is_available ? "Tillgänglig" : "Inte tillgänglig"}
                     </span>
                     <div className="mt-3 flex gap-2">
                       <button
+                        type="button"
                         onClick={() => router.push(`/dashboard/host/listings/${listing.id}/redigera`)}
-                        className="rounded-lg border border-white/20 px-3 py-2 text-xs font-semibold"
+                        className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                       >
                         Redigera
                       </button>
                       <button
+                        type="button"
                         onClick={() => void deleteListing(listing.id)}
                         disabled={deletingListingId === listing.id}
-                        className="rounded-lg border border-[#d64c3b]/60 px-3 py-2 text-xs font-semibold text-[#fca5a5] disabled:opacity-50"
+                        className={`${HOST_DANGER_BTN} text-xs`}
                       >
                         {deletingListingId === listing.id ? "Tar bort..." : "Ta bort"}
                       </button>
@@ -479,19 +549,19 @@ function HarbourDetailContent() {
         {!loading && activeTab === "bookings" ? (
           <div className="space-y-3">
             {bookings.length === 0 ? (
-              <p className="rounded-xl bg-[#122a5d] p-4 text-sm text-white/70">Inga bokningar för denna hamn.</p>
+              <p className={`${hostCardClass} p-4 text-sm text-gray-500`}>Inga bokningar för denna hamn.</p>
             ) : (
               bookings.map((booking) => {
                 const status = bookingStatus(booking.status);
                 return (
-                  <article key={booking.id} className="rounded-xl bg-[#122a5d] p-4">
+                  <article key={booking.id} className={`${hostCardClass} p-4`}>
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
-                        <p className="font-semibold">{booking.listings?.title ?? "Okänd plats"}</p>
-                        <p className="text-xs text-white/70">
+                        <p className="font-semibold text-gray-900">{booking.listings?.title ?? "Okänd plats"}</p>
+                        <p className="text-xs text-gray-500">
                           Hyresgäst: {booking.renter?.full_name || "Okänd"} ({booking.renter?.email || booking.guest_email || "Ingen e-post"})
                         </p>
-                        <p className="text-xs text-white/70">
+                        <p className="text-xs text-gray-500">
                           Datum: {formatDate(booking.start_date)} - {formatDate(booking.end_date)}
                         </p>
                       </div>
@@ -500,16 +570,19 @@ function HarbourDetailContent() {
                         {booking.status === "pending" ? (
                           <div className="flex gap-2">
                             <button
+                              type="button"
                               onClick={() => void setBookingStatus(booking.id, "confirmed")}
                               disabled={updatingBookingId === booking.id}
-                              className="rounded-lg bg-[#14b8a6] px-3 py-2 text-xs font-semibold text-[#0b1b3f] disabled:opacity-50"
+                              className={`${HOST_PRIMARY_BTN} px-3 py-2 text-xs`}
+                              style={{ background: DASHBOARD_TEAL }}
                             >
                               Godkänn
                             </button>
                             <button
+                              type="button"
                               onClick={() => void setBookingStatus(booking.id, "declined")}
                               disabled={updatingBookingId === booking.id}
-                              className="rounded-lg border border-[#d64c3b]/60 px-3 py-2 text-xs font-semibold text-[#fca5a5] disabled:opacity-50"
+                              className={`${HOST_DANGER_BTN} text-xs`}
                             >
                               Avvisa
                             </button>
@@ -524,90 +597,142 @@ function HarbourDetailContent() {
           </div>
         ) : null}
 
+        {!loading && activeTab === "reviews" ? (
+          <div className="space-y-3">
+            {reviews.length === 0 ? (
+              <p className={`${hostCardClass} p-4 text-sm text-gray-500`}>Inga omdömen för denna hamn ännu.</p>
+            ) : (
+              reviews.map((review) => (
+                <article key={review.id} className={`${hostCardClass} p-4`}>
+                  <p className="font-semibold text-gray-900">{review.reviewer_name}</p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(review.created_at).toLocaleDateString("sv-SE", {
+                      year: "numeric",
+                      month: "long",
+                    })}
+                  </p>
+                  <div className="mt-2">
+                    <StarRating rating={review.rating} readonly size="sm" />
+                  </div>
+                  {review.comment ? <p className="mt-2 text-sm text-gray-700">{review.comment}</p> : null}
+                  <div className="mt-3">
+                    {review.host_response ? (
+                      <div className="rounded-lg bg-gray-50 p-3">
+                        <p className="mb-1 text-xs font-semibold text-gray-500">Ditt svar:</p>
+                        <p className="text-sm text-gray-700">{review.host_response}</p>
+                      </div>
+                    ) : (
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Svara på detta omdöme..."
+                          className={`${HOST_INPUT_CLASS} flex-1 py-2 text-sm`}
+                          id={`response-${review.id}`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const input = document.getElementById(`response-${review.id}`) as HTMLInputElement;
+                            if (input.value) void respondToReview(review.id, input.value);
+                          }}
+                          className={HOST_PRIMARY_BTN}
+                          style={{ background: DASHBOARD_TEAL }}
+                        >
+                          Svara
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        ) : null}
+
         {!loading && activeTab === "info" ? (
-          <div className="rounded-xl bg-[#122a5d] p-5">
-            <h2 className="text-lg font-bold">Hamninformation</h2>
+          <div className={`${hostCardClass} p-5`}>
+            <h2 className="text-lg font-bold text-gray-900">Hamninformation</h2>
             <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
               <div>
-                <dt className="text-white/70">Namn</dt>
-                <dd className="font-semibold">{harbour?.name ?? "-"}</dd>
+                <dt className="text-gray-500">Namn</dt>
+                <dd className="font-semibold text-gray-900">{harbour?.name ?? "-"}</dd>
               </div>
               <div>
-                <dt className="text-white/70">Stad</dt>
-                <dd className="font-semibold">{harbour?.city ?? "-"}</dd>
+                <dt className="text-gray-500">Stad</dt>
+                <dd className="font-semibold text-gray-900">{harbour?.city ?? "-"}</dd>
               </div>
               <div>
-                <dt className="text-white/70">Latitud</dt>
-                <dd className="font-semibold">{harbour?.lat ?? "-"}</dd>
+                <dt className="text-gray-500">Latitud</dt>
+                <dd className="font-semibold text-gray-900">{harbour?.lat ?? "-"}</dd>
               </div>
               <div>
-                <dt className="text-white/70">Longitud</dt>
-                <dd className="font-semibold">{harbour?.lng ?? "-"}</dd>
+                <dt className="text-gray-500">Longitud</dt>
+                <dd className="font-semibold text-gray-900">{harbour?.lng ?? "-"}</dd>
               </div>
               <div className="sm:col-span-2">
-                <dt className="text-white/70">Beskrivning</dt>
-                <dd className="whitespace-pre-wrap font-semibold">{harbour?.description || "-"}</dd>
+                <dt className="text-gray-500">Beskrivning</dt>
+                <dd className="whitespace-pre-wrap font-semibold text-gray-900">{harbour?.description || "-"}</dd>
               </div>
             </dl>
             <button
+              type="button"
               onClick={() => setShowHarbourEditModal(true)}
-              className="mt-4 rounded-lg border border-white/20 px-4 py-2 text-sm font-semibold"
+              className={`${HOST_SECONDARY_BTN} mt-4 px-4 py-2`}
             >
               Redigera hamninfo
             </button>
           </div>
         ) : null}
-      </section>
 
       {showListingModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-2xl bg-[#10234f] p-5">
-            <h2 className="text-xl font-bold">{listingForm.id ? "Redigera plats" : "Skapa ny plats"}</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className={`${hostCardClass} w-full max-w-2xl p-5`}>
+            <h2 className="text-xl font-bold text-gray-900">{listingForm.id ? "Redigera plats" : "Skapa ny plats"}</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <input
                 value={listingForm.title}
                 onChange={(e) => setListingForm((prev) => ({ ...prev, title: e.target.value }))}
                 placeholder="Titel"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <input
                 value={listingForm.price_per_season}
                 onChange={(e) => setListingForm((prev) => ({ ...prev, price_per_season: e.target.value }))}
                 placeholder="Pris / säsong"
                 type="number"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <input
                 value={listingForm.max_boat_length}
                 onChange={(e) => setListingForm((prev) => ({ ...prev, max_boat_length: e.target.value }))}
                 placeholder="Max längd (m)"
                 type="number"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <input
                 value={listingForm.max_boat_width}
                 onChange={(e) => setListingForm((prev) => ({ ...prev, max_boat_width: e.target.value }))}
                 placeholder="Max bredd (m)"
                 type="number"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <input
                 value={listingForm.season_start}
                 onChange={(e) => setListingForm((prev) => ({ ...prev, season_start: e.target.value }))}
                 type="date"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <input
                 value={listingForm.season_end}
                 onChange={(e) => setListingForm((prev) => ({ ...prev, season_end: e.target.value }))}
                 type="date"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <input
                 value={listingForm.image_url}
                 onChange={(e) => setListingForm((prev) => ({ ...prev, image_url: e.target.value }))}
                 placeholder="Bild-URL (valfritt)"
-                className="sm:col-span-2 rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={`${HOST_INPUT_CLASS} sm:col-span-2`}
               />
               <input
                 type="file"
@@ -618,15 +743,15 @@ function HarbourDetailContent() {
                     image_file: e.target.files && e.target.files.length > 0 ? e.target.files[0] : null,
                   }))
                 }
-                className="sm:col-span-2 rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={`${HOST_INPUT_CLASS} sm:col-span-2`}
               />
               <textarea
                 value={listingForm.description}
                 onChange={(e) => setListingForm((prev) => ({ ...prev, description: e.target.value }))}
                 placeholder="Beskrivning"
-                className="sm:col-span-2 min-h-24 rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={`${HOST_INPUT_CLASS} sm:col-span-2 min-h-24`}
               />
-              <label className="sm:col-span-2 flex items-center gap-2 text-sm">
+              <label className="sm:col-span-2 flex items-center gap-2 text-sm text-gray-700">
                 <input
                   type="checkbox"
                   checked={listingForm.is_available}
@@ -637,16 +762,19 @@ function HarbourDetailContent() {
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setShowListingModal(false)}
-                className="rounded-lg border border-white/20 px-4 py-2 text-sm"
+                className={HOST_SECONDARY_BTN}
                 disabled={savingListing}
               >
                 Avbryt
               </button>
               <button
+                type="button"
                 onClick={() => void saveListing()}
                 disabled={savingListing}
-                className="rounded-lg bg-[#14b8a6] px-4 py-2 text-sm font-semibold text-[#0b1b3f] disabled:opacity-50"
+                className={HOST_PRIMARY_BTN}
+                style={{ background: DASHBOARD_TEAL }}
               >
                 {savingListing ? "Sparar..." : listingForm.id ? "Spara ändringar" : "Skapa plats"}
               </button>
@@ -656,41 +784,41 @@ function HarbourDetailContent() {
       ) : null}
 
       {showHarbourEditModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-xl rounded-2xl bg-[#10234f] p-5">
-            <h2 className="text-xl font-bold">Redigera hamninfo</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className={`${hostCardClass} w-full max-w-xl p-5`}>
+            <h2 className="text-xl font-bold text-gray-900">Redigera hamninfo</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <input
                 value={harbourForm.name}
                 onChange={(e) => setHarbourForm((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="Namn"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <input
                 value={harbourForm.city}
                 onChange={(e) => setHarbourForm((prev) => ({ ...prev, city: e.target.value }))}
                 placeholder="Stad"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <input
                 value={harbourForm.lat}
                 onChange={(e) => setHarbourForm((prev) => ({ ...prev, lat: e.target.value }))}
                 placeholder="Latitud"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <input
                 value={harbourForm.lng}
                 onChange={(e) => setHarbourForm((prev) => ({ ...prev, lng: e.target.value }))}
                 placeholder="Longitud"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <textarea
                 value={harbourForm.description}
                 onChange={(e) => setHarbourForm((prev) => ({ ...prev, description: e.target.value }))}
                 placeholder="Beskrivning"
-                className="sm:col-span-2 min-h-28 rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={`${HOST_INPUT_CLASS} sm:col-span-2 min-h-28`}
               />
-              <label className="sm:col-span-2 flex items-center gap-2 text-sm">
+              <label className="sm:col-span-2 flex items-center gap-2 text-sm text-gray-700">
                 <input
                   type="checkbox"
                   checked={harbourForm.is_active}
@@ -701,15 +829,18 @@ function HarbourDetailContent() {
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setShowHarbourEditModal(false)}
-                className="rounded-lg border border-white/20 px-4 py-2 text-sm"
+                className={HOST_SECONDARY_BTN}
                 disabled={savingHarbour}
               >
                 Avbryt
               </button>
               <button
+                type="button"
                 onClick={() => void saveHarbourInfo()}
-                className="rounded-lg bg-[#14b8a6] px-4 py-2 text-sm font-semibold text-[#0b1b3f] disabled:opacity-50"
+                className={HOST_PRIMARY_BTN}
+                style={{ background: DASHBOARD_TEAL }}
                 disabled={savingHarbour}
               >
                 {savingHarbour ? "Sparar..." : "Spara"}
@@ -718,13 +849,13 @@ function HarbourDetailContent() {
           </div>
         </div>
       ) : null}
-    </main>
+    </HostDashboardShell>
   );
 }
 
 export default function HarbourDetailPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0b1b3f]" />}>
+    <Suspense fallback={HOST_LOADING_FALLBACK}>
       <HarbourDetailContent />
     </Suspense>
   );

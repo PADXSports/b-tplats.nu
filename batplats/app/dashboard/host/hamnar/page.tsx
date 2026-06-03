@@ -1,9 +1,20 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import AuthNavbar from "@/components/auth-navbar";
+import { DASHBOARD_NAVY, DASHBOARD_TEAL } from "@/components/dashboard-icons";
+import {
+  HOST_DANGER_BTN,
+  HOST_INPUT_CLASS,
+  HOST_LOADING_FALLBACK,
+  HOST_PRIMARY_BTN,
+  HOST_SECONDARY_BTN,
+  HostDashboardShell,
+  HostToast,
+  hostCardClass,
+} from "@/components/host-dashboard-shell";
 import { createClient } from "@/lib/supabase/client";
 
 type HarbourRow = {
@@ -121,142 +132,152 @@ function HamnarContent() {
     setCreating(false);
   };
 
-  const deleteHarbour = async (harbour: HarbourWithCount) => {
-    const harbourName = harbour.name ?? "denna hamn";
+  const deleteHarbour = async (harbourId: string | number) => {
+    const harbour = harbours.find((h) => String(h.id) === String(harbourId));
+    const harbourName = harbour?.name ?? "denna hamn";
     const confirmed = window.confirm(
       `Är du säker på att du vill ta bort ${harbourName}? Detta tar bort hamnen och alla dess platser permanent.`,
     );
     if (!confirmed) return;
 
-    setDeletingHarbourId(harbour.id);
-    const { error } = await supabase.from("harbours").delete().eq("id", harbour.id);
+    setDeletingHarbourId(harbourId);
+    const { error } = await supabase.from("harbours").delete().eq("id", harbourId);
     if (error) {
       setToast({ type: "error", message: "Kunde inte ta bort hamnen." });
       setDeletingHarbourId(null);
       return;
     }
 
-    setHarbours((prev) => prev.filter((item) => String(item.id) !== String(harbour.id)));
+    setHarbours((prev) => prev.filter((item) => String(item.id) !== String(harbourId)));
     setToast({ type: "success", message: "Hamn borttagen." });
     setDeletingHarbourId(null);
   };
 
+  if (loading) {
+    return HOST_LOADING_FALLBACK;
+  }
+
   return (
-    <main className="min-h-screen bg-[#0b1b3f] text-white">
-      <AuthNavbar currentPage="dashboard" />
-      <section className="mx-auto w-full max-w-[1280px] px-4 py-8 sm:px-6">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#14b8a6]">Host dashboard</p>
-            <h1 className="text-2xl font-extrabold">Mina hamnar</h1>
-          </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="rounded-lg bg-[#14b8a6] px-4 py-2 text-sm font-semibold text-[#0b1b3f]"
-          >
-            Skapa ny hamn
-          </button>
+    <HostDashboardShell
+      activeNav="hamnar"
+      pageTitle="Mina hamnar"
+      headerAction={
+        <button
+          type="button"
+          onClick={() => setShowCreateModal(true)}
+          className={HOST_PRIMARY_BTN}
+          style={{ background: DASHBOARD_TEAL }}
+        >
+          Skapa ny hamn
+        </button>
+      }
+    >
+      <HostToast toast={toast} />
+
+      {harbours.length === 0 ? (
+        <div className={`${hostCardClass} p-6 text-sm text-gray-500`}>
+          Du har inga hamnar ännu. Klicka på <span className="font-semibold text-gray-900">Skapa ny hamn</span> för att
+          komma igång.
         </div>
-
-        {toast ? (
-          <div
-            className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
-              toast.type === "success"
-                ? "border-[#2d9e6b]/40 bg-[#dff5ea] text-[#14532d]"
-                : "border-[#d64c3b]/40 bg-[#fee2e2] text-[#7f1d1d]"
-            }`}
-          >
-            {toast.message}
-          </div>
-        ) : null}
-
-        {loading ? (
-          <div className="rounded-xl bg-[#122a5d] p-5 text-sm text-white/70">Laddar hamnar...</div>
-        ) : harbours.length === 0 ? (
-          <div className="rounded-xl bg-[#122a5d] p-5 text-sm text-white/70">
-            Du har inga hamnar ännu. Klicka på <span className="font-semibold text-white">Skapa ny hamn</span> för att komma igång.
-          </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {harbours.map((harbour) => (
-              <article key={harbour.id} className="rounded-xl bg-[#122a5d] p-5">
-                <button
-                  onClick={() => router.push(`/dashboard/host/hamnar/${harbour.id}`)}
-                  className="w-full text-left transition hover:bg-[#173575]"
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {harbours.map((harbour) => (
+            <div
+              key={harbour.id}
+              className={`${hostCardClass} p-6 transition hover:shadow-md`}
+            >
+              <div className="mb-4 flex items-start justify-between">
+                <div>
+                  <h3 className="mb-1 text-lg font-bold" style={{ color: DASHBOARD_NAVY }}>
+                    {harbour.name ?? "Namnlös hamn"}
+                  </h3>
+                  <p className="text-sm text-gray-500">{harbour.city ?? "Stad saknas"}</p>
+                </div>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                    harbour.is_active ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+                  }`}
                 >
-                  <p className="text-lg font-bold">{harbour.name ?? "Namnlös hamn"}</p>
-                  <p className="mt-1 text-sm text-white/70">{harbour.city ?? "Stad saknas"}</p>
-                  <div className="mt-4 flex items-center justify-between text-xs">
-                    <span className="rounded-full bg-white/10 px-2 py-1">{harbour.listingCount} platser</span>
-                    <span
-                      className={`rounded-full px-2 py-1 font-semibold ${
-                        harbour.is_active ? "bg-[#dff5ea] text-[#2d9e6b]" : "bg-[#dce3ee] text-[#6b7a8f]"
-                      }`}
-                    >
-                      {harbour.is_active ? "Aktiv" : "Inaktiv"}
-                    </span>
-                  </div>
-                </button>
+                  {harbour.is_active ? "Aktiv" : "Inaktiv"}
+                </span>
+              </div>
+
+              <div className="mb-4 flex items-center gap-4 text-sm text-gray-600">
+                <span>{harbour.listingCount} platser</span>
+              </div>
+
+              <div className="flex gap-3 border-t border-gray-100 pt-4">
+                <Link
+                  href={`/dashboard/host/hamnar/${harbour.id}`}
+                  className="flex-1 rounded-xl py-2.5 text-center text-sm font-medium text-white transition"
+                  style={{ background: DASHBOARD_TEAL }}
+                >
+                  Hantera →
+                </Link>
                 <button
-                  onClick={() => void deleteHarbour(harbour)}
+                  type="button"
+                  onClick={() => void deleteHarbour(harbour.id)}
                   disabled={deletingHarbourId === harbour.id}
-                  className="mt-4 rounded-md bg-[#dc2626] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#b91c1c] disabled:opacity-60"
+                  className={HOST_DANGER_BTN}
                 >
                   {deletingHarbourId === harbour.id ? "Tar bort..." : "Ta bort"}
                 </button>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {showCreateModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-xl rounded-2xl bg-[#10234f] p-5">
-            <h2 className="text-xl font-bold">Skapa ny hamn</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className={`${hostCardClass} w-full max-w-xl p-6`}>
+            <h2 className="text-xl font-bold text-gray-900">Skapa ny hamn</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <input
                 value={form.name}
                 onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
                 placeholder="Hamnnamn"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <input
                 value={form.city}
                 onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
                 placeholder="Stad"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <input
                 value={form.lat}
                 onChange={(e) => setForm((prev) => ({ ...prev, lat: e.target.value }))}
                 placeholder="Latitud"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <input
                 value={form.lng}
                 onChange={(e) => setForm((prev) => ({ ...prev, lng: e.target.value }))}
                 placeholder="Longitud"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={HOST_INPUT_CLASS}
               />
               <textarea
                 value={form.description}
                 onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
                 placeholder="Beskrivning"
-                className="sm:col-span-2 min-h-28 rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={`${HOST_INPUT_CLASS} sm:col-span-2 min-h-28`}
               />
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button
+                type="button"
                 onClick={() => setShowCreateModal(false)}
-                className="rounded-lg border border-white/20 px-4 py-2 text-sm"
+                className={HOST_SECONDARY_BTN}
                 disabled={creating}
               >
                 Avbryt
               </button>
               <button
+                type="button"
                 onClick={() => void createHarbour()}
-                className="rounded-lg bg-[#14b8a6] px-4 py-2 text-sm font-semibold text-[#0b1b3f] disabled:opacity-50"
+                className={HOST_PRIMARY_BTN}
+                style={{ background: DASHBOARD_TEAL }}
                 disabled={creating}
               >
                 {creating ? "Sparar..." : "Skapa hamn"}
@@ -265,13 +286,13 @@ function HamnarContent() {
           </div>
         </div>
       ) : null}
-    </main>
+    </HostDashboardShell>
   );
 }
 
 export default function HamnarPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0b1b3f]" />}>
+    <Suspense fallback={HOST_LOADING_FALLBACK}>
       <HamnarContent />
     </Suspense>
   );

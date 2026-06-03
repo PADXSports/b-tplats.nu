@@ -1,9 +1,25 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import AuthNavbar from "@/components/auth-navbar";
+import {
+  DASHBOARD_NAVY,
+  DASHBOARD_TEAL,
+  IconBerth,
+  IconChart,
+  IconClipboardCheck,
+  IconCurrency,
+  dashboardCardClass,
+  StatIconBox,
+} from "@/components/dashboard-icons";
+import {
+  HOST_LOADING_FALLBACK,
+  HostDashboardShell,
+  HostToast,
+  type HostNavKey,
+} from "@/components/host-dashboard-shell";
 import { createClient } from "@/lib/supabase/client";
 
 type Harbour = {
@@ -59,15 +75,15 @@ const formatCurrency = (value: number) => `${value.toLocaleString("sv-SE")} kr`;
 
 const getStatusMeta = (status: string) => {
   if (status === "pending") {
-    return { label: "Väntande", classes: "bg-[#fef9c3] text-[#854d0e]" };
+    return { label: "Väntande", classes: "bg-yellow-100 text-yellow-700" };
   }
   if (status === "confirmed") {
-    return { label: "Bekräftad", classes: "bg-[#dff5ea] text-[#2d9e6b]" };
+    return { label: "Bekräftad", classes: "bg-green-100 text-green-700" };
   }
   if (status === "declined") {
-    return { label: "Avböjd", classes: "bg-[#fee2e2] text-[#d64c3b]" };
+    return { label: "Avböjd", classes: "bg-red-100 text-red-700" };
   }
-  return { label: status, classes: "bg-[#dce3ee] text-[#6b7a8f]" };
+  return { label: status, classes: "bg-gray-100 text-gray-600" };
 };
 
 function HostDashboardContent() {
@@ -86,6 +102,10 @@ function HostDashboardContent() {
 
   const tabParam = searchParams.get("tab");
   const tab: Tab = tabParam === "annonser" ? "listings" : tabParam === "bokningar" ? "bookings" : "overview";
+  const activeNav: HostNavKey =
+    tab === "listings" ? "listings" : tab === "bookings" ? "bookings" : "overview";
+  const pageTitle =
+    tab === "listings" ? "Annonser" : tab === "bookings" ? "Bokningar" : "Mina Hamnar";
 
   useEffect(() => {
     if (!toast) return;
@@ -285,61 +305,86 @@ function HostDashboardContent() {
     return { ...bucket, count };
   });
   const maxMonthlyCount = Math.max(...monthlyCounts.map((bucket) => bucket.count), 1);
+  const filteredSeasonRevenue = filteredBookings
+    .filter((b) => b.status === "confirmed")
+    .reduce((sum, booking) => {
+      const startDate = booking.start_date ? new Date(booking.start_date) : null;
+      if (!startDate || Number.isNaN(startDate.getTime()) || startDate.getFullYear() !== currentYear) {
+        return sum;
+      }
+      return sum + (booking.listings?.price_per_season ?? 0);
+    }, 0);
 
   if (loading) {
-    return <main className="min-h-screen bg-[#0f1f3d]" />;
+    return HOST_LOADING_FALLBACK;
   }
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#071433] via-[#0b1b3f] to-[#132d63] text-white">
-      <AuthNavbar currentPage="dashboard" />
-      <section className="mx-auto w-full max-w-[1240px] px-4 py-8 sm:px-6">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#14b8a6]">Host dashboard</p>
-            <h1 className="text-2xl font-extrabold">Mina Hamnar</h1>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => router.push("/dashboard/host/hamnar")} className="rounded-lg border border-white/20 px-4 py-2 text-sm">Hantera hamnar</button>
-            {harbours.length > 1 ? (
-              <select
-                value={selectedHarbourId}
-                onChange={(e) => setSelectedHarbourId(e.target.value)}
-                className="rounded-lg border border-white/20 bg-[#10234f] px-3 py-2 text-sm"
-              >
-                <option value="all">Alla hamnar</option>
-                {harbours.map((h) => (
-                  <option key={h.id} value={String(h.id)}>{h.name ?? "Namnlös hamn"}</option>
-                ))}
-              </select>
-            ) : null}
-          </div>
+    <HostDashboardShell
+      activeNav={activeNav}
+      pageTitle={pageTitle}
+      headerAction={
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => router.push("/dashboard/host/hamnar")}
+            className="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+          >
+            Hantera hamnar
+          </button>
+          {harbours.length > 1 ? (
+            <select
+              value={selectedHarbourId}
+              onChange={(e) => setSelectedHarbourId(e.target.value)}
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm"
+            >
+              <option value="all">Alla hamnar</option>
+              {harbours.map((h) => (
+                <option key={h.id} value={String(h.id)}>
+                  {h.name ?? "Namnlös hamn"}
+                </option>
+              ))}
+            </select>
+          ) : null}
+        </div>
+      }
+    >
+
+        <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {[
+            { label: "Totalt platser", value: filteredListings.length, icon: <IconBerth /> },
+            { label: "Bokade", value: bookedCount, icon: <IconClipboardCheck /> },
+            {
+              label: "Intäkter",
+              value: `${filteredSeasonRevenue.toLocaleString("sv-SE")} kr`,
+              icon: <IconCurrency />,
+            },
+            { label: "Beläggning", value: `${occupancy}%`, icon: <IconChart /> },
+          ].map((stat) => (
+            <div key={stat.label} className={`${dashboardCardClass} p-5`}>
+              <StatIconBox>{stat.icon}</StatIconBox>
+              <p className="mb-1 text-2xl font-bold" style={{ color: DASHBOARD_NAVY }}>
+                {stat.value}
+              </p>
+              <p className="text-sm text-gray-500">{stat.label}</p>
+            </div>
+          ))}
         </div>
 
-        {toast ? (
-          <div
-            className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
-              toast.type === "success"
-                ? "border-[#2d9e6b]/40 bg-[#dff5ea] text-[#14532d]"
-                : "border-[#d64c3b]/40 bg-[#fee2e2] text-[#7f1d1d]"
-            }`}
-          >
-            {toast.message}
-          </div>
-        ) : null}
+      <HostToast toast={toast} />
 
         {tab === "overview" ? (
-          <div className="mx-auto w-full max-w-[1200px]">
+          <div className="space-y-6">
             {harbours.length > 1 ? (
-              <div className="mb-4">
-                <label htmlFor="overview-harbour" className="mb-2 block text-sm font-semibold text-white/85">
+              <div className={`${dashboardCardClass} p-5`}>
+                <label htmlFor="overview-harbour" className="mb-2 block text-sm font-medium text-gray-700">
                   Välj hamn
                 </label>
                 <select
                   id="overview-harbour"
                   value={overviewHarbourId ?? ""}
                   onChange={(event) => setSelectedHarbourId(event.target.value)}
-                  className="w-full max-w-sm rounded-lg border border-white/20 bg-[#0f2147] px-3 py-2 text-sm text-white outline-none transition focus:border-[#14b8a6]"
+                  className="w-full max-w-sm rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none transition focus:border-teal-500"
                 >
                   {harbours.map((harbour) => (
                     <option key={harbour.id} value={String(harbour.id)}>
@@ -352,195 +397,220 @@ function HostDashboardContent() {
 
             {overviewHarbour ? (
               <button
+                type="button"
                 onClick={() => router.push(`/dashboard/host/hamnar/${overviewHarbour.id}`)}
-                className="w-full rounded-2xl border border-white/10 bg-[#1a2f5f] p-5 text-left transition hover:border-[#14b8a6]/60 hover:shadow-lg hover:shadow-[#14b8a6]/10 sm:p-6"
+                className={`${dashboardCardClass} w-full p-6 text-left transition hover:border-teal-200 hover:shadow-md`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-2xl font-black leading-tight">
-                      {(overviewHarbour.name ?? "Namnlös hamn") + (overviewHarbour.city ? `, ${overviewHarbour.city}` : "")}
-                    </p>
-                  </div>
-                  <span className="inline-flex items-center gap-2 rounded-full bg-[#dff5ea] px-3 py-1 text-xs font-bold text-[#1f7a51]">
-                    <span className="h-2 w-2 rounded-full bg-[#2d9e6b]" />
+                  <p className="text-2xl font-bold leading-tight" style={{ color: DASHBOARD_NAVY }}>
+                    {(overviewHarbour.name ?? "Namnlös hamn") +
+                      (overviewHarbour.city ? `, ${overviewHarbour.city}` : "")}
+                  </p>
+                  <span className="inline-flex items-center gap-2 rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                    <span className="h-2 w-2 rounded-full bg-green-500" />
                     Aktiv
                   </span>
                 </div>
 
                 <div className="mt-6 grid gap-4 sm:grid-cols-3">
                   <div>
-                    <p className="text-xs uppercase tracking-[0.08em] text-white/70">Totalt platser</p>
-                    <p className="mt-1 text-3xl font-extrabold">{overviewListings.length}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Totalt platser</p>
+                    <p className="mt-1 text-3xl font-bold" style={{ color: DASHBOARD_NAVY }}>
+                      {overviewListings.length}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.08em] text-white/70">Bokade</p>
-                    <p className="mt-1 text-3xl font-extrabold">{overviewBookedCount}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Bokade</p>
+                    <p className="mt-1 text-3xl font-bold" style={{ color: DASHBOARD_NAVY }}>
+                      {overviewBookedCount}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.08em] text-white/70">Beläggning</p>
-                    <p className="mt-1 text-3xl font-extrabold text-[#14b8a6]">{overviewOccupancy}%</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500">Beläggning</p>
+                    <p className="mt-1 text-3xl font-bold text-teal-600">{overviewOccupancy}%</p>
                   </div>
                 </div>
 
                 <div className="mt-7">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-white/70">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
                     Bokningar per månad
                   </p>
                   <div className="space-y-3">
                     {monthlyCounts.map((bucket) => (
                       <div key={bucket.label} className="grid grid-cols-[38px_1fr_30px] items-center gap-3">
-                        <span className="text-xs font-semibold text-white/75">{bucket.label}</span>
-                        <div className="h-3 rounded-full bg-white/10">
+                        <span className="text-xs font-semibold text-gray-600">{bucket.label}</span>
+                        <div className="h-3 rounded-full bg-gray-100">
                           <div
-                            className="h-full rounded-full bg-gradient-to-r from-[#14b8a6] to-[#2dd4bf]"
+                            className="h-full rounded-full bg-teal-500"
                             style={{ width: `${Math.max((bucket.count / maxMonthlyCount) * 100, 6)}%` }}
                           />
                         </div>
-                        <span className="text-right text-xs font-semibold text-white/75">{bucket.count}</span>
+                        <span className="text-right text-xs font-semibold text-gray-600">{bucket.count}</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="mt-7 border-t border-white/10 pt-5">
-                  <p className="text-sm text-white/70">Intäkt denna säsong</p>
-                  <p className="mt-1 text-4xl font-black text-[#14b8a6]">{formatCurrency(seasonRevenue)}</p>
+                <div className="mt-7 border-t border-gray-100 pt-5">
+                  <p className="text-sm text-gray-500">Intäkt denna säsong</p>
+                  <p className="mt-1 text-4xl font-bold text-teal-600">{formatCurrency(seasonRevenue)}</p>
                 </div>
               </button>
             ) : (
-              <div className="rounded-2xl border border-dashed border-white/20 bg-[#1a2f5f]/60 p-6 text-sm text-white/75">
+              <div className={`${dashboardCardClass} border-dashed p-6 text-sm text-gray-500`}>
                 Inga hamnar hittades ännu. Skapa din första hamn för att komma igång.
               </div>
             )}
 
-            <div className="mt-6 flex gap-2 rounded-xl bg-[#122a5d] p-1">
+            <div className="flex gap-1 rounded-xl bg-gray-200/60 p-1">
               {[
-                ["overview", "Översikt"],
-                ["listings", "Mina annonser"],
-                ["bookings", "Bokningar"],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  onClick={() => router.push(value === "overview" ? "/dashboard/host" : `/dashboard/host?tab=${value === "listings" ? "annonser" : "bokningar"}`)}
-                  className={`rounded-lg px-4 py-2 text-sm ${tab === value ? "bg-[#14b8a6] text-[#0b1b3f]" : "text-white/80"}`}
+                { value: "overview" as Tab, label: "Översikt", href: "/dashboard/host" },
+                { value: "listings" as Tab, label: "Mina annonser", href: "/dashboard/host/listings" },
+                { value: "bookings" as Tab, label: "Bokningar", href: "/dashboard/host/bokningar" },
+              ].map((item) => (
+                <Link
+                  key={item.value}
+                  href={item.href}
+                  className={`flex-1 rounded-lg px-4 py-2.5 text-center text-sm font-medium transition ${
+                    tab === item.value ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                  }`}
                 >
-                  {label}
-                </button>
+                  {item.label}
+                </Link>
               ))}
             </div>
           </div>
         ) : null}
 
         {tab === "listings" ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex justify-end">
               <button
+                type="button"
                 onClick={() => router.push("/dashboard/host/listings/ny")}
-                className="rounded-lg bg-[#14b8a6] px-4 py-2 text-sm font-semibold text-[#0b1b3f]"
+                className="rounded-xl px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                style={{ background: DASHBOARD_TEAL }}
               >
                 Lägg till ny annons
               </button>
             </div>
-            {filteredListings.length === 0 ? <p className="text-sm text-white/70">Inga annonser för vald hamn.</p> : filteredListings.map((l) => (
-              <article key={l.id} className="rounded-xl bg-[#122a5d] p-4">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-16 w-24 items-center justify-center overflow-hidden rounded-lg bg-[#0b1b3f] text-xs text-white/60">
-                      {l.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={l.image_url} alt={l.title} className="h-full w-full object-cover" />
-                      ) : (
-                        "Ingen bild"
-                      )}
+            {filteredListings.length === 0 ? (
+              <p className={`${dashboardCardClass} p-6 text-sm text-gray-500`}>Inga annonser för vald hamn.</p>
+            ) : (
+              filteredListings.map((l) => (
+                <article key={l.id} className={`${dashboardCardClass} p-5`}>
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-16 w-24 items-center justify-center overflow-hidden rounded-lg bg-gray-100 text-xs text-gray-500">
+                        {l.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={l.image_url} alt={l.title} className="h-full w-full object-cover" />
+                        ) : (
+                          "Ingen bild"
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-semibold" style={{ color: DASHBOARD_NAVY }}>
+                          {l.title}
+                        </p>
+                        <p className="text-xs text-gray-500">{formatPrice(l.price_per_season)}</p>
+                        <span
+                          className={`mt-1 inline-block rounded-full px-2 py-1 text-[11px] font-semibold ${
+                            l.is_available ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          {l.is_available ? "Tillgänglig" : "Inte tillgänglig"}
+                        </span>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold">{l.title}</p>
-                      <p className="text-xs text-white/70">{formatPrice(l.price_per_season)}</p>
-                      <span
-                        className={`mt-1 inline-block rounded-full px-2 py-1 text-[11px] font-semibold ${
-                          l.is_available ? "bg-[#dff5ea] text-[#2d9e6b]" : "bg-[#dce3ee] text-[#6b7a8f]"
-                        }`}
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/dashboard/host/listings/${l.id}/redigera`)}
+                        className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                       >
-                        {l.is_available ? "Tillgänglig" : "Inte tillgänglig"}
-                      </span>
+                        Redigera
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void deleteListing(l.id)}
+                        disabled={deletingListingId === l.id}
+                        className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {deletingListingId === l.id ? "Tar bort..." : "Ta bort"}
+                      </button>
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => router.push(`/dashboard/host/listings/${l.id}/redigera`)}
-                      className="rounded-lg border border-white/20 px-3 py-2 text-xs font-semibold"
-                    >
-                      Redigera
-                    </button>
-                    <button
-                      onClick={() => void deleteListing(l.id)}
-                      disabled={deletingListingId === l.id}
-                      className="rounded-lg border border-[#d64c3b]/60 px-3 py-2 text-xs font-semibold text-[#fca5a5] disabled:opacity-50"
-                    >
-                      {deletingListingId === l.id ? "Tar bort..." : "Ta bort"}
-                    </button>
-                  </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              ))
+            )}
           </div>
         ) : null}
 
         {tab === "bookings" ? (
-          <div className="space-y-3">
-            {filteredBookings.length === 0 ? <p className="text-sm text-white/70">Inga bokningar för vald hamn.</p> : filteredBookings.map((b) => (
-              <article key={b.id} className="rounded-xl bg-[#122a5d] p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <p className="font-semibold">{b.listings?.title ?? "Okänd annons"}</p>
-                    <p className="text-xs text-white/70">
-                      Hyresgäst: {b.renter?.full_name || "Okänd"} ({b.renter?.email || b.guest_email || "Ingen e-post"})
-                    </p>
-                    <p className="text-xs text-white/70">
-                      Datum: {formatDate(b.start_date)} - {formatDate(b.end_date)}
-                    </p>
+          <div className="space-y-4">
+            {filteredBookings.length === 0 ? (
+              <p className={`${dashboardCardClass} p-6 text-sm text-gray-500`}>Inga bokningar för vald hamn.</p>
+            ) : (
+              filteredBookings.map((b) => (
+                <article key={b.id} className={`${dashboardCardClass} p-5`}>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="font-semibold" style={{ color: DASHBOARD_NAVY }}>
+                        {b.listings?.title ?? "Okänd annons"}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Hyresgäst: {b.renter?.full_name || "Okänd"} (
+                        {b.renter?.email || b.guest_email || "Ingen e-post"})
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        Datum: {formatDate(b.start_date)} - {formatDate(b.end_date)}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-start gap-2 sm:items-end">
+                      {(() => {
+                        const status = getStatusMeta(b.status);
+                        return (
+                          <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${status.classes}`}>
+                            {status.label}
+                          </span>
+                        );
+                      })()}
+                      {b.status === "pending" ? (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void updateBookingStatus(b.id, "confirmed")}
+                            disabled={updatingBookingId === b.id}
+                            className="rounded-xl px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                            style={{ background: DASHBOARD_TEAL }}
+                          >
+                            Godkänn
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void updateBookingStatus(b.id, "declined")}
+                            disabled={updatingBookingId === b.id}
+                            className="rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            Avvisa
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="flex flex-col items-start gap-2 sm:items-end">
-                    {(() => {
-                      const status = getStatusMeta(b.status);
-                      return (
-                        <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${status.classes}`}>
-                          {status.label}
-                        </span>
-                      );
-                    })()}
-                    {b.status === "pending" ? (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => void updateBookingStatus(b.id, "confirmed")}
-                          disabled={updatingBookingId === b.id}
-                          className="rounded-lg bg-[#14b8a6] px-3 py-2 text-xs font-semibold text-[#0b1b3f] disabled:opacity-50"
-                        >
-                          Godkänn
-                        </button>
-                        <button
-                          onClick={() => void updateBookingStatus(b.id, "declined")}
-                          disabled={updatingBookingId === b.id}
-                          className="rounded-lg border border-[#d64c3b]/60 px-3 py-2 text-xs font-semibold text-[#fca5a5] disabled:opacity-50"
-                        >
-                          Avvisa
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              ))
+            )}
           </div>
         ) : null}
-      </section>
-    </main>
+    </HostDashboardShell>
   );
 }
 
 export default function HostDashboardPage() {
   return (
-    <Suspense fallback={<main className="min-h-screen bg-[#0b1b3f]" />}>
+    <Suspense fallback={HOST_LOADING_FALLBACK}>
       <HostDashboardContent />
     </Suspense>
   );

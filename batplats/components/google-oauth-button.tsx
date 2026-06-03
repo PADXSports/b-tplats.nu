@@ -28,15 +28,21 @@ function GoogleIcon() {
 type GoogleOAuthButtonProps = {
   /** Passed to /auth/callback — new OAuth users get this profile role */
   newUserRole?: "host" | "renter";
+  /** After OAuth, return user to this in-app path (e.g. /listings/123) */
+  redirectPath?: string;
 };
 
-export function GoogleOAuthButton({ newUserRole = "renter" }: GoogleOAuthButtonProps) {
+export function GoogleOAuthButton({ newUserRole = "renter", redirectPath }: GoogleOAuthButtonProps) {
   const handleGoogleLogin = async () => {
     const supabase = createClient();
-    const redirectTo =
-      newUserRole === "host"
-        ? `${window.location.origin}/auth/callback?role=host`
-        : `${window.location.origin}/auth/callback`;
+    const callbackUrl = new URL(`${window.location.origin}/auth/callback`);
+    if (newUserRole === "host") {
+      callbackUrl.searchParams.set("role", "host");
+    }
+    if (redirectPath && redirectPath.startsWith("/") && !redirectPath.startsWith("//")) {
+      callbackUrl.searchParams.set("redirect", redirectPath);
+    }
+    const redirectTo = callbackUrl.toString();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo },

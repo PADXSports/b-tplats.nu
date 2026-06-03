@@ -3,7 +3,16 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import AuthNavbar from "@/components/auth-navbar";
+import { DASHBOARD_TEAL } from "@/components/dashboard-icons";
+import {
+  HOST_INPUT_CLASS,
+  HOST_LABEL_CLASS,
+  HOST_LOADING_FALLBACK,
+  HOST_PRIMARY_BTN,
+  HostDashboardShell,
+  HostToast,
+  hostCardClass,
+} from "@/components/host-dashboard-shell";
 import ListingImageUploader, { type ListingGalleryImage } from "@/components/listing-image-uploader";
 import { createClient } from "@/lib/supabase/client";
 
@@ -34,6 +43,7 @@ function CreateListingContent() {
     season_start: "",
     season_end: "",
   });
+  const [listingType, setListingType] = useState<"marina" | "private">("marina");
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkCount, setBulkCount] = useState(1);
   const [namePattern, setNamePattern] = useState("Plats {N}");
@@ -149,6 +159,7 @@ function CreateListingContent() {
       season_end: seasonEnd,
       image_url: imageUrl,
       is_available: true,
+      listing_type: listingType,
     };
 
     const payload = bulkMode
@@ -183,42 +194,62 @@ function CreateListingContent() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0b1b3f] text-white">
-      <AuthNavbar currentPage="dashboard" />
-      <section className="mx-auto w-full max-w-[900px] px-4 py-8 sm:px-6">
-        <div className="mb-6">
-          <button onClick={() => router.push("/dashboard/host/hamnar")} className="text-sm text-white/70 hover:text-white">
-            ← Tillbaka
-          </button>
-          <h1 className="mt-1 text-2xl font-extrabold">Skapa ny plats</h1>
-        </div>
+    <HostDashboardShell
+      activeNav="listings"
+      pageTitle="Skapa ny plats"
+      headerAction={
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard/host/hamnar")}
+          className="text-sm text-gray-500 hover:text-gray-700"
+        >
+          ← Tillbaka
+        </button>
+      }
+    >
+      <HostToast toast={toast} />
 
-        {toast ? (
-          <div
-            className={`mb-4 rounded-lg border px-4 py-3 text-sm ${
-              toast.type === "success"
-                ? "border-[#2d9e6b]/40 bg-[#dff5ea] text-[#14532d]"
-                : "border-[#d64c3b]/40 bg-[#fee2e2] text-[#7f1d1d]"
-            }`}
-          >
-            {toast.message}
-          </div>
-        ) : null}
-
-        {loading ? (
-          <div className="rounded-xl bg-[#122a5d] p-5 text-sm text-white/70">Laddar...</div>
-        ) : (
-          <div className="rounded-xl border border-white/10 bg-[#122a5d] p-5 sm:p-6">
+      {loading ? (
+        <div className={`${hostCardClass} max-w-3xl p-5 text-sm text-gray-500`}>Laddar...</div>
+      ) : (
+        <div className={`${hostCardClass} max-w-3xl p-5 sm:p-6`}>
             <div className="space-y-6">
-              <section className="border-b border-white/10 pb-6">
-                <h2 className="text-lg font-bold">Grundläggande information</h2>
+              <section className="border-b border-gray-100 pb-6">
+                <h2 className="text-lg font-bold text-gray-900">Grundläggande information</h2>
+                <div className="mb-6 mt-4">
+                  <label className={HOST_LABEL_CLASS}>Typ av plats</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setListingType("marina")}
+                      className={`rounded-xl border-2 p-3 text-sm font-medium transition ${
+                        listingType === "marina"
+                          ? "border-teal-600 bg-teal-50 text-teal-700"
+                          : "border-gray-200 text-gray-600 hover:border-gray-300"
+                      }`}
+                    >
+                      🏗️ Hamn/Marina
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setListingType("private")}
+                      className={`rounded-xl border-2 p-3 text-sm font-medium transition ${
+                        listingType === "private"
+                          ? "border-teal-600 bg-teal-50 text-teal-700"
+                          : "border-gray-200 text-gray-600 hover:border-gray-300"
+                      }`}
+                    >
+                      🚤 Privat uthyrning
+                    </button>
+                  </div>
+                </div>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-semibold">Hamn</label>
+                    <label className={HOST_LABEL_CLASS}>Hamn</label>
                     <select
                       value={form.harbour_id}
                       onChange={(e) => setForm((prev) => ({ ...prev, harbour_id: e.target.value }))}
-                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                      className={HOST_INPUT_CLASS}
                     >
                       {harbours.map((h) => (
                         <option key={h.id} value={String(h.id)}>
@@ -228,112 +259,112 @@ function CreateListingContent() {
                     </select>
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-semibold">Titel</label>
+                    <label className={HOST_LABEL_CLASS}>Titel</label>
                     <input
                       value={form.title}
                       onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
                       placeholder="Brygga A · Plats 12"
-                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                      className={HOST_INPUT_CLASS}
                     />
-                    <p className="mt-1 text-xs text-white/60">T.ex. "Brygga A · Plats 12" eller "Södra Kajen 8"</p>
+                    <p className="mt-1 text-xs text-gray-500">T.ex. &quot;Brygga A · Plats 12&quot; eller &quot;Södra Kajen 8&quot;</p>
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="mb-2 block text-sm font-semibold">Beskrivning (valfritt)</label>
+                    <label className={HOST_LABEL_CLASS}>Beskrivning (valfritt)</label>
                     <textarea
                       value={form.description}
                       onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
                       placeholder="Beskriv platsen"
-                      className="min-h-28 w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                      className={`${HOST_INPUT_CLASS} min-h-28`}
                     />
-                    <p className="mt-1 text-xs text-white/60">
+                    <p className="mt-1 text-xs text-gray-500">
                       Beskriv läget, närhet till faciliteter, eluttag, etc.
                     </p>
                   </div>
                 </div>
               </section>
 
-              <section className="border-b border-white/10 pb-6">
-                <h2 className="text-lg font-bold">Båtspecifikationer</h2>
+              <section className="border-b border-gray-100 pb-6">
+                <h2 className="text-lg font-bold text-gray-900">Båtspecifikationer</h2>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-semibold">Max båtlängd (m)</label>
+                    <label className={HOST_LABEL_CLASS}>Max båtlängd (m)</label>
                     <input
                       value={form.max_boat_length}
                       onChange={(e) => setForm((prev) => ({ ...prev, max_boat_length: e.target.value }))}
                       type="number"
                       min={1}
                       max={50}
-                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                      className={HOST_INPUT_CLASS}
                     />
-                    <p className="mt-1 text-xs text-white/60">Maximal längd på båt som får ligga här</p>
+                    <p className="mt-1 text-xs text-gray-500">Maximal längd på båt som får ligga här</p>
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-semibold">Max båtbredd (m)</label>
+                    <label className={HOST_LABEL_CLASS}>Max båtbredd (m)</label>
                     <input
                       value={form.max_boat_width}
                       onChange={(e) => setForm((prev) => ({ ...prev, max_boat_width: e.target.value }))}
                       type="number"
                       min={1}
                       max={15}
-                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                      className={HOST_INPUT_CLASS}
                     />
-                    <p className="mt-1 text-xs text-white/60">Maximal bredd på båt</p>
+                    <p className="mt-1 text-xs text-gray-500">Maximal bredd på båt</p>
                   </div>
-                  <div className="sm:col-span-2 rounded-lg border border-[#14b8a6]/30 bg-[#0b1b3f]/70 p-3 text-sm text-white/80">
+                  <div className="sm:col-span-2 rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-gray-600">
                     <span className="mr-2 text-lg">⛵</span>
                     Längd = fören till aktern, bredd = båtens bredaste punkt.
                   </div>
                 </div>
               </section>
 
-              <section className="border-b border-white/10 pb-6">
-                <h2 className="text-lg font-bold">Säsong och pris</h2>
+              <section className="border-b border-gray-100 pb-6">
+                <h2 className="text-lg font-bold text-gray-900">Säsong och pris</h2>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-sm font-semibold">Säsongstart</label>
+                    <label className={HOST_LABEL_CLASS}>Säsongstart</label>
                     <input
                       value={form.season_start}
                       onChange={(e) => setForm((prev) => ({ ...prev, season_start: e.target.value }))}
                       type="date"
-                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                      className={HOST_INPUT_CLASS}
                     />
-                    <p className="mt-1 text-xs text-white/60">Första tillgängliga datum</p>
+                    <p className="mt-1 text-xs text-gray-500">Första tillgängliga datum</p>
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm font-semibold">Säsongsslut</label>
+                    <label className={HOST_LABEL_CLASS}>Säsongsslut</label>
                     <input
                       value={form.season_end}
                       onChange={(e) => setForm((prev) => ({ ...prev, season_end: e.target.value }))}
                       type="date"
-                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                      className={HOST_INPUT_CLASS}
                     />
-                    <p className="mt-1 text-xs text-white/60">Sista tillgängliga datum</p>
+                    <p className="mt-1 text-xs text-gray-500">Sista tillgängliga datum</p>
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="mb-2 block text-sm font-semibold">Pris per säsong (SEK)</label>
+                    <label className={HOST_LABEL_CLASS}>Pris per säsong (SEK)</label>
                     <input
                       value={form.price_per_season}
                       onChange={(e) => setForm((prev) => ({ ...prev, price_per_season: e.target.value }))}
                       type="number"
                       min={1}
                       placeholder="ex. 18500"
-                      className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-3 text-lg font-semibold"
+                      className={`${HOST_INPUT_CLASS} text-lg font-semibold`}
                     />
-                    <p className="mt-1 text-xs text-white/60">Totalpris för hela säsongen</p>
+                    <p className="mt-1 text-xs text-gray-500">Totalpris för hela säsongen</p>
                   </div>
                 </div>
               </section>
 
-              <section className="border-b border-white/10 pb-6">
-                <h2 className="text-lg font-bold">Bild (valfritt)</h2>
+              <section className="border-b border-gray-100 pb-6">
+                <h2 className="text-lg font-bold text-gray-900">Bild (valfritt)</h2>
                 <div className="mt-4">
                   <ListingImageUploader existingImages={galleryImages} onChange={setGalleryImages} />
                 </div>
               </section>
 
-              <section className="rounded-xl border border-[#14b8a6]/30 bg-[#14b8a6]/10 p-4">
-                <h2 className="text-lg font-bold">Skapa flera identiska platser</h2>
-                <label className="mt-3 flex items-center gap-2 text-sm font-semibold">
+              <section className="rounded-xl border border-teal-200 bg-teal-50 p-4">
+                <h2 className="text-lg font-bold text-gray-900">Skapa flera identiska platser</h2>
+                <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-gray-700">
                   <input
                     type="checkbox"
                     checked={bulkMode}
@@ -352,7 +383,7 @@ function CreateListingContent() {
                 {bulkMode ? (
                   <div className="mt-4 grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="mb-2 block text-sm font-semibold">Antal platser att skapa</label>
+                      <label className={HOST_LABEL_CLASS}>Antal platser att skapa</label>
                       <input
                         type="number"
                         min={1}
@@ -362,38 +393,38 @@ function CreateListingContent() {
                           const value = Number(e.target.value);
                           setBulkCount(Number.isNaN(value) ? 1 : Math.min(Math.max(value, 1), 50));
                         }}
-                        className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                        className={HOST_INPUT_CLASS}
                       />
                     </div>
                     <div>
-                      <label className="mb-2 block text-sm font-semibold">Namnmönster</label>
+                      <label className={HOST_LABEL_CLASS}>Namnmönster</label>
                       <input
                         value={namePattern}
                         onChange={(e) => setNamePattern(e.target.value)}
                         placeholder="Brygga A · Plats {N}"
-                        className="w-full rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                        className={HOST_INPUT_CLASS}
                       />
-                      <p className="mt-1 text-xs text-white/70">
+                      <p className="mt-1 text-xs text-gray-500">
                         Ex: "Brygga A · Plats {"{N}"}", "Kajen {"{N}"}"
                       </p>
                     </div>
                     <div className="sm:col-span-2">
-                      <p className="text-xs text-white/70">
+                      <p className="text-xs text-gray-500">
                         Använd {"{N}"} där numret ska vara. Varje plats får samma specs och pris.
                       </p>
                     </div>
-                    <div className="sm:col-span-2 rounded-lg border border-white/20 bg-[#0b1b3f] p-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-white/60">
+                    <div className="sm:col-span-2 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.08em] text-gray-500">
                         Förhandsvisning
                       </p>
                       {generatedNamesPreview.length > 0 ? (
-                        <ul className="mt-2 space-y-1 text-sm text-white/85">
+                        <ul className="mt-2 space-y-1 text-sm text-gray-700">
                           {generatedNamesPreview.map((name) => (
                             <li key={name}>• {name}</li>
                           ))}
                         </ul>
                       ) : (
-                        <p className="mt-2 text-sm text-white/60">Lägg till {"{N}"} i namnmönstret för förhandsvisning.</p>
+                        <p className="mt-2 text-sm text-gray-500">Lägg till {"{N}"} i namnmönstret för förhandsvisning.</p>
                       )}
                     </div>
                   </div>
@@ -403,23 +434,24 @@ function CreateListingContent() {
 
             <div className="mt-6 flex justify-end">
               <button
+                type="button"
                 onClick={() => void submit()}
                 disabled={saving || harbours.length === 0}
-                className="rounded-lg bg-[#14b8a6] px-6 py-3 text-base font-bold text-[#0b1b3f] disabled:opacity-50"
+                className={HOST_PRIMARY_BTN}
+                style={{ background: DASHBOARD_TEAL }}
               >
                 {saving ? "Skapar..." : bulkMode ? `Skapa ${bulkCount} platser` : "Skapa plats"}
               </button>
             </div>
           </div>
         )}
-      </section>
-    </main>
+    </HostDashboardShell>
   );
 }
 
 export default function CreateListingPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#0b1b3f]" />}>
+    <Suspense fallback={HOST_LOADING_FALLBACK}>
       <CreateListingContent />
     </Suspense>
   );

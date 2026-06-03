@@ -69,27 +69,36 @@ function ForHamnarContent() {
       <section className="bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 py-24 text-white">
         <div className="mx-auto w-full max-w-[980px] text-center">
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
-            För hamnägare
+            För hamnar & privatpersoner
           </p>
           <h1 className="mt-3 text-[3rem] font-black leading-tight tracking-[-0.5px] max-md:text-[2rem]">
-            Är du hamnägare?
+            Hyr ut din båtplats
           </h1>
           <p className="mx-auto mt-4 max-w-[680px] text-[1.1rem] leading-relaxed text-white/85">
-            Lista dina båtplatser på Sveriges ledande plattform
+            Oavsett om du driver en marina eller har en privat plats du inte använder — lista den på Båtplats.nu och nå
+            tusentals båtägare.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/hamnar/logga-in"
-              className="rounded-lg border-2 border-[#14b8a6] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6]"
-            >
-              Logga in som hamnägare
-            </Link>
+          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/hamnar/registrera"
-              className="rounded-lg bg-[#0d9488] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6]"
+              className="rounded-xl bg-[#14b8a6] px-8 py-4 text-center text-sm font-semibold text-white transition hover:bg-[#0d9488]"
             >
-              Registrera din hamn
+              🏗️ Jag driver en marina
+            </Link>
+            <Link
+              href="/hyr-ut"
+              className="rounded-xl bg-white px-8 py-4 text-center text-sm font-semibold text-[#0f2942] transition hover:bg-[#f5f0e8]"
+            >
+              🚤 Jag har en privat plats
+            </Link>
+          </div>
+          <div className="mt-4">
+            <Link
+              href="/hamnar/logga-in"
+              className="text-sm font-medium text-white/80 underline-offset-2 transition hover:text-white hover:underline"
+            >
+              Logga in som hamnägare
             </Link>
           </div>
         </div>
@@ -107,38 +116,37 @@ function ForHamnarContent() {
           </div>
 
           <div className="mt-8 grid gap-5 md:grid-cols-3">
-            <article className="rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
-              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#d4f0ec] text-lg">
-                ⛵
-              </div>
-              <h3 className="text-lg font-bold text-[#0f1f3d]">Nå fler båtägare</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[#8a96a8]">
-                Syns där aktiva båtägare söker varje dag. Fyll lediga platser snabbare med högre
-                beläggning över säsongen.
-              </p>
-            </article>
-
-            <article className="rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
-              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#d4f0ec] text-lg">
-                📋
-              </div>
-              <h3 className="text-lg font-bold text-[#0f1f3d]">Enkel hantering</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[#8a96a8]">
-                Hantera förfrågningar, bokningar och tillgänglighet på ett ställe. Mindre admin,
-                tydligare överblick och snabbare svar.
-              </p>
-            </article>
-
-            <article className="rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
-              <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#d4f0ec] text-lg">
-                🔒
-              </div>
-              <h3 className="text-lg font-bold text-[#0f1f3d]">Säkra betalningar</h3>
-              <p className="mt-2 text-sm leading-relaxed text-[#8a96a8]">
-                Trygga flöden för både hamnägare och hyresgäst. Minska osäkerhet och bygg förtroende
-                i varje bokning.
-              </p>
-            </article>
+            {[
+              {
+                icon: "👥",
+                title: "Nå fler båtägare",
+                description:
+                  "Tusentals båtägare söker platser på Båtplats.nu varje säsong. Din plats syns direkt för rätt målgrupp.",
+              },
+              {
+                icon: "💰",
+                title: "Tjäna på din plats",
+                description:
+                  "Har du en plats som står tom delar av säsongen? Hyr ut den och få betalt direkt via säker betalning.",
+              },
+              {
+                icon: "📱",
+                title: "Enkel hantering",
+                description:
+                  "Hantera bokningar, kommunicera med hyresgäster och håll koll på intäkter — allt på ett ställe.",
+              },
+            ].map((benefit) => (
+              <article
+                key={benefit.title}
+                className="rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]"
+              >
+                <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#d4f0ec] text-lg">
+                  {benefit.icon}
+                </div>
+                <h3 className="text-lg font-bold text-[#0f1f3d]">{benefit.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-[#8a96a8]">{benefit.description}</p>
+              </article>
+            ))}
           </div>
         </div>
       </section>
@@ -154,15 +162,27 @@ function ForHamnarContent() {
 
           <div className="mt-8 grid gap-5 md:grid-cols-3">
             {[
-              ["1", "Lista dina platser", "Lägg upp kajplatser med bilder, mått och priser på några minuter."],
-              ["2", "Ta emot bokningar", "Få förfrågningar eller direktbokningar från verifierade båtägare."],
-              ["3", "Få betalt", "Bekräfta bokningar och hantera betalningsflödet tryggt och smidigt."],
-            ].map(([step, title, copy]) => (
+              {
+                step: "01",
+                title: "Skapa din annons",
+                copy: "Marina eller privatperson — skapa en annons på några minuter med bilder, mått och pris.",
+              },
+              {
+                step: "02",
+                title: "Ta emot bokningar",
+                copy: "Båtägare hittar din plats och bokar direkt. Du får notis och kan hantera allt i din dashboard.",
+              },
+              {
+                step: "03",
+                title: "Få betalt",
+                copy: "Betalning hanteras säkert via Båtplats.nu. Pengarna betalas ut direkt till ditt konto.",
+              },
+            ].map(({ step, title, copy }) => (
               <article
                 key={title}
                 className="rounded-xl border border-[#dce3ee] bg-white p-6 shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]"
               >
-                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#0d9488] text-sm font-bold text-white">
+                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#0d9488] text-xs font-bold text-white">
                   {step}
                 </div>
                 <h3 className="text-lg font-bold text-[#0f1f3d]">{title}</h3>
@@ -176,17 +196,23 @@ function ForHamnarContent() {
       <section className="px-6 py-16">
         <div className="mx-auto w-full max-w-[980px] rounded-2xl bg-gradient-to-r from-[#0f1f3d] to-[#0d2252] p-8 text-center text-white shadow-[0_10px_30px_rgba(15,31,61,0.22)]">
           <h2 className="text-[1.9rem] font-extrabold leading-tight max-md:text-[1.5rem]">
-            Redo att lista din hamn?
+            Redo att lista din plats?
           </h2>
           <p className="mx-auto mt-3 max-w-[620px] text-sm leading-relaxed text-white/85">
-            Skapa ett hamnägarkonto och börja publicera dina platser redan idag.
+            Det tar mindre än 5 minuter att komma igång.
           </p>
-          <div className="mt-6">
+          <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
             <Link
               href="/hamnar/registrera"
               className="inline-flex rounded-lg bg-[#0d9488] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6]"
             >
-              Registrera din hamn
+              Registrera marina
+            </Link>
+            <Link
+              href="/hyr-ut"
+              className="inline-flex rounded-lg border-2 border-white/30 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+            >
+              Hyr ut privat plats
             </Link>
           </div>
         </div>
