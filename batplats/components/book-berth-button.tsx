@@ -2,11 +2,23 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import DateRangePicker from "@/components/DateRangePicker";
+import { BOOKED_BOOKING_STATUSES } from "@/lib/booking-status";
 import { createClient } from "@/lib/supabase/client";
+import {
+  expandRangeToSet,
+  formatDateSv,
+  hasValidDateRange as isValidDateRange,
+  meetsMinBookingMonths,
+  normalizeYmd,
+  rangesOverlap,
+} from "@/lib/date-range";
+import { formatSeasonRangeLong, isSeasonPeriodBooked, normalizeRentalType } from "@/lib/rental-type";
 
 const DATE_CLASH_MESSAGE = "Dessa datum är redan bokade. Välj andra datum.";
+const MIN_RANGE_MESSAGE = "Minsta bokningslängd är en månad.";
 
 type BookBerthButtonProps = {
   listingId: string | number;
@@ -16,64 +28,11 @@ type BookBerthButtonProps = {
   isAvailable?: boolean;
   className?: string;
   bookedRanges?: BookingRange[];
+  rentalType?: string | null;
+  seasonStart?: string | null;
+  seasonEnd?: string | null;
+  seasonBooked?: boolean;
 };
-
-function normalizeYmd(value: string | null | undefined): string | null {
-  if (!value) return null;
-  const match = value.match(/^(\d{4}-\d{2}-\d{2})/);
-  return match?.[1] ?? null;
-}
-
-function ymdFromDate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function todayYmd(): string {
-  return ymdFromDate(new Date());
-}
-
-function expandRangeToSet(startYmd: string, endYmd: string, out: Set<string>) {
-  const [ys, ms, ds] = startYmd.split("-").map(Number);
-  const [ye, me, de] = endYmd.split("-").map(Number);
-  if (!ys || !ms || !ds || !ye || !me || !de) return;
-  let cur = new Date(ys, ms - 1, ds);
-  const end = new Date(ye, me - 1, de);
-  while (cur <= end) {
-    out.add(ymdFromDate(cur));
-    cur.setDate(cur.getDate() + 1);
-  }
-}
-
-function rangeIncludesBookedDay(startYmd: string, endYmd: string, booked: Set<string>): boolean {
-  const [ys, ms, ds] = startYmd.split("-").map(Number);
-  const [ye, me, de] = endYmd.split("-").map(Number);
-  if (!ys || !ms || !ds || !ye || !me || !de) return true;
-  let cur = new Date(ys, ms - 1, ds);
-  const end = new Date(ye, me - 1, de);
-  while (cur <= end) {
-    if (booked.has(ymdFromDate(cur))) return true;
-    cur.setDate(cur.getDate() + 1);
-  }
-  return false;
-}
-
-function getCalendarCells(viewYear: number, viewMonth: number): { ymd: string; day: number; inMonth: boolean }[] {
-  const first = new Date(viewYear, viewMonth, 1);
-  const startPad = (first.getDay() + 6) % 7;
-  const cells: { ymd: string; day: number; inMonth: boolean }[] = [];
-  for (let i = 0; i < 42; i++) {
-    const d = new Date(viewYear, viewMonth, 1 - startPad + i);
-    cells.push({
-      ymd: ymdFromDate(d),
-      day: d.getDate(),
-      inMonth: d.getMonth() === viewMonth,
-    });
-  }
-  return cells;
-}
 
 type BookingRange = { start_date: string | null; end_date: string | null };
 
@@ -85,10 +44,19 @@ export default function BookBerthButton({
   isAvailable = true,
   className,
   bookedRanges,
+  rentalType,
+  seasonStart,
+  seasonEnd,
+  seasonBooked: seasonBookedProp,
 }: BookBerthButtonProps) {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = useMemo(() => createClient(), []);
+  const resolvedRentalType = normalizeRentalType(rentalType);
+  const isSeasonListing = resolvedRentalType === "season";
+  const seasonStartYmd = normalizeYmd(seasonStart);
+  const seasonEndYmd = normalizeYmd(seasonEnd);
+
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [isOpen, setIsOpen] = useState(false);
   const [startDate, setStartDate] = useState("");
@@ -103,9 +71,6 @@ export default function BookBerthButton({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmedRanges, setConfirmedRanges] = useState<BookingRange[]>(bookedRanges ?? []);
-  const now = new Date();
-  const [calendarView, setCalendarView] = useState({ y: now.getFullYear(), m: now.getMonth() });
-  const [bookedTooltipYmd, setBookedTooltipYmd] = useState<string | null>(null);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -127,9 +92,9 @@ export default function BookBerthButton({
     const loadBookings = async () => {
       const { data: bookedPeriods, error: fetchError } = await supabase
         .from("bookings")
-        .select("start_date, end_date")
+        .select("start_date, end_date, status")
         .eq("listing_id", listingId)
-        .eq("status", "confirmed");
+        .in("status", [...BOOKED_BOOKING_STATUSES]);
       if (!cancelled && !fetchError) {
         setConfirmedRanges((bookedPeriods ?? []) as BookingRange[]);
       }
@@ -151,6 +116,14 @@ export default function BookBerthButton({
     return set;
   }, [confirmedRanges]);
 
+  const seasonBooked = useMemo(() => {
+    if (seasonBookedProp != null) return seasonBookedProp;
+    if (!isSeasonListing || !seasonStartYmd || !seasonEndYmd) return false;
+    return isSeasonPeriodBooked(seasonStartYmd, seasonEndYmd, confirmedRanges);
+  }, [seasonBookedProp, isSeasonListing, seasonStartYmd, seasonEndYmd, confirmedRanges]);
+
+  const canBook = isAvailable && !(isSeasonListing && seasonBooked);
+
   const isLoggedIn = Boolean(userEmail);
   const redirectPath = `/listings/${listingId}`;
 
@@ -166,68 +139,28 @@ export default function BookBerthButton({
     setPhone("");
     setBoatName("");
     setBoatLength("");
-    setBookedTooltipYmd(null);
-    const n = new Date();
-    setCalendarView({ y: n.getFullYear(), m: n.getMonth() });
   };
 
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-  const hasValidDateRange =
-    Boolean(startDate) && Boolean(endDate) && new Date(endDate).getTime() > new Date(startDate).getTime();
+  const hasValidDateRange = isValidDateRange(startDate, endDate);
 
   const hasDateConflict = useMemo(() => {
     if (!startDate || !endDate || !hasValidDateRange) return false;
     return confirmedRanges.some((b) => {
       const s = normalizeYmd(b.start_date);
       const e = normalizeYmd(b.end_date);
-      return Boolean(s && e && startDate <= e && s <= endDate);
+      return Boolean(s && e && rangesOverlap(startDate, endDate, s, e));
     });
   }, [startDate, endDate, hasValidDateRange, confirmedRanges]);
 
-  const calendarCells = useMemo(
-    () => getCalendarCells(calendarView.y, calendarView.m),
-    [calendarView.y, calendarView.m],
-  );
-
-  const monthTitle = useMemo(() => {
-    const d = new Date(calendarView.y, calendarView.m, 1);
-    return d.toLocaleDateString("sv-SE", { month: "long", year: "numeric" });
-  }, [calendarView.y, calendarView.m]);
-
-  const handleDayClick = useCallback(
-    (ymd: string) => {
-      setError(null);
-      setBookedTooltipYmd(null);
-
-      if (!startDate || (startDate && endDate)) {
-        setStartDate(ymd);
-        setEndDate("");
-        return;
-      }
-
-      if (ymd < startDate) {
-        setStartDate(ymd);
-        setEndDate("");
-        return;
-      }
-
-      if (rangeIncludesBookedDay(startDate, ymd, bookedDates)) {
-        setError(DATE_CLASH_MESSAGE);
-        return;
-      }
-
-      setEndDate(ymd);
-    },
-    [startDate, endDate, bookedDates],
-  );
-
-  const showBookedTooltip = useCallback((ymd: string) => {
-    setBookedTooltipYmd(ymd);
-    window.setTimeout(() => setBookedTooltipYmd(null), 2000);
-  }, []);
+  const hasMinRange = useMemo(() => {
+    if (isSeasonListing) return true;
+    if (!startDate || !endDate || !hasValidDateRange) return false;
+    return meetsMinBookingMonths(startDate, endDate, 1);
+  }, [isSeasonListing, startDate, endDate, hasValidDateRange]);
 
   const handleBook = async () => {
-    if (!isAvailable) return;
+    if (!canBook) return;
 
     const {
       data: { user },
@@ -240,17 +173,40 @@ export default function BookBerthButton({
     }
 
     resetFlow();
+    if (isSeasonListing && seasonStartYmd && seasonEndYmd) {
+      setStartDate(seasonStartYmd);
+      setEndDate(seasonEndYmd);
+    }
     setIsOpen(true);
   };
 
   const handleContinueFromDates = () => {
     setError(null);
+    if (isSeasonListing) {
+      if (!seasonStartYmd || !seasonEndYmd) {
+        setError("Säsongen är inte korrekt angiven för denna plats");
+        return;
+      }
+      if (seasonBooked) {
+        setError("Platsen är redan bokad för säsongen");
+        return;
+      }
+      setStartDate(seasonStartYmd);
+      setEndDate(seasonEndYmd);
+      setStep(2);
+      return;
+    }
+
     if (!startDate || !endDate) {
       setError("Välj både start- och slutdatum");
       return;
     }
     if (!hasValidDateRange) {
       setError("Slutdatum måste vara efter startdatum");
+      return;
+    }
+    if (!hasMinRange) {
+      setError(MIN_RANGE_MESSAGE);
       return;
     }
     if (hasDateConflict) {
@@ -283,6 +239,11 @@ export default function BookBerthButton({
       return;
     }
 
+    if (!isSeasonListing && !hasMinRange) {
+      setError(MIN_RANGE_MESSAGE);
+      return;
+    }
+
     setStep(3);
   };
 
@@ -298,6 +259,12 @@ export default function BookBerthButton({
 
     if (hasDateConflict) {
       setError(DATE_CLASH_MESSAGE);
+      setIsSubmitting(false);
+      return;
+    }
+
+    if (!isSeasonListing && !hasMinRange) {
+      setError(MIN_RANGE_MESSAGE);
       setIsSubmitting(false);
       return;
     }
@@ -339,33 +306,26 @@ export default function BookBerthButton({
     resetFlow();
   };
 
-  const formatDate = (value: string) => {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleDateString("sv-SE");
-  };
+  const formatDate = formatDateSv;
+  const seasonLabel = formatSeasonRangeLong(seasonStart ?? null, seasonEnd ?? null);
 
-  const shiftMonth = (delta: number) => {
-    setCalendarView(({ y, m }) => {
-      const d = new Date(y, m + delta, 1);
-      return { y: d.getFullYear(), m: d.getMonth() };
-    });
-  };
-
-  const today = todayYmd();
-  const weekdayLabels = ["Mån", "Tis", "Ons", "Tor", "Fre", "Lör", "Sön"];
+  const buttonLabel = !isAvailable
+    ? "Bokad"
+    : isSeasonListing && seasonBooked
+      ? "Bokad för säsongen"
+      : "Boka båtplats";
 
   return (
     <>
       <button
         onClick={() => void handleBook()}
-        disabled={!isAvailable}
+        disabled={!canBook}
         className={
           className ??
           "rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6]"
         }
       >
-        {isAvailable ? "Boka båtplats" : "Bokad"}
+        {buttonLabel}
       </button>
 
       {isOpen ? (
@@ -393,120 +353,35 @@ export default function BookBerthButton({
             <form className="space-y-4">
               {step === 1 ? (
                 <>
-                  <p className="text-sm text-[#8a96a8]">
-                    Välj in- och utcheckningsdatum. Grå dagar är redan bokade.
-                  </p>
-
-                  <div className="relative rounded-xl border border-[#dce3ee] bg-white p-3">
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => shiftMonth(-1)}
-                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#dce3ee] px-3 py-1.5 text-base font-semibold text-[#0f1f3d] transition active:bg-[#f5f0e8] md:min-h-9 md:min-w-9 md:text-sm"
-                        aria-label="Föregående månad"
-                      >
-                        ←
-                      </button>
-                      <span className="text-center text-xl font-bold capitalize text-[#0f1f3d] md:text-sm">
-                        {monthTitle}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => shiftMonth(1)}
-                        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg border border-[#dce3ee] px-3 py-1.5 text-base font-semibold text-[#0f1f3d] transition active:bg-[#f5f0e8] md:min-h-9 md:min-w-9 md:text-sm"
-                        aria-label="Nästa månad"
-                      >
-                        →
-                      </button>
+                  {isSeasonListing ? (
+                    <div className="rounded-lg border border-[#dce3ee] bg-[#f5f0e8] p-4">
+                      <p className="text-sm font-semibold text-[#0f1f3d]">Säsong</p>
+                      <p className="mt-1 text-base text-[#0a1628]">{seasonLabel}</p>
+                      <p className="mt-2 text-sm text-[#8a96a8]">
+                        Du bokar hela säsongen. Priset gäller för hela perioden.
+                      </p>
                     </div>
+                  ) : (
+                    <>
+                      <p className="text-sm text-[#8a96a8]">
+                        Välj in- och utcheckningsdatum inom säsongen. Minst en månad. Grå dagar är upptagna.
+                      </p>
 
-                    <div className="grid grid-cols-7 gap-1 text-center text-[0.65rem] font-semibold uppercase tracking-wide text-[#8a96a8]">
-                      {weekdayLabels.map((w) => (
-                        <div key={w} className="py-1">
-                          {w}
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-1 grid grid-cols-7 gap-2 md:gap-1">
-                      {calendarCells.map(({ ymd, day, inMonth }) => {
-                        const isBooked = bookedDates.has(ymd);
-                        const isToday = ymd === today;
-                        const hasRange = Boolean(startDate && endDate && startDate < endDate);
-                        const isRangeFill =
-                          hasRange && ymd >= startDate && ymd <= endDate && !(ymd === startDate || ymd === endDate);
-                        const isEndpoint =
-                          (startDate && ymd === startDate) || (endDate && ymd === endDate && hasValidDateRange);
-
-                        let cellClass =
-                          "relative flex min-h-11 items-center justify-center rounded-lg text-base font-medium transition md:min-h-9 md:text-sm ";
-
-                        if (!inMonth) {
-                          cellClass += "text-[#c5d0de] ";
-                        } else if (isBooked) {
-                          cellClass +=
-                            "cursor-not-allowed bg-[#ebe6dc] text-[#8a96a8] line-through decoration-[#8a96a8] ";
-                        } else if (isEndpoint) {
-                          cellClass += "bg-[#0d9488] text-white shadow-sm ";
-                        } else if (isRangeFill) {
-                          cellClass += "bg-[#d4f0ec] text-[#0f1f3d] ";
-                        } else {
-                          cellClass += "cursor-pointer bg-white text-[#0f1f3d] hover:bg-[#0d9488]/15 ";
-                        }
-
-                        if (isToday && !isBooked && inMonth) {
-                          cellClass += "ring-2 ring-[#0d9488] ring-offset-1 ";
-                        }
-
-                        if (!inMonth) {
-                          return (
-                            <div key={ymd} className="flex min-h-11 items-center justify-center text-base text-[#c5d0de] md:min-h-9 md:text-sm">
-                              {day}
-                            </div>
-                          );
-                        }
-
-                        return (
-                          <div key={ymd} className="relative">
-                            <button
-                              type="button"
-                              title={isBooked ? "Redan bokad" : undefined}
-                              onClick={() => {
-                                if (isBooked) {
-                                  showBookedTooltip(ymd);
-                                  return;
-                                }
-                                handleDayClick(ymd);
-                              }}
-                              className={cellClass + "w-full"}
-                            >
-                              {day}
-                            </button>
-                            {bookedTooltipYmd === ymd ? (
-                              <span className="absolute -bottom-7 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-[#0f1f3d] px-2 py-0.5 text-[0.7rem] text-white shadow">
-                                Redan bokad
-                              </span>
-                            ) : null}
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-[#dce3ee] pt-3 text-xs text-[#8a96a8]">
-                      <span>⬜ Tillgänglig</span>
-                      <span>🟩 Vald</span>
-                      <span className="inline-flex items-center gap-1">
-                        ⬜
-                        <span>Bokad (grå)</span>
-                      </span>
-                    </div>
-                  </div>
-
-                  {(startDate || endDate) && (
-                    <p className="text-sm text-[#0f1f3d]">
-                      <span className="font-semibold">Vald period: </span>
-                      {startDate ? formatDate(startDate) : "—"} — {endDate ? formatDate(endDate) : "—"}
-                    </p>
+                      <DateRangePicker
+                        variant="inline"
+                        startDate={startDate}
+                        endDate={endDate}
+                        onStartDateChange={setStartDate}
+                        onEndDateChange={setEndDate}
+                        bookedDates={bookedDates}
+                        seasonStart={seasonStart}
+                        seasonEnd={seasonEnd}
+                        minBookingMonths={1}
+                        onDateError={setError}
+                        dateClashMessage={DATE_CLASH_MESSAGE}
+                        minRangeMessage={MIN_RANGE_MESSAGE}
+                      />
+                    </>
                   )}
 
                   {hasDateConflict ? <p className="text-sm text-[#d64c3b]">{DATE_CLASH_MESSAGE}</p> : null}
@@ -514,7 +389,7 @@ export default function BookBerthButton({
                     <button
                       type="button"
                       onClick={handleContinueFromDates}
-                      disabled={hasDateConflict}
+                      disabled={hasDateConflict || (!isSeasonListing && Boolean(startDate && endDate && !hasMinRange))}
                       className="w-full rounded-lg bg-[#0d9488] px-4 py-3 text-sm font-semibold text-white transition active:bg-[#14b8a6] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Fortsätt

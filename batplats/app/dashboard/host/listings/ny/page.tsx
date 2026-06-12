@@ -14,7 +14,9 @@ import {
   hostCardClass,
 } from "@/components/host-dashboard-shell";
 import ListingImageUploader, { type ListingGalleryImage } from "@/components/listing-image-uploader";
+import RentalTypeChoice from "@/components/RentalTypeChoice";
 import { createClient } from "@/lib/supabase/client";
+import type { RentalType } from "@/lib/rental-type";
 
 type Harbour = {
   id: string | number;
@@ -42,6 +44,7 @@ function CreateListingContent() {
     max_boat_width: "",
     season_start: "",
     season_end: "",
+    rental_type: "season" as RentalType,
   });
   const [listingType, setListingType] = useState<"marina" | "private">("marina");
   const [bulkMode, setBulkMode] = useState(false);
@@ -157,6 +160,7 @@ function CreateListingContent() {
       max_boat_width: maxBoatWidth,
       season_start: seasonStart,
       season_end: seasonEnd,
+      rental_type: form.rental_type,
       image_url: imageUrl,
       is_available: true,
       listing_type: listingType,
@@ -319,6 +323,14 @@ function CreateListingContent() {
 
               <section className="border-b border-gray-100 pb-6">
                 <h2 className="text-lg font-bold text-gray-900">Säsong och pris</h2>
+                <div className="mt-4">
+                  <label className={HOST_LABEL_CLASS}>Uthyrningstyp</label>
+                  <RentalTypeChoice
+                    className="mt-2"
+                    value={form.rental_type}
+                    onChange={(rental_type) => setForm((prev) => ({ ...prev, rental_type }))}
+                  />
+                </div>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className={HOST_LABEL_CLASS}>Säsongstart</label>

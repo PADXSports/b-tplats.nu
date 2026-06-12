@@ -231,7 +231,7 @@ export default function CreateHarbourLocationField({
               clipRule="evenodd"
             />
           </svg>
-          <span>Plats vald — du kan dra i nålen för att finjustera</span>
+          <span>Plats vald. Du kan dra i nålen för att finjustera</span>
         </div>
       ) : null}
     </div>

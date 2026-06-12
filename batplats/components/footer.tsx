@@ -8,12 +8,12 @@ export default function Footer() {
   return (
     <footer className="bg-[#0f1f3d] px-6 pb-6 pt-12 text-white/70">
       <div className="mx-auto max-w-[1280px]">
-        <div className="mb-10 grid gap-10 md:grid-cols-2 lg:grid-cols-4">
+        <div className="mb-10 grid gap-10 sm:grid-cols-2 lg:grid-cols-5">
           <div className="lg:col-span-1">
             <p className="text-xl font-bold text-white">Båtplats.nu</p>
             <p className="mt-3 text-[0.88rem] leading-relaxed text-white/50">
               Sveriges självklara mötesplats för båtägare och hamnar. Hitta, jämför och boka
-              båtplats — alltid via båtplats.nu.
+              båtplats, alltid via båtplats.nu.
             </p>
           </div>
 
@@ -75,12 +75,19 @@ export default function Footer() {
               <a href="mailto:kontakt@batplats.nu" className={linkClass}>
                 kontakt@batplats.nu
               </a>
-              <br />
-              <Link href="/om-oss#integritet" className={linkClass}>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="mb-3.5 text-[0.85rem] font-bold uppercase tracking-[0.5px] text-white/90">
+              Juridiskt
+            </h4>
+            <div className="space-y-2">
+              <Link href="/integritetspolicy" className={linkClass}>
                 Integritetspolicy
               </Link>
               <br />
-              <Link href="/om-oss#villkor" className={linkClass}>
+              <Link href="/anvandarvillkor" className={linkClass}>
                 Användarvillkor
               </Link>
             </div>

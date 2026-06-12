@@ -4,6 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 
+type MarkerOverlay = {
+  setMap: (map: unknown) => void;
+  map?: unknown;
+  listingIds: Array<string | number>;
+  setHighlighted: (highlightedListingId: string | number | null) => void;
+};
+
 type BerthMapProps = {
   height?: string;
   listings?: MapListing[];
@@ -12,6 +19,10 @@ type BerthMapProps = {
   radiusKm?: number | null;
   defaultZoom?: number;
   groupByHarbour?: boolean;
+  highlightedListingId?: string | number | null;
+  onListingMarkerClick?: (listingId: string | number) => void;
+  className?: string;
+  borderless?: boolean;
 };
 
 export type MapListing = {
@@ -21,6 +32,8 @@ export type MapListing = {
   harbour_name: string | null;
   city: string | null;
   price_per_season: number | null;
+  max_boat_length?: number | null;
+  max_boat_width?: number | null;
   is_available: boolean;
   image_url: string | null;
   season_start: string | null;
@@ -28,6 +41,148 @@ export type MapListing = {
   lat: number | null;
   lng: number | null;
 };
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function formatBoatDimensions(listing: MapListing): string {
+  const parts: string[] = [];
+  if (listing.max_boat_length != null) parts.push(`Max ${listing.max_boat_length} m längd`);
+  if (listing.max_boat_width != null) parts.push(`${listing.max_boat_width} m bredd`);
+  if (parts.length === 0) return "Max mått ej angivna";
+  return parts.join(" · ");
+}
+
+function buildSingleListingPreviewHtml(listing: MapListing): string {
+  const harbourLabel = `${listing.harbour_name ?? "Hamn"} · ${listing.city ?? "Okänd stad"}`;
+  const priceLabel = `${(listing.price_per_season ?? 0).toLocaleString("sv-SE")} SEK` + " / säsong";
+  const imageBlock = listing.image_url
+    ? [
+        '<img src="',
+        escapeHtml(listing.image_url),
+        '" alt="',
+        escapeHtml(listing.title),
+        '" style="width:100%;aspect-ratio:16/10;object-fit:cover;display:block;" />',
+      ].join("")
+    : '<div style="width:100%;aspect-ratio:16/10;background:#dce3ee;display:flex;align-items:center;justify-content:center;color:#8a96a8;font-size:12px;">Ingen bild</div>';
+
+  return [
+    '<div style="position:relative;width:200px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(10,22,40,0.15);font-family:system-ui,sans-serif;cursor:pointer;">',
+    '<button type="button" data-close aria-label="Stäng" style="position:absolute;top:8px;right:8px;z-index:2;width:28px;height:28px;border:none;border-radius:50%;background:rgba(255,255,255,0.95);color:#0a1628;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,0.15);">×</button>',
+    imageBlock,
+    '<div style="padding:12px;">',
+    '<div style="font-size:14px;font-weight:700;color:#0a1628;line-height:1.3;margin-bottom:4px;">',
+    escapeHtml(listing.title),
+    "</div>",
+    '<div style="font-size:12px;color:#8a96a8;margin-bottom:6px;">',
+    escapeHtml(harbourLabel),
+    "</div>",
+    '<div style="font-size:13px;font-weight:700;color:#0a1628;margin-bottom:4px;">',
+    escapeHtml(priceLabel),
+    "</div>",
+    '<div style="font-size:12px;color:#8a96a8;">',
+    escapeHtml(formatBoatDimensions(listing)),
+    "</div>",
+    "</div>",
+    "</div>",
+  ].join("");
+}
+
+function buildGroupedListingsPreviewHtml(locationListings: MapListing[]): string {
+  const rows = locationListings
+    .map((listing) => {
+      const priceLabel = `${(listing.price_per_season ?? 0).toLocaleString("sv-SE")} SEK` + " / säsong";
+      const lengthLabel =
+        listing.max_boat_length != null ? `Max ${listing.max_boat_length} m` : "Max längd okänd";
+      const thumb = listing.image_url
+        ? [
+            '<img src="',
+            escapeHtml(listing.image_url),
+            '" alt="" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;" />',
+          ].join("")
+        : '<div style="width:56px;height:56px;background:#dce3ee;border-radius:8px;flex-shrink:0;"></div>';
+
+      return [
+        '<a href="/listings/',
+        String(listing.id),
+        '" data-listing-row style="display:flex;gap:10px;padding:10px 12px;border-bottom:1px solid #e8edf4;text-decoration:none;align-items:center;">',
+        thumb,
+        '<div style="min-width:0;flex:1;">',
+        '<div style="font-size:13px;font-weight:600;color:#0a1628;line-height:1.25;margin-bottom:2px;">',
+        escapeHtml(listing.title),
+        "</div>",
+        '<div style="font-size:12px;font-weight:600;color:#0d9488;margin-bottom:2px;">',
+        escapeHtml(priceLabel),
+        "</div>",
+        '<div style="font-size:11px;color:#8a96a8;">',
+        escapeHtml(lengthLabel),
+        "</div>",
+        "</div>",
+        "</a>",
+      ].join("");
+    })
+    .join("");
+
+  return [
+    '<div style="width:260px;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 8px 24px rgba(10,22,40,0.15);font-family:system-ui,sans-serif;">',
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px 8px;border-bottom:1px solid #e8edf4;">',
+    '<div style="font-size:13px;font-weight:700;color:#0a1628;">',
+    String(locationListings.length),
+    " platser</div>",
+    '<button type="button" data-close aria-label="Stäng" style="width:28px;height:28px;border:none;border-radius:50%;background:#f5f0e8;color:#0a1628;font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;">×</button>',
+    "</div>",
+    '<div style="max-height:320px;overflow-y:auto;background:#fff;">',
+    rows,
+    "</div>",
+    "</div>",
+  ].join("");
+}
+
+function positionMapPreviewCard(card: HTMLElement, anchor: HTMLElement): void {
+  const rect = anchor.getBoundingClientRect();
+  const cardWidth = card.offsetWidth || 200;
+  const cardHeight = card.offsetHeight || 280;
+  let left = rect.left - cardWidth / 2 + rect.width / 2;
+  let top = rect.top - cardHeight - 12;
+  if (left < 10) left = 10;
+  if (left + cardWidth > window.innerWidth - 10) left = window.innerWidth - cardWidth - 10;
+  if (top < 10) top = rect.bottom + 12;
+  card.style.left = `${left}px`;
+  card.style.top = `${top}px`;
+}
+
+function locationKey(lat: number, lng: number): string {
+  return `${lat.toFixed(5)},${lng.toFixed(5)}`;
+}
+
+function groupListingsByLocation(listings: MapListing[]): Map<string, MapListing[]> {
+  const grouped = new Map<string, MapListing[]>();
+  listings.forEach((listing) => {
+    const lat = Number(listing.lat);
+    const lng = Number(listing.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    const key = locationKey(lat, lng);
+    const bucket = grouped.get(key) ?? [];
+    bucket.push(listing);
+    grouped.set(key, bucket);
+  });
+  return grouped;
+}
+
+function formatPinLabel(locationListings: MapListing[]): string {
+  const prices = locationListings.map((listing) => listing.price_per_season ?? 0);
+  const lowestPrice = prices.length > 0 ? Math.min(...prices) : 0;
+  const priceLabel = `${Math.max(lowestPrice, 0).toLocaleString("sv-SE")} kr`;
+  if (locationListings.length === 1) {
+    return priceLabel;
+  }
+  return `${locationListings.length} platser · från ${priceLabel}`;
+}
 
 const STOCKHOLM_CENTER = { lat: 59.3293, lng: 18.0686 };
 const MAP_STYLE = [
@@ -64,12 +219,32 @@ export default function BerthMap({
   radiusKm = null,
   defaultZoom = 11,
   groupByHarbour = false,
+  highlightedListingId = null,
+  onListingMarkerClick,
+  className = "",
+  borderless = false,
 }: BerthMapProps) {
   const supabase = useMemo(() => createClient(), []);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const initializedRef = useRef(false);
   const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
+  const markersRef = useRef<MarkerOverlay[]>([]);
+  const activeInfoWindowRef = useRef<any>(null);
+  const mapPreviewCleanupRef = useRef<(() => void) | null>(null);
+  const suppressMapPreviewCloseRef = useRef(false);
+  const onListingMarkerClickRef = useRef(onListingMarkerClick);
+  const highlightedListingIdRef = useRef(highlightedListingId);
+
+  useEffect(() => {
+    onListingMarkerClickRef.current = onListingMarkerClick;
+  }, [onListingMarkerClick]);
+
+  useEffect(() => {
+    highlightedListingIdRef.current = highlightedListingId;
+    markersRef.current.forEach((marker) => {
+      marker.setHighlighted(highlightedListingId);
+    });
+  }, [highlightedListingId]);
   const radiusCircleRef = useRef<any>(null);
   const [mapReady, setMapReady] = useState(false);
   const [internalListings, setInternalListings] = useState<MapListing[]>([]);
@@ -336,39 +511,57 @@ export default function BerthMap({
     });
     markersRef.current = [];
 
+    const closeMapPreview = () => {
+      if (activeInfoWindowRef.current) {
+        activeInfoWindowRef.current.close();
+        activeInfoWindowRef.current = null;
+      }
+      if (mapPreviewCleanupRef.current) {
+        mapPreviewCleanupRef.current();
+        mapPreviewCleanupRef.current = null;
+      }
+      document.querySelectorAll(".map-preview-card").forEach((el) => el.remove());
+    };
+
     const drawMarkers = async () => {
       if (!mounted) return;
 
+      closeMapPreview();
       const bounds = new googleMaps.LatLngBounds();
       class PriceMarker extends googleMaps.OverlayView {
         position: any;
         containerDiv: HTMLDivElement;
         listingsAtLocation: MapListing[];
         currentIndex: number;
+        listingIds: Array<string | number>;
+        mapInstance: any;
 
-        constructor(position: any, price: number, listingsAtLocation: MapListing[]) {
+        constructor(position: any, listingsAtLocation: MapListing[], mapInstance: any) {
           super();
           this.position = position;
           this.listingsAtLocation = listingsAtLocation;
+          this.listingIds = listingsAtLocation.map((listing) => listing.id);
           this.currentIndex = 0;
+          this.mapInstance = mapInstance;
           this.containerDiv = document.createElement("div");
           this.containerDiv.className = "price-marker";
           const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches;
+          const pinLabel = formatPinLabel(listingsAtLocation);
           this.containerDiv.innerHTML = `
             <div style="
               background: white;
               padding: ${isMobile ? "5px 10px" : "6px 12px"};
               border-radius: 20px;
               font-weight: 700;
-              font-size: ${isMobile ? "12px" : "14px"};
-              color: #222;
+              font-size: ${isMobile ? "11px" : "13px"};
+              color: #0a1628;
               box-shadow: 0 2px 8px rgba(0,0,0,0.15);
               white-space: nowrap;
               cursor: pointer;
-              transition: transform 0.2s ease;
+              transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
               border: 1px solid rgba(15,31,61,0.08);
             " class="price-label">
-              ${Math.max(price ?? 0, 0).toLocaleString("sv-SE")} kr
+              ${escapeHtml(pinLabel)}
             </div>
           `;
           this.containerDiv.addEventListener("mouseenter", () => {
@@ -382,10 +575,94 @@ export default function BerthMap({
             if (!label) return;
             label.style.transform = "scale(1)";
             label.style.zIndex = "auto";
+            this.applyHighlight(highlightedListingIdRef.current);
           });
-          this.containerDiv.addEventListener("click", () => {
-            this.showPreviewCard();
+          this.containerDiv.addEventListener("click", (event) => {
+            event.stopPropagation();
+            suppressMapPreviewCloseRef.current = true;
+            this.openInfoWindow();
+            window.setTimeout(() => {
+              suppressMapPreviewCloseRef.current = false;
+            }, 0);
           });
+          this.applyHighlight(highlightedListingIdRef.current);
+        }
+
+        buildSingleListingContent(listing: MapListing): string {
+          return buildSingleListingPreviewHtml(listing);
+        }
+
+        buildMultipleListingsContent(locationListings: MapListing[]): string {
+          return buildGroupedListingsPreviewHtml(locationListings);
+        }
+
+        openInfoWindow() {
+          closeMapPreview();
+
+          const isSingle = this.listingsAtLocation.length === 1;
+          const listing = this.listingsAtLocation[0];
+          const card = document.createElement("div");
+          card.className = "map-preview-card";
+          card.style.cssText = "position:fixed;z-index:10000;";
+          card.innerHTML = isSingle
+            ? this.buildSingleListingContent(listing)
+            : this.buildMultipleListingsContent(this.listingsAtLocation);
+
+          document.body.appendChild(card);
+          positionMapPreviewCard(card, this.containerDiv);
+
+          const reposition = () => positionMapPreviewCard(card, this.containerDiv);
+          const mapClickListener = googleMaps.event.addListener(map, "click", () => {
+            if (suppressMapPreviewCloseRef.current) return;
+            closeMapPreview();
+          });
+          const idleListener = googleMaps.event.addListener(map, "idle", reposition);
+          mapPreviewCleanupRef.current = () => {
+            googleMaps.event.removeListener(mapClickListener);
+            googleMaps.event.removeListener(idleListener);
+          };
+
+          card.querySelector("[data-close]")?.addEventListener("click", (event) => {
+            event.stopPropagation();
+            closeMapPreview();
+          });
+
+          if (isSingle && listing) {
+            card.addEventListener("click", (event) => {
+              if ((event.target as HTMLElement).closest("[data-close]")) return;
+              window.location.href = `/listings/${listing.id}`;
+            });
+            onListingMarkerClickRef.current?.(listing.id);
+          } else if (this.listingsAtLocation[0]) {
+            onListingMarkerClickRef.current?.(this.listingsAtLocation[0].id);
+          }
+
+          card.querySelectorAll("[data-listing-row]").forEach((row) => {
+            row.addEventListener("click", (event) => {
+              event.stopPropagation();
+            });
+          });
+        }
+
+        applyHighlight(highlightedListingId: string | number | null) {
+          const label = this.containerDiv.querySelector(".price-label") as HTMLElement | null;
+          if (!label) return;
+          const isHighlighted =
+            highlightedListingId != null &&
+            this.listingIds.some((id) => String(id) === String(highlightedListingId));
+          if (isHighlighted) {
+            label.style.background = "#0d9488";
+            label.style.color = "#ffffff";
+            label.style.borderColor = "#0d9488";
+          } else {
+            label.style.background = "#ffffff";
+            label.style.color = "#0a1628";
+            label.style.borderColor = "rgba(15,31,61,0.08)";
+          }
+        }
+
+        setHighlighted(highlightedListingId: string | number | null) {
+          this.applyHighlight(highlightedListingId);
         }
 
         formatDate(dateValue: string | null | undefined) {
@@ -396,141 +673,7 @@ export default function BerthMap({
         }
 
         showPreviewCard() {
-          document.querySelectorAll(".map-preview-card").forEach((el) => el.remove());
-          const listing = this.listingsAtLocation[this.currentIndex];
-          if (!listing) return;
-          console.log("Showing preview for:", {
-            title: listing.title,
-            image_url: listing.image_url,
-            has_image: !!listing.image_url,
-          });
-          const hasMultiple = this.listingsAtLocation.length > 1;
-          const card = document.createElement("div");
-          card.className = "map-preview-card";
-          card.style.cssText = `
-            position: fixed;
-            width: 340px;
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
-            z-index: 1000;
-          `;
-
-          card.innerHTML = `
-            <div style="position: relative;">
-              ${
-                hasMultiple
-                  ? `
-                <button id="prev-btn" style="
-                  position:absolute;left:16px;top:100px;transform:translateY(-50%);
-                  width:36px;height:36px;background:rgba(255,255,255,0.95);border:none;border-radius:50%;
-                  cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);
-                  display:flex;align-items:center;justify-content:center;z-index:10;transition:all 0.2s;"
-                  onmouseover="this.style.transform='translateY(-50%) scale(1.1)'"
-                  onmouseout="this.style.transform='translateY(-50%) scale(1)'">
-                  <svg width="16" height="16" viewBox="0 0 32 32">
-                    <path d="M20 6L10 16L20 26" stroke="currentColor" stroke-width="3" fill="none"/>
-                  </svg>
-                </button>
-                <button id="next-btn" style="
-                  position:absolute;right:16px;top:100px;transform:translateY(-50%);
-                  width:36px;height:36px;background:rgba(255,255,255,0.95);border:none;border-radius:50%;
-                  cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);
-                  display:flex;align-items:center;justify-content:center;z-index:10;transition:all 0.2s;"
-                  onmouseover="this.style.transform='translateY(-50%) scale(1.1)'"
-                  onmouseout="this.style.transform='translateY(-50%) scale(1)'">
-                  <svg width="16" height="16" viewBox="0 0 32 32">
-                    <path d="M12 6L22 16L12 26" stroke="currentColor" stroke-width="3" fill="none"/>
-                  </svg>
-                </button>
-                <div style="
-                  position:absolute;top:16px;left:50%;transform:translateX(-50%);
-                  background:rgba(34,34,34,0.8);color:white;padding:6px 14px;border-radius:16px;
-                  font-size:14px;font-weight:600;z-index:10;backdrop-filter:blur(8px);">
-                  ${this.currentIndex + 1} av ${this.listingsAtLocation.length}
-                </div>`
-                  : ""
-              }
-              ${
-                listing.image_url
-                  ? `
-                <img 
-                  src="${listing.image_url}" 
-                  alt="${listing.title}"
-                  style="width: 100%; height: 200px; object-fit: cover;"
-                  onload="console.log('Image loaded:', '${listing.title}')"
-                  onerror="console.error('Image failed to load:', '${listing.image_url}')"
-                />`
-                  : `
-                <div style="width: 100%; height: 200px; background: #e5e7eb; display: flex; align-items: center; justify-content: center; color: #9ca3af; font-size: 14px;">
-                  Ingen bild
-                </div>`
-              }
-              <div style="position:absolute;top:12px;right:12px;display:flex;gap:8px;z-index:10;">
-                <div id="favorite-btn" style="
-                  width:32px;height:32px;background:white;border-radius:50%;
-                  display:flex;align-items:center;justify-content:center;
-                  cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.15);">
-                  <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M10 18s-1-1-5-5c-3-3-3-6-2-8 1-2 3-3 5-2 1 1 2 2 2 2s1-1 2-2c2-1 4 0 5 2 1 2 1 5-2 8-4 4-5 5-5 5z"/>
-                  </svg>
-                </div>
-                <div id="close-btn" style="
-                  width:32px;height:32px;background:white;border-radius:50%;
-                  display:flex;align-items:center;justify-content:center;
-                  cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,0.15);">
-                  <svg width="16" height="16"><path d="M4 4L12 12M12 4L4 12" stroke="currentColor" stroke-width="2"/></svg>
-                </div>
-              </div>
-            </div>
-            <div style="padding:16px;">
-              <div style="font-size:16px;font-weight:600;color:#222;margin-bottom:4px;">${listing.title}</div>
-              <div style="font-size:14px;color:#717171;margin-bottom:8px;">${listing.harbour_name ?? "Hamn"} • ${listing.city ?? "Stockholm"}</div>
-              <div style="font-size:14px;color:#717171;margin-bottom:8px;">
-                ${this.formatDate(listing.season_start)} – ${this.formatDate(listing.season_end)}
-              </div>
-              <div style="font-size:16px;font-weight:600;color:#222;">
-                Totalt ${(listing.price_per_season ?? 0).toLocaleString("sv-SE")} kr SEK
-              </div>
-            </div>
-          `;
-
-          document.body.appendChild(card);
-          const rect = this.containerDiv.getBoundingClientRect();
-          const cardWidth = 340;
-          const cardHeight = 380;
-          let left = rect.left - cardWidth / 2 + rect.width / 2;
-          let top = rect.top - cardHeight - 10;
-          if (left < 10) left = 10;
-          if (left + cardWidth > window.innerWidth - 10) left = window.innerWidth - cardWidth - 10;
-          if (top < 10) top = rect.bottom + 10;
-          card.style.left = `${left}px`;
-          card.style.top = `${top}px`;
-
-          if (hasMultiple) {
-            card.querySelector("#prev-btn")?.addEventListener("click", (event) => {
-              event.stopPropagation();
-              this.currentIndex = (this.currentIndex - 1 + this.listingsAtLocation.length) % this.listingsAtLocation.length;
-              this.showPreviewCard();
-            });
-            card.querySelector("#next-btn")?.addEventListener("click", (event) => {
-              event.stopPropagation();
-              this.currentIndex = (this.currentIndex + 1) % this.listingsAtLocation.length;
-              this.showPreviewCard();
-            });
-          }
-
-          card.querySelector("#close-btn")?.addEventListener("click", () => card.remove());
-          card.querySelector("#favorite-btn")?.addEventListener("click", (event) => {
-            event.stopPropagation();
-            alert("Favoriter kommer snart!");
-          });
-          card.addEventListener("click", (event) => {
-            if (!(event.target as HTMLElement).closest("button")) {
-              window.location.href = `/listings/${listing.id}`;
-            }
-          });
+          this.openInfoWindow();
         }
 
         onAdd() {
@@ -554,17 +697,7 @@ export default function BerthMap({
           }
         }
       }
-      const listingsByLocation = new Map<string, MapListing[]>();
-      listings.forEach((listing) => {
-        const lat = Number(listing.lat);
-        const lng = Number(listing.lng);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-        const key = `${lat},${lng}`;
-        if (!listingsByLocation.has(key)) {
-          listingsByLocation.set(key, []);
-        }
-        listingsByLocation.get(key)?.push(listing);
-      });
+      const listingsByLocation = groupListingsByLocation(listings);
 
       listingsByLocation.forEach((locationListings, coords) => {
         locationListings.forEach((listing) => {
@@ -572,11 +705,10 @@ export default function BerthMap({
         });
         const [lat, lng] = coords.split(",").map(Number);
         const position = new googleMaps.LatLng(lat, lng);
-        const lowestPrice = Math.min(...locationListings.map((l) => l.price_per_season ?? 0));
-        const marker = new PriceMarker(position, lowestPrice, locationListings);
+        const marker = new PriceMarker(position, locationListings, map);
         marker.setMap(map);
         bounds.extend({ lat, lng });
-        markersRef.current.push(marker);
+        markersRef.current.push(marker as unknown as MarkerOverlay);
       });
 
       if (radiusCircleRef.current) {
@@ -623,9 +755,9 @@ export default function BerthMap({
     void drawMarkers();
     return () => {
       mounted = false;
-      document.querySelectorAll(".map-preview-card").forEach((el) => el.remove());
+      closeMapPreview();
     };
-  }, [listings, shouldFitBounds, center, radiusKm, defaultZoom, groupByHarbour, mapReady]);
+  }, [listings, shouldFitBounds, center, radiusKm, defaultZoom, groupByHarbour, mapReady, highlightedListingId]);
 
   if (!apiKey) {
     return (
@@ -638,11 +770,15 @@ export default function BerthMap({
     );
   }
 
+  const wrapperClass = borderless
+    ? `h-full w-full ${className}`
+    : `rounded-[12px] border border-[#dce3ee] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] ${className}`;
+
   return (
-    <div className="rounded-[12px] border border-[#dce3ee] bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+    <div className={wrapperClass}>
       <div
         ref={mapElementRef}
-        style={{ height, width: "100%", borderRadius: "12px" }}
+        style={{ height, width: "100%", borderRadius: borderless ? "0" : "12px" }}
       />
     </div>
   );

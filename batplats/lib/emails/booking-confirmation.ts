@@ -24,9 +24,9 @@ export function renterConfirmationEmail({
   bookingId,
   appUrl = defaultAppUrl(),
 }: RenterConfirmationParams): string {
-  const priceLabel = price != null ? `${price.toLocaleString("sv-SE")}` : "—";
-  const harbour = harbourName || "—";
-  const cityPart = city || "—";
+  const priceLabel = price != null ? `${price.toLocaleString("sv-SE")}` : "Saknas";
+  const harbour = harbourName || "Saknas";
+  const cityPart = city || "Saknas";
 
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
@@ -72,7 +72,7 @@ export function hostNotificationEmail({
   price,
   appUrl = defaultAppUrl(),
 }: HostNotificationParams): string {
-  const priceLabel = price != null ? `${price.toLocaleString("sv-SE")}` : "—";
+  const priceLabel = price != null ? `${price.toLocaleString("sv-SE")}` : "Saknas";
 
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
@@ -85,7 +85,7 @@ export function hostNotificationEmail({
         <p style="color: #334155; line-height: 1.5;">Du har fått en ny bekräftad bokning via Båtplats.nu.</p>
         <div style="background: white; padding: 24px; border-radius: 12px; margin: 24px 0; border-left: 4px solid #0d9488; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
           <p style="margin: 0 0 8px; color: #0f1f3d;"><strong>${listingTitle}</strong></p>
-          <p style="margin: 0 0 8px; color: #475569;">Gästens e-post: ${renterEmail || "—"}</p>
+          <p style="margin: 0 0 8px; color: #475569;">Gästens e-post: ${renterEmail || "Saknas"}</p>
           <p style="margin: 0 0 8px; color: #475569;">Period: ${startDate} → ${endDate}</p>
           <p style="margin: 0 0 8px; color: #475569;">Pris (säsong): ${priceLabel} SEK</p>
         </div>

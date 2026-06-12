@@ -2,11 +2,27 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import {
+  Building2,
+  Check,
+  ChevronDown,
+  Images,
+  LayoutDashboard,
+  Ruler,
+  Sailboat,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import AuthNavbar from '@/components/auth-navbar';
+import Footer from '@/components/footer';
+import LandingHeroWave from '@/components/landing-hero-wave';
+import RentalTypeChoice from '@/components/RentalTypeChoice';
 import { createClient } from '@/lib/supabase/client';
+import type { RentalType } from '@/lib/rental-type';
 
 type WizardData = {
   address: string;
@@ -20,20 +36,321 @@ type WizardData = {
   images: File[];
   imageUrls: string[];
   price_per_season: number | null;
+  rental_type: RentalType;
   season_start: string;
   season_end: string;
 };
 
 const AMENITY_OPTIONS = [
-  { id: 'el', label: '⚡ El' },
-  { id: 'vatten', label: '💧 Vatten' },
-  { id: 'wifi', label: '📶 WiFi' },
-  { id: 'toalett', label: '🚽 Toalett' },
-  { id: 'dusch', label: '🚿 Dusch' },
-  { id: 'parkering', label: '🅿️ Parkering' },
-  { id: 'bransle', label: '⛽ Bränsle' },
-  { id: 'service', label: '🔧 Service' },
+  { id: 'el', label: 'El' },
+  { id: 'vatten', label: 'Vatten' },
+  { id: 'wifi', label: 'WiFi' },
+  { id: 'toalett', label: 'Toalett' },
+  { id: 'dusch', label: 'Dusch' },
+  { id: 'parkering', label: 'Parkering' },
+  { id: 'bransle', label: 'Bränsle' },
+  { id: 'service', label: 'Service' },
 ] as const;
+
+const LANDING_BENEFITS = [
+  {
+    icon: Users,
+    title: 'Nå fler båtägare',
+    description:
+      'Tusentals båtägare söker platser på Båtplats.nu varje säsong. Din plats syns direkt för rätt målgrupp.',
+  },
+  {
+    icon: Wallet,
+    title: 'Tjäna på din plats',
+    description:
+      'Har du en plats som står tom delar av säsongen? Hyr ut den och få betalt direkt via säker betalning.',
+  },
+  {
+    icon: LayoutDashboard,
+    title: 'Enkel hantering',
+    description:
+      'Hantera bokningar, kommunicera med hyresgäster och håll koll på intäkter, allt på ett ställe.',
+  },
+] as const;
+
+const PROCESS_STEPS = [
+  {
+    step: '01',
+    title: 'Skapa din annons',
+    copy: 'Marina eller privatperson: skapa en annons på några minuter med bilder, mått och pris.',
+  },
+  {
+    step: '02',
+    title: 'Ta emot bokningar',
+    copy: 'Båtägare hittar din plats och bokar direkt. Du får notis och kan hantera allt i din dashboard.',
+  },
+  {
+    step: '03',
+    title: 'Få betalt',
+    copy: 'Betalning hanteras säkert via Båtplats.nu. Pengarna betalas ut direkt till ditt konto.',
+  },
+] as const;
+
+const FAQ_ITEMS = [
+  {
+    question: 'Vem kan lista en plats?',
+    answer:
+      'Både hamnägare med flera platser och privatpersoner med en egen båtplats kan lista på Båtplats.nu. Välj det alternativ som passar dig bäst när du kommer igång.',
+  },
+  {
+    question: 'Hur får jag betalt?',
+    answer:
+      'Betalning sker säkert via plattformen när en båtägare bokar din plats. Utbetalning sker till ditt bankkonto efter en bekräftad bokning.',
+  },
+  {
+    question: 'Kan jag pausa min annons?',
+    answer:
+      'Ja. Du kan när som helst markera platsen som otillgänglig i din dashboard utan att ta bort annonsen.',
+  },
+  {
+    question: 'Vad händer om en bokning avbokas?',
+    answer:
+      'Avbokningsregler framgår vid bokning. Vid avbokning hanteras ersättning och återbetalning enligt de villkor som gäller för respektive bokning.',
+  },
+  {
+    question: 'Behöver jag ett företag för att hyra ut?',
+    answer:
+      'Nej. Privatpersoner kan hyra ut sin egen plats. Driver du en marina eller båtklubb registrerar du dig som hamnägare.',
+  },
+] as const;
+
+function TealIconBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[rgba(13,148,136,0.10)] text-[#0d9488]">
+      {children}
+    </div>
+  );
+}
+
+function FaqAccordion() {
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
+
+  return (
+    <div className="space-y-3">
+      {FAQ_ITEMS.map((item, index) => {
+        const isOpen = openIndex === index;
+        return (
+          <div key={item.question} className="overflow-hidden rounded-2xl border border-[#dce3ee] bg-white">
+            <button
+              type="button"
+              onClick={() => setOpenIndex(isOpen ? null : index)}
+              className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+              aria-expanded={isOpen}
+            >
+              <span className="font-semibold text-[#0a1628]">{item.question}</span>
+              <ChevronDown
+                className={`h-5 w-5 shrink-0 text-[#0d9488] transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                aria-hidden
+              />
+            </button>
+            <div
+              className={`grid transition-[grid-template-rows] duration-300 ease-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
+            >
+              <div className="overflow-hidden">
+                <p className="px-6 pb-5 text-[15px] leading-relaxed text-[#4a5568]">{item.answer}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+type HyrUtLandingProps = {
+  onStartPrivate: () => void;
+};
+
+function HyrUtLanding({ onStartPrivate }: HyrUtLandingProps) {
+  return (
+    <main className="min-h-screen bg-[#f5f0e8] text-[#0a1628]">
+      <AuthNavbar currentPage="home" />
+
+      <section className="relative overflow-hidden bg-[#0a1628] px-4 pb-20 pt-28 sm:px-6 sm:pb-24 sm:pt-32 md:px-12">
+        <LandingHeroWave />
+        <div
+          className="pointer-events-none absolute left-1/2 top-[-20%] h-[500px] w-[700px] -translate-x-1/2 bg-[radial-gradient(ellipse,rgba(13,148,136,0.18)_0%,transparent_70%)]"
+          aria-hidden
+        />
+        <div className="relative z-[2] mx-auto w-full max-w-[760px] text-center text-white">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#14b8a6]">
+            För hamnar & privatpersoner
+          </p>
+          <h1 className="mt-4 text-[clamp(2rem,5vw,3.25rem)] font-extrabold leading-tight tracking-[-0.04em]">
+            Hyr ut din båtplats
+          </h1>
+          <p className="mx-auto mt-5 max-w-[640px] text-base leading-relaxed text-white/70 sm:text-lg">
+            Oavsett om du driver en marina eller har en privat plats du inte använder, lista den på Båtplats.nu och nå
+            tusentals båtägare.
+          </p>
+
+          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <Link
+              href="/for-hamnar"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0d9488] px-8 py-3.5 text-[15px] font-semibold text-white transition hover:bg-[#0f766e] sm:w-auto"
+            >
+              <Building2 className="h-5 w-5" aria-hidden />
+              Jag driver en marina
+            </Link>
+            <button
+              type="button"
+              onClick={onStartPrivate}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-8 py-3.5 text-[15px] font-semibold text-[#0a1628] transition hover:bg-[#f5f0e8] sm:w-auto"
+            >
+              <Sailboat className="h-5 w-5" aria-hidden />
+              Jag har en privat plats
+            </button>
+          </div>
+          <div className="mt-5">
+            <Link
+              href="/hamnar/logga-in"
+              className="text-sm font-medium text-white/70 underline-offset-2 transition hover:text-white hover:underline"
+            >
+              Logga in som hamnägare
+            </Link>
+          </div>
+        </div>
+        <svg
+          className="absolute bottom-0 left-0 right-0 h-16 w-full text-[#f5f0e8] sm:h-20"
+          viewBox="0 0 1440 80"
+          fill="none"
+          preserveAspectRatio="none"
+          aria-hidden
+        >
+          <path d="M0 40Q360 10 720 40Q1080 70 1440 40L1440 80L0 80Z" fill="currentColor" />
+        </svg>
+      </section>
+
+      <section className="px-4 py-14 sm:px-6 md:px-12 md:py-24">
+        <div className="mx-auto max-w-[1200px]">
+          <div className="text-center">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#0d9488]">Fördelar</p>
+            <h2 className="mt-3 text-[clamp(1.75rem,4vw,2.75rem)] font-extrabold tracking-[-0.035em] text-[#0a1628]">
+              Varför välja Båtplats.nu?
+            </h2>
+          </div>
+          <div className="mt-10 grid gap-6 md:grid-cols-3 md:gap-8">
+            {LANDING_BENEFITS.map(({ icon: Icon, title, description }) => (
+              <article
+                key={title}
+                className="rounded-2xl border border-[#dce3ee] bg-white p-8 shadow-[0_4px_16px_rgba(10,22,40,0.06)]"
+              >
+                <TealIconBox>
+                  <Icon className="h-6 w-6" aria-hidden />
+                </TealIconBox>
+                <h3 className="mt-5 text-lg font-bold text-[#0a1628]">{title}</h3>
+                <p className="mt-3 text-[15px] leading-relaxed text-[#4a5568]">{description}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white px-4 py-14 sm:px-6 md:px-12 md:py-24">
+        <div className="mx-auto max-w-[720px] text-center">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#0d9488]">Pris</p>
+          <h2 className="mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-extrabold tracking-[-0.035em] text-[#0a1628]">
+            Vad kostar det?
+          </h2>
+          <div className="mt-8 rounded-2xl border border-[#dce3ee] bg-[#fafcff] px-8 py-10 shadow-[0_4px_16px_rgba(10,22,40,0.06)]">
+            <p className="text-[18px] leading-relaxed text-[#0a1628]">
+              Det är gratis att lista din plats. Vi tar endast en serviceavgift när du får en bekräftad bokning.
+            </p>
+            <ul className="mt-8 space-y-4 text-left">
+              {[
+                'Inga månadsavgifter eller startkostnader',
+                'Utbetalning direkt till ditt bankkonto efter bokning',
+              ].map((point) => (
+                <li key={point} className="flex items-start gap-3 text-[15px] text-[#4a5568]">
+                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[rgba(13,148,136,0.10)] text-[#0d9488]">
+                    <Check className="h-4 w-4" aria-hidden />
+                  </span>
+                  {point}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section className="px-4 py-14 sm:px-6 md:px-12 md:py-24">
+        <div className="mx-auto max-w-[1200px]">
+          <div className="text-center">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#0d9488]">Process</p>
+            <h2 className="mt-3 text-[clamp(1.75rem,4vw,2.75rem)] font-extrabold tracking-[-0.035em] text-[#0a1628]">
+              Så här fungerar det
+            </h2>
+          </div>
+          <div className="relative mt-10 grid gap-6 md:grid-cols-3 md:gap-8">
+            <div
+              className="pointer-events-none absolute left-[20%] right-[20%] top-[22px] hidden border-t-2 border-dashed border-[#0d9488]/35 md:block"
+              aria-hidden
+            />
+            {PROCESS_STEPS.map(({ step, title, copy }) => (
+              <article
+                key={title}
+                className="relative rounded-2xl border border-[#dce3ee] bg-white p-8 shadow-[0_4px_16px_rgba(10,22,40,0.06)]"
+              >
+                <div className="relative z-[1] mb-5 inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#0d9488] text-xs font-bold text-white">
+                  {step}
+                </div>
+                <h3 className="text-lg font-bold text-[#0a1628]">{title}</h3>
+                <p className="mt-3 text-[15px] leading-relaxed text-[#4a5568]">{copy}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white px-4 py-14 sm:px-6 md:px-12 md:py-24">
+        <div className="mx-auto max-w-[800px]">
+          <div className="mb-10 text-center">
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#0d9488]">Frågor & svar</p>
+            <h2 className="mt-3 text-[clamp(1.75rem,4vw,2.5rem)] font-extrabold tracking-[-0.035em] text-[#0a1628]">
+              Vanliga frågor
+            </h2>
+          </div>
+          <FaqAccordion />
+        </div>
+      </section>
+
+      <section className="px-4 py-14 sm:px-6 md:px-12 md:py-24">
+        <div className="mx-auto max-w-[1200px] rounded-2xl bg-gradient-to-br from-[#0a1628] via-[#0d1f3d] to-[#0d2252] px-8 py-12 text-center text-white md:px-14 md:py-16">
+          <h2 className="text-[clamp(1.75rem,4vw,2.5rem)] font-extrabold leading-tight tracking-[-0.035em]">
+            Redo att lista din plats?
+          </h2>
+          <p className="mx-auto mt-4 max-w-[560px] text-[16px] leading-relaxed text-white/75">
+            Det tar mindre än 5 minuter att komma igång.
+          </p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <Link
+              href="/for-hamnar"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0d9488] px-8 py-3.5 text-[15px] font-semibold text-white transition hover:bg-[#0f766e] sm:w-auto"
+            >
+              <Building2 className="h-5 w-5" aria-hidden />
+              Jag driver en marina
+            </Link>
+            <button
+              type="button"
+              onClick={onStartPrivate}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-white/30 bg-transparent px-8 py-3.5 text-[15px] font-semibold text-white transition hover:bg-white/10 sm:w-auto"
+            >
+              <Sailboat className="h-5 w-5" aria-hidden />
+              Jag har en privat plats
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <Footer />
+    </main>
+  );
+}
 
 const STEP_COPY: Record<number, { title: string; subtext: string }> = {
   1: { title: 'Vad hyr du ut?', subtext: 'Välj det som stämmer bäst för dig' },
@@ -79,6 +396,7 @@ function HyrUtContent() {
     images: [],
     imageUrls: [],
     price_per_season: null,
+    rental_type: 'season',
     season_start: '2026-05-01',
     season_end: '2026-09-30',
   });
@@ -287,6 +605,7 @@ function HyrUtContent() {
             max_boat_length: data.max_boat_length,
             max_boat_width: data.max_boat_width,
             description: buildDescription(),
+            rental_type: data.rental_type,
             season_start: data.season_start,
             season_end: data.season_end,
             lat: data.latitude,
@@ -382,6 +701,15 @@ function HyrUtContent() {
     setStep(step + 1);
   };
 
+  const startPrivateWizard = () => {
+    setError('');
+    setStep(2);
+  };
+
+  if (step === 1) {
+    return <HyrUtLanding onStartPrivate={startPrivateWizard} />;
+  }
+
   const StepHeading = () => (
     <div className={`mb-10 ${step === 1 ? 'text-center' : ''}`}>
       <p className="mb-3 text-sm font-semibold uppercase tracking-widest text-teal-600">
@@ -395,7 +723,7 @@ function HyrUtContent() {
   );
 
   return (
-    <div className="min-h-screen" style={{ background: '#f8f7f4' }}>
+    <div className="min-h-screen" style={{ background: '#f5f0e8' }}>
       <nav
         style={{ background: NAVY }}
         className="flex items-center justify-between px-6 py-4"
@@ -428,68 +756,6 @@ function HyrUtContent() {
 
       <div className="mx-auto max-w-2xl px-4 py-12">
         {step > 1 && step !== 5 ? <StepHeading /> : null}
-
-        {step === 1 ? (
-          <>
-            <StepHeading />
-            <div className="mx-auto mt-10 grid max-w-xl grid-cols-1 gap-5 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="group rounded-2xl border-2 border-gray-200 bg-white p-8 text-left transition-all duration-200 hover:border-teal-500 hover:shadow-lg"
-              >
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-teal-50 transition group-hover:bg-teal-100">
-                  <span className="text-3xl">🚤</span>
-                </div>
-                <h3 className="mb-2 text-xl font-bold" style={{ color: NAVY }}>
-                  Min båtplats
-                </h3>
-                <p className="text-sm leading-relaxed text-gray-500">
-                  Jag har en privat plats jag vill hyra ut under säsongen
-                </p>
-                <div className="mt-5 flex items-center gap-2 text-sm font-medium text-teal-600">
-                  Kom igång
-                  <svg
-                    className="h-4 w-4 transition-transform group-hover:translate-x-1"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => router.push('/hamnar/registrera')}
-                className="group rounded-2xl border-2 border-gray-700 p-8 text-left transition-all duration-200 hover:border-teal-500 hover:shadow-lg"
-                style={{ background: NAVY }}
-              >
-                <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 transition group-hover:bg-white/20">
-                  <span className="text-3xl">🏗️</span>
-                </div>
-                <h3 className="mb-2 text-xl font-bold text-white">Jag driver en marina</h3>
-                <p className="text-sm leading-relaxed text-gray-400">
-                  Jag är hamnägare eller driver en båtklubb med flera platser
-                </p>
-                <div className="mt-5 flex items-center gap-2 text-sm font-medium text-teal-400">
-                  Registrera marina
-                  <svg
-                    className="h-4 w-4 transition-transform group-hover:translate-x-1"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    aria-hidden
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </button>
-            </div>
-          </>
-        ) : null}
 
         {step === 2 ? (
           <div>
@@ -586,7 +852,7 @@ function HyrUtContent() {
               <textarea
                 value={data.description}
                 onChange={(e) => setData((prev) => ({ ...prev, description: e.target.value }))}
-                placeholder="Beskriv din plats — läge, omgivning, vad som ingår..."
+                placeholder="Beskriv din plats: läge, omgivning, vad som ingår..."
                 rows={4}
                 className={`${inputClass} resize-none`}
               />
@@ -721,6 +987,14 @@ function HyrUtContent() {
               <p className="mt-2 text-sm text-gray-500">Genomsnittspriset på Båtplats.nu är 7 500 kr per säsong</p>
             </div>
 
+            <div className="mb-6">
+              <label className="mb-2 block text-sm font-medium text-gray-700">Uthyrningstyp</label>
+              <RentalTypeChoice
+                value={data.rental_type}
+                onChange={(rental_type) => setData((prev) => ({ ...prev, rental_type }))}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">Tillgänglig från</label>
@@ -759,12 +1033,14 @@ function HyrUtContent() {
               {data.imageUrls[0] ? (
                 <div className="relative h-56 w-full">
                   <Image src={data.imageUrls[0]} alt="Preview" fill className="object-cover" sizes="640px" />
-                  <div className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-teal-700 backdrop-blur">
-                    🚤 Privat uthyrning
+                  <div className="absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-semibold text-teal-700 backdrop-blur">
+                    <Sailboat className="h-3.5 w-3.5" aria-hidden />
+                    Privat uthyrning
                   </div>
                   {data.imageUrls.length > 1 ? (
-                    <div className="absolute bottom-4 right-4 rounded-full bg-black/60 px-3 py-1 text-xs text-white">
-                      📷 {data.imageUrls.length} bilder
+                    <div className="absolute bottom-4 right-4 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-3 py-1 text-xs text-white">
+                      <Images className="h-3.5 w-3.5" aria-hidden />
+                      {data.imageUrls.length} bilder
                     </div>
                   ) : null}
                 </div>
@@ -777,8 +1053,18 @@ function HyrUtContent() {
                 <p className="mb-3 text-sm text-gray-500">{data.address}</p>
 
                 <div className="mb-3 flex flex-wrap gap-3 border-b border-gray-100 pb-3 text-sm text-gray-600">
-                  {data.max_boat_length ? <span>📏 Max {data.max_boat_length}m längd</span> : null}
-                  {data.max_boat_width ? <span>↔️ {data.max_boat_width}m bredd</span> : null}
+                  {data.max_boat_length ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Ruler className="h-4 w-4 text-[#0d9488]" aria-hidden />
+                      Max {data.max_boat_length}m längd
+                    </span>
+                  ) : null}
+                  {data.max_boat_width ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Ruler className="h-4 w-4 rotate-90 text-[#0d9488]" aria-hidden />
+                      {data.max_boat_width}m bredd
+                    </span>
+                  ) : null}
                 </div>
 
                 {data.description ? (
@@ -907,13 +1193,13 @@ function HyrUtContent() {
                   {authSubmitting || loading
                     ? 'Skapar konto & publicerar...'
                     : authMode === 'signup'
-                      ? '🚀 Skapa konto & publicera annons'
-                      : '🚀 Logga in & publicera annons'}
+                      ? 'Skapa konto & publicera annons'
+                      : 'Logga in & publicera annons'}
                 </button>
 
                 <p className="mt-3 text-center text-xs text-gray-400">
                   Genom att skapa ett konto godkänner du våra{' '}
-                  <Link href="/villkor" className="underline">
+                  <Link href="/anvandarvillkor" className="underline">
                     användarvillkor
                   </Link>
                 </p>
@@ -929,7 +1215,7 @@ function HyrUtContent() {
                   className="rounded-xl px-10 py-4 font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
                   style={{ background: TEAL }}
                 >
-                  {loading ? 'Publicerar...' : '🚀 Publicera annons'}
+                  {loading ? 'Publicerar...' : 'Publicera annons'}
                 </button>
               </div>
             )}
@@ -976,7 +1262,7 @@ export default function HyrUtPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center" style={{ background: '#f8f7f4' }}>
+        <div className="flex min-h-screen items-center justify-center" style={{ background: '#f5f0e8' }}>
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
         </div>
       }

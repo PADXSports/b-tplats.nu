@@ -7,7 +7,11 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import AuthNavbar from "@/components/auth-navbar";
 import BerthMap from "@/components/BerthMap";
 import Footer from "@/components/footer";
+import BoatLengthSelect from "@/components/BoatLengthSelect";
+import DateRangePicker from "@/components/DateRangePicker";
+import RentalTypeBadge from "@/components/RentalTypeBadge";
 import LandingHeroWave from "@/components/landing-hero-wave";
+import { hasValidDateRange } from "@/lib/date-range";
 import RevealOnView from "@/components/reveal-on-view";
 import { getListingImageSrc } from "@/lib/listing-image";
 import { createClient } from "@/lib/supabase/client";
@@ -54,6 +58,7 @@ type FeaturedListing = {
   image_url: string | null;
   listing_images: FeaturedListingImage[];
   listing_type?: string | null;
+  rental_type?: string | null;
 };
 
 const LOCATION_TYPE_LABELS: Record<LocationSuggestionType, string> = {
@@ -270,7 +275,10 @@ function FeaturedListingCard({ listing }: { listing: FeaturedListing }) {
             🚤 Privat uthyrning
           </span>
         ) : null}
-        <h3 className="text-base font-semibold text-gray-900">{listing.title}</h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="text-base font-semibold text-gray-900">{listing.title}</h3>
+          <RentalTypeBadge rentalType={listing.rental_type} />
+        </div>
         <p className="text-sm text-gray-600">
           <span className="inline-flex items-center gap-1">
             <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -306,7 +314,9 @@ function HomeContent() {
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [selectedLocationSuggestion, setSelectedLocationSuggestion] = useState<LocationSuggestion | null>(null);
   const [boatLength, setBoatLength] = useState("");
-  const [date, setDate] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [dateError, setDateError] = useState("");
   const [featuredListings, setFeaturedListings] = useState<FeaturedListing[]>([]);
   const [mapListings, setMapListings] = useState<MapListing[]>([]);
   const [isMapLoading, setIsMapLoading] = useState(true);
@@ -318,9 +328,19 @@ function HomeContent() {
   });
 
   const handleSearch = () => {
+    setDateError("");
+    if ((startDate && !endDate) || (!startDate && endDate)) {
+      setDateError("Välj både start- och slutdatum");
+      return;
+    }
+    if (startDate && endDate && !hasValidDateRange(startDate, endDate)) {
+      setDateError("Slutdatum måste vara efter startdatum");
+      return;
+    }
+
     const params = new URLSearchParams();
     const locationValue = location.trim();
-    if (locationValue) params.set("location", locationValue);
+    if (locationValue) params.set("city", locationValue);
     const zipSearchValue =
       selectedLocationSuggestion?.type === "zip" ? selectedLocationSuggestion.value : locationValue;
     if (isZipSearchValue(zipSearchValue)) {
@@ -335,8 +355,9 @@ function HomeContent() {
       if (selectedLocationSuggestion.lat != null) params.set("lat", String(selectedLocationSuggestion.lat));
       if (selectedLocationSuggestion.lng != null) params.set("lng", String(selectedLocationSuggestion.lng));
     }
-    if (boatLength) params.set("boat_length", boatLength);
-    if (date) params.set("date", date);
+    if (startDate) params.set("start", startDate);
+    if (endDate) params.set("end", endDate);
+    if (boatLength) params.set("length", boatLength);
     const queryString = params.toString();
     router.push(queryString ? `/kajplatser?${queryString}` : "/kajplatser");
   };
@@ -410,7 +431,9 @@ function HomeContent() {
       try {
         const { data, error } = await supabase
           .from("listings")
-          .select("id, harbour_id, title, price_per_season, is_available, lat, lng, harbours!inner(id, name, city, lat, lng, owner_id)")
+          .select(
+            "id, harbour_id, title, price_per_season, is_available, lat, lng, image_url, max_boat_length, max_boat_width, harbours!inner(id, name, city, lat, lng, owner_id)",
+          )
           .eq("is_available", true)
           .not("owner_id", "is", null)
           .not("harbours.owner_id", "is", null);
@@ -427,6 +450,9 @@ function HomeContent() {
           is_available: boolean;
           lat: number | null;
           lng: number | null;
+          image_url: string | null;
+          max_boat_length: number | null;
+          max_boat_width: number | null;
           harbours:
             | {
                 id: number | string;
@@ -457,7 +483,9 @@ function HomeContent() {
               city: harbour?.city ?? null,
               price_per_season: row.price_per_season,
               is_available: row.is_available,
-              image_url: null,
+              image_url: row.image_url ?? null,
+              max_boat_length: row.max_boat_length ?? null,
+              max_boat_width: row.max_boat_width ?? null,
               season_start: null,
               season_end: null,
               lat: Number(lat),
@@ -498,7 +526,7 @@ function HomeContent() {
           supabase
             .from("listings")
             .select(
-              "id, harbour_id, title, image_url, price_per_season, max_boat_length, max_boat_width, listing_type, owner_id, harbours!inner(id, name, city, owner_id), listing_images(id, image_url, display_order)",
+              "id, harbour_id, title, image_url, price_per_season, max_boat_length, max_boat_width, listing_type, rental_type, owner_id, harbours!inner(id, name, city, owner_id), listing_images(id, image_url, display_order)",
             )
             .eq("is_available", true)
             .not("owner_id", "is", null)
@@ -553,6 +581,7 @@ function HomeContent() {
                 image_url: listing.image_url ?? null,
                 listing_images: listingImages,
                 listing_type: (listing as { listing_type?: string | null }).listing_type ?? null,
+                rental_type: (listing as { rental_type?: string | null }).rental_type ?? "season",
               };
             }),
           );
@@ -606,7 +635,7 @@ function HomeContent() {
     },
     {
       quote:
-        "Äntligen ett modernt alternativ till de gamla väntelistorna. Plats på Sandhamn — något jag aldrig trodde jag skulle hitta så lätt.",
+        "Äntligen ett modernt alternativ till de gamla väntelistorna. Plats på Sandhamn, något jag aldrig trodde jag skulle hitta så lätt.",
       name: "Sara Lindström",
       meta: "Båtägare, Lidingö · Hallberg-Rassy 29",
       initials: "SL",
@@ -640,7 +669,7 @@ function HomeContent() {
       <AuthNavbar currentPage="home" />
 
       {/* Hero — landing design (wave canvas, glow, full-width search) */}
-      <section className="relative flex min-h-[min(100vh,920px)] flex-col justify-center overflow-hidden bg-[#0f1f3d] px-4 pb-28 pt-28 sm:px-6 sm:pb-24 sm:pt-32 md:px-12">
+      <section className="relative flex min-h-[min(100vh,920px)] flex-col justify-center overflow-x-hidden overflow-y-visible bg-[#0f1f3d] px-4 pb-28 pt-28 sm:px-6 sm:pb-24 sm:pt-32 md:px-12">
         <LandingHeroWave />
         <div
           className="pointer-events-none absolute left-1/2 top-[-20%] h-[600px] w-[800px] -translate-x-1/2 bg-[radial-gradient(ellipse,rgba(13,148,136,0.18)_0%,transparent_70%)]"
@@ -651,10 +680,11 @@ function HomeContent() {
           aria-hidden
         />
 
-        <div className="relative z-[2] mx-auto w-full max-w-[760px] text-center">
+        <div className="relative z-[2] mx-auto w-full max-w-[760px] overflow-visible text-center">
           <h1 className="text-[clamp(2.5rem,7vw,5.5rem)] font-extrabold leading-[0.95] tracking-[-0.04em] text-white">
             Hitta din båtplats
-            <span className="text-[#14b8a6]"> — eller hyr ut din</span>
+            <br />
+            <span className="text-[#0d9488]">eller hyr ut din egen</span>
           </h1>
           <p className="mx-auto mt-6 max-w-[520px] text-base font-normal leading-relaxed text-white/60 sm:text-lg">
             Sveriges marketplace för båtplatser. Boka direkt från hamnar och privatpersoner i hela Sverige.
@@ -662,11 +692,11 @@ function HomeContent() {
 
           <div
             id="search-hero"
-            className="mx-auto mt-10 w-full max-w-[700px] rounded-[2.25rem] bg-white p-1.5 shadow-[0_8px_40px_rgba(0,0,0,0.3)] ring-1 ring-white/10 sm:p-1.5"
+            className="relative z-30 mx-auto mt-10 w-full max-w-[700px] overflow-visible rounded-[2.25rem] bg-white p-2 shadow-[0_8px_40px_rgba(0,0,0,0.3)] ring-1 ring-white/10 md:p-1.5"
           >
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-0 sm:pr-1">
-              <label className="search-field group flex flex-1 cursor-text flex-col rounded-[2rem] px-4 py-2.5 transition-colors hover:bg-[#f5f0e8] sm:px-5 sm:py-2.5">
-                <span className="text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#0f1f3d]">
+            <div className="flex flex-col gap-2 overflow-visible md:flex-row md:items-stretch md:gap-0 md:pr-1">
+              <label className="search-field group flex w-full flex-1 cursor-text flex-col rounded-[2rem] px-4 py-3 transition-colors hover:bg-[#f5f0e8] md:px-5 md:py-2.5">
+                <span className="text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#0a1628]">
                   Område
                 </span>
                 <div className="relative mt-0.5">
@@ -688,9 +718,10 @@ function HomeContent() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
+                        handleSearch();
                       }
                     }}
-                    className="w-full bg-transparent pr-6 text-sm text-[#4a5568] outline-none placeholder:text-[#8a96a8]"
+                    className="min-h-[44px] w-full bg-transparent pr-6 text-base text-[#4a5568] outline-none placeholder:text-[#8a96a8] md:min-h-0 md:text-sm"
                   />
                   {isLocationLoading ? (
                     <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-[#0d9488]" aria-hidden>
@@ -760,39 +791,37 @@ function HomeContent() {
                   ) : null}
                 </div>
               </label>
-              <div className="hidden w-px shrink-0 self-center bg-[#dce3ee] sm:block sm:h-9" />
-              <label className="group relative flex flex-1 cursor-pointer flex-col rounded-[2rem] px-4 py-2.5 transition-colors hover:bg-[#f5f0e8] sm:px-5 sm:py-2.5">
-                <span className="text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#0f1f3d]">
-                  Båtlängd
-                </span>
-                <select
-                  value={boatLength}
-                  onChange={(e) => setBoatLength(e.target.value)}
-                  className="mt-0.5 w-full cursor-pointer appearance-none bg-transparent text-sm text-[#4a5568] outline-none"
-                >
-                  <option value="">Valfri storlek</option>
-                  <option value="8">Upp till 8m</option>
-                  <option value="12">8m – 12m</option>
-                  <option value="16">12m – 16m</option>
-                  <option value="17">16m+</option>
-                </select>
-              </label>
-              <div className="hidden w-px shrink-0 self-center bg-[#dce3ee] sm:block sm:h-9" />
-              <label className="flex flex-1 cursor-text flex-col rounded-[2rem] px-4 py-2.5 transition-colors hover:bg-[#f5f0e8] sm:px-5 sm:py-2.5">
-                <span className="text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#0f1f3d]">
-                  Tillgänglig från
-                </span>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="mt-0.5 w-full bg-transparent text-sm text-[#4a5568] outline-none"
+              <div className="hidden w-px shrink-0 self-center bg-[#dce3ee] md:block md:h-9" />
+              <div className="w-full flex-1 md:w-auto">
+                <DateRangePicker
+                  variant="field"
+                  fieldLabel="Datum"
+                  startDate={startDate}
+                  endDate={endDate}
+                  onStartDateChange={(value) => {
+                    setStartDate(value);
+                    setDateError("");
+                  }}
+                  onEndDateChange={(value) => {
+                    setEndDate(value);
+                    setDateError("");
+                  }}
+                  onDateError={(message) => setDateError(message ?? "")}
+                  showLegend={false}
+                  className="w-full"
                 />
-              </label>
+              </div>
+              <div className="hidden w-px shrink-0 self-center bg-[#dce3ee] md:block md:h-9" />
+              <div className="w-full flex-1 md:w-auto">
+                <BoatLengthSelect value={boatLength} onChange={setBoatLength} className="w-full" />
+              </div>
+              {dateError ? (
+                <p className="px-2 text-sm text-red-500 md:col-span-full">{dateError}</p>
+              ) : null}
               <button
                 type="button"
                 onClick={handleSearch}
-                className="mt-1 inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#0d9488] px-6 py-3.5 text-[15px] font-semibold text-white shadow-[0_4px_20px_rgba(13,148,136,0.35)] transition hover:scale-[1.02] hover:bg-[#14b8a6] sm:mt-0 sm:ml-1 sm:self-center"
+                className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-full bg-[#0d9488] px-6 py-3.5 text-base font-semibold text-white shadow-[0_4px_20px_rgba(13,148,136,0.35)] transition hover:scale-[1.02] hover:bg-[#14b8a6] md:mt-0 md:ml-1 md:w-auto md:self-center md:text-[15px]"
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
                   <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.8" />
@@ -885,7 +914,7 @@ function HomeContent() {
               {
                 num: "02",
                 title: "Välj & boka",
-                desc: "Välj din plats och säsong. Betala säkert direkt — ofta utan väntetid.",
+                desc: "Välj din plats och säsong. Betala säkert direkt, ofta utan väntetid.",
                 icon: (
                   <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden>
                     <rect x="3" y="5" width="20" height="16" rx="3" stroke="#0d9488" strokeWidth="1.8" />
@@ -953,7 +982,7 @@ function HomeContent() {
               </div>
               <h3 className="mb-3 text-xl font-bold text-[#0f1f3d]">Letar du efter en plats?</h3>
               <p className="mb-6 text-[#4a5568]">
-                Boka säsongsplats direkt från hamnar och privatpersoner. Filtrera på storlek, pris och område — betala
+                Boka säsongsplats direkt från hamnar och privatpersoner. Filtrera på storlek, pris och område, betala
                 säkert online.
               </p>
               <Link
@@ -972,7 +1001,7 @@ function HomeContent() {
               </div>
               <h3 className="mb-3 text-xl font-bold text-white">Har du en plats att hyra ut?</h3>
               <p className="mb-6 text-gray-300">
-                Oavsett om du driver en marina eller har en privat plats du inte använder — lista den och tjäna pengar på
+                Oavsett om du driver en marina eller har en privat plats du inte använder, lista den och tjäna pengar på
                 din plats.
               </p>
               <Link
@@ -1097,7 +1126,7 @@ function HomeContent() {
               Utforska hamnar
             </h2>
             <p className="mx-auto mt-3 max-w-[560px] text-base text-[#8a96a8]">
-              Utforska hamnar och båtplatser över hela landet — med tydliga priser och enkel bokning via båtplats.nu.
+              Utforska hamnar och båtplatser över hela landet, med tydliga priser och enkel bokning via båtplats.nu.
             </p>
           </RevealOnView>
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -1186,11 +1215,11 @@ function HomeContent() {
               </h2>
               <p className="mt-5 text-[17px] leading-relaxed text-white/60">
                 Anslut din hamn till Båtplats och nå båtägare som letar säsongsplats. Du bestämmer pris, villkor och
-                tillgänglighet — vi sköter resten.
+                tillgänglighet. Vi sköter resten.
               </p>
               <ul className="mt-8 space-y-3.5 text-[15px] text-white/80">
                 {[
-                  "Gratis att lista — du betalar bara vid bokad plats",
+                  "Gratis att lista, du betalar bara vid bokad plats",
                   "Smidiga betalningsflöden",
                   "Verifiering och tydliga avtal",
                   "Översikt över bokningar i realtid",
@@ -1296,7 +1325,7 @@ function HomeContent() {
               din plats?
             </h2>
             <p className="mt-2 max-w-lg text-base text-white/75">
-              Sök bland {stats.listings}+ platser — gratis att söka, boka när du hittat rätt.
+              Sök bland {stats.listings}+ platser. Gratis att söka, boka när du hittat rätt.
             </p>
           </div>
           <Link

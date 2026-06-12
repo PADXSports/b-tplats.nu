@@ -14,8 +14,11 @@ import {
   HostToast,
   hostCardClass,
 } from "@/components/host-dashboard-shell";
+import RentalTypeChoice from "@/components/RentalTypeChoice";
 import { StarRating } from "@/components/StarRating";
+import { isBookedBookingStatus } from "@/lib/booking-status";
 import { createClient } from "@/lib/supabase/client";
+import { normalizeRentalType } from "@/lib/rental-type";
 
 type Tab = "listings" | "bookings" | "reviews" | "info";
 
@@ -41,6 +44,7 @@ type Listing = {
   max_boat_width: number | null;
   season_start: string | null;
   season_end: string | null;
+  rental_type?: string | null;
   is_available: boolean;
 };
 
@@ -74,6 +78,7 @@ type ListingForm = {
   max_boat_width: string;
   season_start: string;
   season_end: string;
+  rental_type: "season" | "flexible";
   is_available: boolean;
   image_url: string;
   image_file: File | null;
@@ -88,6 +93,7 @@ const emptyListingForm: ListingForm = {
   max_boat_width: "",
   season_start: "",
   season_end: "",
+  rental_type: "season",
   is_available: true,
   image_url: "",
   image_file: null,
@@ -104,7 +110,7 @@ const formatPrice = (value: number | null) => `${(value ?? 0).toLocaleString("sv
 
 const bookingStatus = (status: string) => {
   if (status === "pending") return { label: "Väntande", classes: "bg-[#fef9c3] text-[#854d0e]" };
-  if (status === "confirmed") return { label: "Bekräftad", classes: "bg-[#dff5ea] text-[#2d9e6b]" };
+  if (isBookedBookingStatus(status)) return { label: "Bekräftad", classes: "bg-[#dff5ea] text-[#2d9e6b]" };
   if (status === "declined") return { label: "Avböjd", classes: "bg-[#fee2e2] text-[#d64c3b]" };
   return { label: status, classes: "bg-[#dce3ee] text-[#6b7a8f]" };
 };
@@ -149,7 +155,7 @@ function HarbourDetailContent() {
 
     const { data: bookingRows, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, listing_id, status, start_date, end_date, guest_email, renter:profiles!bookings_renter_id_fkey(full_name, email)")
+      .select("id, listing_id, status, start_date, end_date, guest_email, renter_id")
       .in("listing_id", listingIds)
       .order("created_at", { ascending: false });
 
@@ -158,10 +164,33 @@ function HarbourDetailContent() {
       return;
     }
 
+    const renterIds = [
+      ...new Set(
+        ((bookingRows ?? []) as Array<{ renter_id: string | null }>)
+          .map((row) => row.renter_id)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const profileById = new Map<string, { full_name: string | null }>();
+    if (renterIds.length > 0) {
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", renterIds);
+      if (profileError) {
+        console.error("Failed to fetch renter profiles for harbour bookings:", profileError);
+      } else {
+        for (const profile of profiles ?? []) {
+          profileById.set(String(profile.id), {
+            full_name: (profile.full_name as string | null) ?? null,
+          });
+        }
+      }
+    }
+
     const normalized: Booking[] = ((bookingRows ?? []) as Array<Record<string, unknown>>).map((row) => {
-      const renterRelation = Array.isArray(row.renter)
-        ? (row.renter[0] as Record<string, unknown> | undefined)
-        : (row.renter as Record<string, unknown> | null | undefined);
+      const renterId = (row.renter_id as string | null) ?? null;
+      const renterProfile = renterId ? profileById.get(renterId) : null;
       const listingId = row.listing_id as string | number;
       const listingTitle = listingTitleById.get(String(listingId)) ?? "Okänd plats";
 
@@ -176,10 +205,10 @@ function HarbourDetailContent() {
           id: listingId,
           title: listingTitle,
         },
-        renter: renterRelation
+        renter: renterProfile
           ? {
-              full_name: (renterRelation.full_name as string | null) ?? null,
-              email: (renterRelation.email as string | null) ?? null,
+              full_name: renterProfile.full_name,
+              email: null,
             }
           : null,
       };
@@ -271,7 +300,7 @@ function HarbourDetailContent() {
     const { data: listingRows, error: listingError } = await supabase
       .from("listings")
       .select(
-        "id, harbour_id, title, description, image_url, price_per_season, max_boat_length, max_boat_width, season_start, season_end, is_available",
+        "id, harbour_id, title, description, image_url, price_per_season, max_boat_length, max_boat_width, season_start, season_end, rental_type, is_available",
       )
       .eq("harbour_id", harbourId)
       .order("created_at", { ascending: false });
@@ -323,6 +352,7 @@ function HarbourDetailContent() {
       max_boat_width: listing.max_boat_width != null ? String(listing.max_boat_width) : "",
       season_start: listing.season_start ?? "",
       season_end: listing.season_end ?? "",
+      rental_type: normalizeRentalType(listing.rental_type),
       is_available: listing.is_available,
       image_url: listing.image_url ?? "",
       image_file: null,
@@ -357,6 +387,7 @@ function HarbourDetailContent() {
       max_boat_width: listingForm.max_boat_width.trim() ? Number(listingForm.max_boat_width) : null,
       season_start: listingForm.season_start || null,
       season_end: listingForm.season_end || null,
+      rental_type: listingForm.rental_type,
       is_available: listingForm.is_available,
       image_url: imageUrl,
     };
@@ -688,6 +719,15 @@ function HarbourDetailContent() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className={`${hostCardClass} w-full max-w-2xl p-5`}>
             <h2 className="text-xl font-bold text-gray-900">{listingForm.id ? "Redigera plats" : "Skapa ny plats"}</h2>
+            <div className="mt-4 space-y-4">
+              <div>
+                <p className="mb-2 text-sm font-medium text-gray-700">Uthyrningstyp</p>
+                <RentalTypeChoice
+                  value={listingForm.rental_type}
+                  onChange={(rental_type) => setListingForm((prev) => ({ ...prev, rental_type }))}
+                />
+              </div>
+            </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <input
                 value={listingForm.title}

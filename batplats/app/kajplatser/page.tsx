@@ -2,13 +2,20 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import AuthNavbar from "@/components/auth-navbar";
 import BerthMap, { type MapListing } from "@/components/BerthMap";
 import Footer from "@/components/footer";
+import ListingSearchBar from "@/components/ListingSearchBar";
+import SortSelect from "@/components/SortSelect";
 import { getListingImageSrc } from "@/lib/listing-image";
+import RentalTypeBadge from "@/components/RentalTypeBadge";
+import { BOOKED_BOOKING_STATUSES } from "@/lib/booking-status";
+import { hasValidDateRange } from "@/lib/date-range";
+import { listingMatchesDateSearch } from "@/lib/rental-type";
 import { createClient } from "@/lib/supabase/client";
 
 type KajplatsListing = {
@@ -21,6 +28,7 @@ type KajplatsListing = {
   max_boat_width: number | null;
   season_start: string | null;
   season_end: string | null;
+  rental_type?: string | null;
   city: string | null;
   harbour_name: string | null;
   area: string | null;
@@ -56,6 +64,7 @@ type ListingRow = {
   max_boat_width: number | null;
   season_start: string | null;
   season_end: string | null;
+  rental_type?: string | null;
   city: string | null;
   harbour_name: string | null;
   image_url?: string | null;
@@ -92,7 +101,142 @@ type ListingRow = {
     | null;
 };
 
-function ListingCard({ listing }: { listing: KajplatsListing }) {
+type HarbourSuggestionRow = {
+  id: number | string;
+  name: string | null;
+  city: string | null;
+  zip_code: string | null;
+  area: string | null;
+  lat: number | null;
+  lng: number | null;
+  owner_id?: string | null;
+};
+
+type LocationSuggestionType = "harbour" | "city" | "area" | "zip";
+
+type LocationSuggestion = {
+  key: string;
+  type: LocationSuggestionType;
+  label: string;
+  secondary: string | null;
+  value: string;
+  harbourId: number | string | null;
+  lat: number | null;
+  lng: number | null;
+};
+
+const LOCATION_TYPE_LABELS: Record<LocationSuggestionType, string> = {
+  harbour: "Hamnar",
+  city: "Städer",
+  area: "Områden",
+  zip: "Postnummer",
+};
+
+const isZipSearchValue = (value: string) => /^\d[\d\s]*$/.test(value.trim());
+
+const includesMatch = (value: string | null | undefined, query: string) =>
+  Boolean(value && value.toLowerCase().trim().includes(query));
+
+const includesZipMatch = (value: string | null | undefined, query: string) => {
+  if (!value) return false;
+  const normalizedQuery = normalizeZipValue(query);
+  if (!normalizedQuery) return false;
+  return normalizeZipValue(value).startsWith(normalizedQuery);
+};
+
+const formatLocationSuggestion = (
+  type: LocationSuggestionType,
+  row: HarbourSuggestionRow,
+): LocationSuggestion | null => {
+  const city = row.city?.trim() || "Okänd stad";
+  const area = row.area?.trim() || null;
+  const name = row.name?.trim() || null;
+  const zip = row.zip_code?.trim() || null;
+
+  if (type === "harbour") {
+    if (!name) return null;
+    return {
+      key: `${type}:${name}:${city}`,
+      type,
+      label: `⚓ ${name} • ${city}`,
+      secondary: null,
+      value: name,
+      harbourId: row.id,
+      lat: row.lat,
+      lng: row.lng,
+    };
+  }
+
+  if (type === "city") {
+    return {
+      key: `${type}:${city}`,
+      type,
+      label: city,
+      secondary: area ? `Område: ${area}` : null,
+      value: city,
+      harbourId: null,
+      lat: row.lat,
+      lng: row.lng,
+    };
+  }
+
+  if (type === "area") {
+    if (!area) return null;
+    return {
+      key: `${type}:${area}:${city}`,
+      type,
+      label: `${city}, ${area}`,
+      secondary: null,
+      value: area,
+      harbourId: null,
+      lat: row.lat,
+      lng: row.lng,
+    };
+  }
+
+  if (!zip) return null;
+  return {
+    key: `${type}:${zip}:${city}`,
+    type,
+    label: `Postnummer: ${zip} • ${city}`,
+    secondary: null,
+    value: zip,
+    harbourId: null,
+    lat: row.lat,
+    lng: row.lng,
+  };
+};
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const renderHighlightedText = (text: string, query: string) => {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) return text;
+  const pattern = new RegExp(`(${escapeRegExp(trimmedQuery)})`, "ig");
+  const segments = text.split(pattern);
+
+  return segments.map((segment, idx) =>
+    segment.toLowerCase() === trimmedQuery.toLowerCase() ? (
+      <span key={`${segment}-${idx}`} className="font-semibold text-[#0d9488]">
+        {segment}
+      </span>
+    ) : (
+      <span key={`${segment}-${idx}`}>{segment}</span>
+    ),
+  );
+};
+
+function ListingCard({
+  listing,
+  isHighlighted = false,
+  onHover,
+  onLeave,
+}: {
+  listing: KajplatsListing;
+  isHighlighted?: boolean;
+  onHover?: (listingId: string | number) => void;
+  onLeave?: () => void;
+}) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isHovering, setIsHovering] = useState(false);
   const images = listing.listing_images ?? [];
@@ -120,8 +264,13 @@ function ListingCard({ listing }: { listing: KajplatsListing }) {
 
   return (
     <Link
+      id={`listing-card-${listing.id}`}
       href={`/listings/${listing.id}`}
-      className="group block cursor-pointer overflow-hidden rounded-xl border border-[#dce3ee] bg-white shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] transition hover:-translate-y-0.5 hover:shadow-lg"
+      onMouseEnter={() => onHover?.(listing.id)}
+      onMouseLeave={() => onLeave?.()}
+      className={`group block cursor-pointer overflow-hidden rounded-xl border bg-white shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] transition hover:-translate-y-0.5 hover:shadow-lg ${
+        isHighlighted ? "border-[#0d9488] ring-2 ring-[#0d9488]/40" : "border-[#dce3ee]"
+      }`}
     >
       <div
         className="relative h-44 w-full overflow-hidden bg-gradient-to-br from-[#c5d0de] to-[#dce3ee]"
@@ -207,7 +356,10 @@ function ListingCard({ listing }: { listing: KajplatsListing }) {
             <span className="text-gray-500">({listing.review_count ?? 0})</span>
           </div>
         ) : null}
-        <h2 className="mt-1 text-base font-bold text-[#0f1f3d]">{listing.title}</h2>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <h2 className="text-base font-bold text-[#0f1f3d]">{listing.title}</h2>
+          <RentalTypeBadge rentalType={listing.rental_type} />
+        </div>
         <p className="mt-1 text-sm text-[#8a96a8]">{listing.city ?? "Okänd stad"}</p>
         {listing.user_distance_km != null ? (
           <div
@@ -263,18 +415,31 @@ const haversineDistanceKm = (lat1: number, lng1: number, lat2: number, lng2: num
 };
 
 function KajplatserContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = useMemo(() => createClient(), []);
   const [listings, setListings] = useState<KajplatsListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showMap, setShowMap] = useState(false);
+  const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const [locationInput, setLocationInput] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [isLocationLoading, setIsLocationLoading] = useState(false);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [lengthInput, setLengthInput] = useState("");
+  const [dateError, setDateError] = useState("");
+  const [hoveredListingId, setHoveredListingId] = useState<string | number | null>(null);
+  const [focusedListingId, setFocusedListingId] = useState<string | number | null>(null);
   const [activeLocationQuery, setActiveLocationQuery] = useState("");
   const [isLocationSearchActive, setIsLocationSearchActive] = useState(false);
   const [searchActive, setSearchActive] = useState(false);
-  const [boatLengthQuery, setBoatLengthQuery] = useState("");
-  const [dateQuery, setDateQuery] = useState("");
+  const [cityQuery, setCityQuery] = useState("");
+  const [startQuery, setStartQuery] = useState("");
+  const [endQuery, setEndQuery] = useState("");
+  const [lengthQuery, setLengthQuery] = useState("");
   const [zipQuery, setZipQuery] = useState("");
   const [radiusInputKm, setRadiusInputKm] = useState(10);
   const [radiusKm, setRadiusKm] = useState(10);
@@ -290,23 +455,93 @@ function KajplatserContent() {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
-    const locationParam = searchParams.get("location") ?? "";
-    const boatLengthParam = searchParams.get("boat_length") ?? "";
-    const dateParam = searchParams.get("date") ?? "";
+    const cityParam = searchParams.get("city") ?? searchParams.get("location") ?? "";
+    const startParam = searchParams.get("start") ?? "";
+    const endParam = searchParams.get("end") ?? "";
+    const lengthParam = searchParams.get("length") ?? searchParams.get("boat_length") ?? "";
     const zipParam = searchParams.get("zip") ?? "";
     const shouldShowMap = searchParams.get("view") === "map";
 
-    setLocationInput(locationParam);
-    setActiveLocationQuery(locationParam);
-    setIsLocationSearchActive(Boolean(locationParam.trim()));
-    setSearchActive(Boolean(locationParam.trim()));
-    setBoatLengthQuery(boatLengthParam);
-    setDateQuery(dateParam);
+    setCityQuery(cityParam);
+    setStartQuery(startParam);
+    setEndQuery(endParam);
+    setLengthQuery(lengthParam);
+    setLocationInput(cityParam);
+    setLocationQuery(cityParam);
+    setStartDate(startParam);
+    setEndDate(endParam);
+    setLengthInput(lengthParam);
+    setActiveLocationQuery(cityParam);
+    setIsLocationSearchActive(Boolean(cityParam.trim()));
+    setSearchActive(Boolean(cityParam.trim() || startParam || endParam || lengthParam));
     setZipQuery(zipParam);
     if (shouldShowMap) {
-      setShowMap(true);
+      setMobileMapOpen(true);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const query = locationQuery.toLowerCase().trim();
+    const zipQuery = normalizeZipValue(locationQuery);
+    const formattedZipQuery = zipQuery.length >= 4 ? `${zipQuery.slice(0, 3)} ${zipQuery.slice(3)}` : zipQuery;
+    const zipOrClause = zipQuery ? `,zip_code.ilike.%${formattedZipQuery}%` : "";
+    if (!query) {
+      setLocationSuggestions([]);
+      setIsLocationLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setIsLocationLoading(true);
+      try {
+        const { data, error: suggestionError } = await supabase
+          .from("harbours")
+          .select("id, name, city, zip_code, area, lat, lng, owner_id")
+          .not("owner_id", "is", null)
+          .or(`name.ilike.%${query}%,city.ilike.%${query}%,zip_code.ilike.%${query}%${zipOrClause},area.ilike.%${query}%`)
+          .limit(8);
+
+        if (suggestionError) {
+          if (!cancelled) setLocationSuggestions([]);
+          return;
+        }
+
+        const rows = ((data ?? []) as HarbourSuggestionRow[]).slice(0, 8);
+        const suggestions: LocationSuggestion[] = [];
+        const keys = new Set<string>();
+
+        const addSuggestion = (type: LocationSuggestionType, row: HarbourSuggestionRow) => {
+          const formatted = formatLocationSuggestion(type, row);
+          if (!formatted || keys.has(formatted.key)) return;
+          keys.add(formatted.key);
+          suggestions.push(formatted);
+        };
+
+        for (const row of rows) {
+          if (includesMatch(row.name, query)) addSuggestion("harbour", row);
+          if (includesMatch(row.area, query)) addSuggestion("area", row);
+          if (includesMatch(row.city, query)) addSuggestion("city", row);
+          if (includesZipMatch(row.zip_code, locationQuery) || includesMatch(row.zip_code, query)) {
+            addSuggestion("zip", row);
+          }
+        }
+
+        if (!cancelled) {
+          setLocationSuggestions(suggestions.slice(0, 8));
+        }
+      } catch {
+        if (!cancelled) setLocationSuggestions([]);
+      } finally {
+        if (!cancelled) setIsLocationLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [locationQuery, supabase]);
 
   const requestUserLocation = useCallback(() => {
     if (typeof window === "undefined" || !navigator.geolocation) return;
@@ -421,19 +656,35 @@ function KajplatserContent() {
 
   useEffect(() => {
     const loadListings = async () => {
+      setLoading(true);
       try {
+        const hasDateFilter = Boolean(startQuery && endQuery && hasValidDateRange(startQuery, endQuery));
+
         let listingQuery = supabase
           .from("listings")
           .select(
-            "id, owner_id, title, description, price_per_season, max_boat_length, max_boat_width, season_start, season_end, city, harbour_name, image_url, listing_type, is_available, lat, lng, created_at, harbour_id, harbours!inner(id, name, city, address, area, zip_code, lat, lng, owner_id), listing_images(id, image_url, display_order)",
+            "id, owner_id, title, description, price_per_season, max_boat_length, max_boat_width, season_start, season_end, rental_type, city, harbour_name, image_url, listing_type, is_available, lat, lng, created_at, harbour_id, harbours!inner(id, name, city, address, area, zip_code, lat, lng, owner_id), listing_images(id, image_url, display_order)",
           )
           .eq("is_available", true)
           .not("owner_id", "is", null)
           .not("harbours.owner_id", "is", null)
           .order("created_at", { ascending: false });
+
+        const trimmedCity = cityQuery.trim();
+        if (trimmedCity) {
+          const pattern = `%${trimmedCity}%`;
+          listingQuery = listingQuery.or(`city.ilike.${pattern},harbour_name.ilike.${pattern}`);
+        }
+
+        const parsedLength = Number(lengthQuery);
+        if (lengthQuery.trim() !== "" && Number.isFinite(parsedLength)) {
+          listingQuery = listingQuery.gte("max_boat_length", parsedLength);
+        }
+
         if (selectedHarbourId) {
           listingQuery = listingQuery.eq("harbour_id", selectedHarbourId);
         }
+
         const { data, error: listingsError } = await listingQuery;
         console.log("🗺️ Fetched listings:", data);
         const firstRaw = (data ?? [])[0] as ListingRow | undefined;
@@ -454,7 +705,58 @@ function KajplatserContent() {
         console.log("✅ Listings with valid coordinates:", listingsWithCoords.length);
         console.log("Sample:", listingsWithCoords[0] ?? null);
 
-        const listingsData = (data ?? []) as ListingRow[];
+        let listingsData = (data ?? []) as ListingRow[];
+        if (hasDateFilter && startQuery && endQuery && listingsData.length > 0) {
+          const listingIds = listingsData.map((listing) => listing.id);
+          const bookingsByListing = new Map<
+            string,
+            Array<{ start_date: string | null; end_date: string | null; status?: string | null }>
+          >();
+
+          const { data: bookedRows, error: bookingsError } = await supabase
+            .from("bookings")
+            .select("listing_id, start_date, end_date, status")
+            .in("status", [...BOOKED_BOOKING_STATUSES])
+            .in("listing_id", listingIds);
+
+          if (bookingsError) {
+            console.error("Failed to fetch bookings for date filter:", bookingsError);
+          } else {
+            for (const row of bookedRows ?? []) {
+              if (row.listing_id == null || row.listing_id === "") continue;
+              const key = String(row.listing_id);
+              const existing = bookingsByListing.get(key) ?? [];
+              existing.push({
+                start_date: row.start_date,
+                end_date: row.end_date,
+                status: row.status,
+              });
+              bookingsByListing.set(key, existing);
+            }
+          }
+
+          listingsData = listingsData.filter((listing) =>
+            listingMatchesDateSearch(
+              listing,
+              startQuery,
+              endQuery,
+              (bookingsByListing.get(String(listing.id)) ?? []).map((booking) => ({
+                listing_id: listing.id,
+                ...booking,
+              })),
+            ),
+          );
+        }
+
+        if (trimmedCity) {
+          const cityNeedle = trimmedCity.toLowerCase();
+          listingsData = listingsData.filter((row) => {
+            const harbour = Array.isArray(row.harbours) ? (row.harbours[0] ?? null) : row.harbours;
+            return [row.city, row.harbour_name, harbour?.city, harbour?.name].some(
+              (field) => field && field.toLowerCase().includes(cityNeedle),
+            );
+          });
+        }
         const harbourIds = [
           ...new Set(
             listingsData
@@ -493,6 +795,7 @@ function KajplatserContent() {
             max_boat_width: row.max_boat_width,
             season_start: row.season_start,
             season_end: row.season_end,
+            rental_type: row.rental_type ?? "season",
             city: row.city ?? harbour?.city ?? null,
             harbour_name: row.harbour_name ?? harbour?.name ?? null,
             listing_type: row.listing_type ?? null,
@@ -519,7 +822,7 @@ function KajplatserContent() {
     };
 
     void loadListings();
-  }, [selectedHarbourId, supabase]);
+  }, [selectedHarbourId, supabase, cityQuery, startQuery, endQuery, lengthQuery]);
 
   const trimmedLocationInput = locationInput.trim();
   const trimmedLocationQuery = activeLocationQuery.trim();
@@ -530,9 +833,10 @@ function KajplatserContent() {
   const searchQuery = (trimmedLocationQuery || formatSwedishZip(effectiveZipQuery)).trim();
   const hasLocationOrZipSearch = isLocationSearchActive && searchQuery.length > 0;
   const activeSearchCenter = geocodedCenter;
-  const parsedBoatLength = Number(boatLengthQuery);
-  const hasBoatLengthFilter = boatLengthQuery.trim() !== "" && Number.isFinite(parsedBoatLength);
-  const hasDateFilter = dateQuery.trim() !== "";
+  const parsedLength = Number(lengthQuery);
+  const hasLengthFilter = lengthQuery.trim() !== "" && Number.isFinite(parsedLength);
+  const hasDateFilter = startQuery.trim() !== "" && endQuery.trim() !== "";
+  const hasUrlFilters = Boolean(cityQuery.trim() || hasDateFilter || hasLengthFilter || selectedHarbourId);
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -619,14 +923,62 @@ function KajplatserContent() {
     setSearchActive(Boolean(nextQuery));
   };
 
+  const handleSearch = () => {
+    setDateError("");
+    if ((startDate && !endDate) || (!startDate && endDate)) {
+      setDateError("Välj både start- och slutdatum");
+      return;
+    }
+    if (startDate && endDate && !hasValidDateRange(startDate, endDate)) {
+      setDateError("Slutdatum måste vara efter startdatum");
+      return;
+    }
+
+    const params = new URLSearchParams();
+    const locationValue = locationInput.trim();
+    if (locationValue) params.set("city", locationValue);
+    if (isZipSearchValue(locationValue)) {
+      const normalizedZip = normalizeZipValue(locationValue);
+      if (normalizedZip) params.set("zip", formatSwedishZip(normalizedZip));
+    }
+    if (startDate) params.set("start", startDate);
+    if (endDate) params.set("end", endDate);
+    if (lengthInput) params.set("length", lengthInput);
+    if (selectedHarbourId) params.set("harbour_id", selectedHarbourId);
+
+    const queryString = params.toString();
+    router.push(queryString ? `/kajplatser?${queryString}` : "/kajplatser");
+    setActiveLocationQuery(locationValue);
+    setIsLocationSearchActive(Boolean(locationValue));
+    setSearchActive(Boolean(locationValue || startDate || endDate || lengthInput));
+  };
+
+  const handleListingMarkerClick = useCallback((listingId: string | number) => {
+    setFocusedListingId(listingId);
+    const card = document.getElementById(`listing-card-${listingId}`);
+    card?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
   const handleResetSearch = () => {
     setLocationInput("");
+    setLocationQuery("");
+    setStartDate("");
+    setEndDate("");
+    setLengthInput("");
+    setDateError("");
     setActiveLocationQuery("");
     setIsLocationSearchActive(false);
     setSearchActive(false);
     setGeocodedCenter(null);
     setRadiusInputKm(10);
     setRadiusKm(10);
+    setHoveredListingId(null);
+    setFocusedListingId(null);
+  };
+
+  const handleClearFilters = () => {
+    handleResetSearch();
+    router.push("/kajplatser");
   };
 
   useEffect(() => {
@@ -645,7 +997,10 @@ function KajplatserContent() {
 
   const displayedListings = useMemo(() => {
     console.log("Current radius km:", radiusKm);
-    if (!hasLocationOrZipSearch && !hasBoatLengthFilter && !hasDateFilter) {
+    const useLocalGeocodeSearch =
+      hasLocationOrZipSearch && activeLocationQuery.trim() !== cityQuery.trim();
+
+    if (!useLocalGeocodeSearch) {
       const allListings = listings.map((listing) => ({
         ...listing,
         distance_km: null,
@@ -663,7 +1018,7 @@ function KajplatserContent() {
     const withDistance = listings.map((listing) => {
       const hasCoordinates = listing.lat != null && listing.lng != null;
       const distanceKm =
-        hasLocationOrZipSearch && activeSearchCenter && hasCoordinates
+        activeSearchCenter && hasCoordinates
           ? haversineDistanceKm(activeSearchCenter.lat, activeSearchCenter.lng, Number(listing.lat), Number(listing.lng))
           : null;
       return {
@@ -677,58 +1032,34 @@ function KajplatserContent() {
       const city = listing.city ?? "";
       const area = listing.area ?? "";
       const matchesRadius =
-        !hasLocationOrZipSearch || !activeSearchCenter || (listing.distance_km != null && listing.distance_km <= radiusKm);
-      const matchesLocationText =
-        !hasLocationOrZipSearch || [harbourName, city, area].some((field) => normalizeValue(field).includes(normalizedLocationQuery));
-      const shouldUseRadiusOnly = hasLocationOrZipSearch && activeSearchCenter != null;
-      const matchesSearch = shouldUseRadiusOnly ? matchesRadius : matchesLocationText;
-
-      console.log("Listing coords:", listing.lat, listing.lng);
-      if (listing.distance_km != null) {
-        console.log(
-          `Distance: ${listing.distance_km.toFixed(2)} km, Radius: ${radiusKm} km, Within range: ${listing.distance_km <= radiusKm}`,
-        );
-      }
-
-      const matchesBoatLength =
-        !hasBoatLengthFilter || (listing.max_boat_length != null && listing.max_boat_length >= parsedBoatLength);
-
-      const matchesDate =
-        !hasDateFilter ||
-        (() => {
-          const seasonStart = toDateOnlyValue(listing.season_start);
-          const seasonEnd = toDateOnlyValue(listing.season_end);
-          if (!seasonStart || !seasonEnd) return false;
-          return dateQuery >= seasonStart && dateQuery <= seasonEnd;
-        })();
-
-      return matchesSearch && matchesBoatLength && matchesDate;
+        !activeSearchCenter || (listing.distance_km != null && listing.distance_km <= radiusKm);
+      const matchesLocationText = [harbourName, city, area].some((field) =>
+        normalizeValue(field).includes(normalizedLocationQuery),
+      );
+      const shouldUseRadiusOnly = activeSearchCenter != null;
+      return shouldUseRadiusOnly ? matchesRadius : matchesLocationText;
     });
+
     const mapped = results.map((listing) => ({
       ...listing,
       user_distance_km: travelMap[String(listing.id)]?.km ?? null,
       user_drive_text: travelMap[String(listing.id)]?.driveText ?? null,
     }));
+
     if (effectiveSortBy === "nearest" && userLocation) {
       return [...mapped].sort(
         (a, b) => (a.user_distance_km ?? Number.POSITIVE_INFINITY) - (b.user_distance_km ?? Number.POSITIVE_INFINITY),
       );
     }
-    if (!hasLocationOrZipSearch) return mapped;
     return [...mapped].sort((a, b) => (a.distance_km ?? Number.POSITIVE_INFINITY) - (b.distance_km ?? Number.POSITIVE_INFINITY));
   }, [
     listings,
-    trimmedLocationQuery,
     normalizedLocationQuery,
-    normalizedLocationZip,
     activeSearchCenter,
     radiusKm,
     hasLocationOrZipSearch,
-    hasBoatLengthFilter,
-    parsedBoatLength,
-    hasDateFilter,
-    dateQuery,
-    sortBy,
+    activeLocationQuery,
+    cityQuery,
     effectiveSortBy,
     travelMap,
     userLocation,
@@ -750,6 +1081,8 @@ function KajplatserContent() {
           harbour_name: listing.harbour_name,
           city: listing.city,
           price_per_season: listing.price_per_season,
+          max_boat_length: listing.max_boat_length,
+          max_boat_width: listing.max_boat_width,
           is_available: listing.is_available,
           image_url: listing.listing_images[0]?.image_url ?? listing.image_url ?? null,
           season_start: listing.season_start,
@@ -766,172 +1099,280 @@ function KajplatserContent() {
     console.log("Listings missing map coordinates:", mapListings.filter((listing) => listing.lat == null || listing.lng == null).length);
   }, [visibleListings, mapListings]);
 
+  const groupedSuggestions: Record<LocationSuggestionType, LocationSuggestion[]> = {
+    harbour: [],
+    area: [],
+    city: [],
+    zip: [],
+  };
+  for (const suggestion of locationSuggestions) {
+    groupedSuggestions[suggestion.type].push(suggestion);
+  }
+  const orderedSuggestionTypes: LocationSuggestionType[] = ["harbour", "area", "city", "zip"];
+  const showRadiusControl = Boolean(locationInput.trim());
+  const mapHighlightedListingId = hoveredListingId ?? focusedListingId;
+
+  const locationSuggestionsDropdown =
+    showLocationSuggestions && locationQuery.trim() ? (
+      <div className="absolute left-0 right-0 z-40 mt-3 max-h-72 overflow-y-auto rounded-2xl border border-[#dce3ee] bg-white p-2 shadow-[0_12px_30px_rgba(15,31,61,0.16)]">
+        {locationSuggestions.length === 0 && !isLocationLoading ? (
+          <p className="px-3 py-3 text-sm text-[#8a96a8]">Inga resultat</p>
+        ) : (
+          orderedSuggestionTypes.map((type) => {
+            const items = groupedSuggestions[type];
+            if (items.length === 0) return null;
+
+            return (
+              <div key={type} className="mb-1 last:mb-0">
+                <p className="px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a96a8]">
+                  {LOCATION_TYPE_LABELS[type]}
+                </p>
+                {items.map((suggestion) => (
+                  <button
+                    key={suggestion.key}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setLocationInput(suggestion.value);
+                      setLocationQuery(suggestion.value);
+                      setShowLocationSuggestions(false);
+                    }}
+                    className="flex w-full items-start gap-2 rounded-xl px-3 py-3 text-left transition hover:bg-[#f5f0e8]"
+                  >
+                    <span className="mt-0.5 text-base leading-none text-[#0d9488]" aria-hidden>
+                      📍
+                    </span>
+                    <span className="min-w-0 text-sm text-[#4a5568]">
+                      <span className="block truncate">{renderHighlightedText(suggestion.label, locationQuery)}</span>
+                      {suggestion.secondary ? (
+                        <span className="block truncate text-xs text-[#8a96a8]">
+                          {renderHighlightedText(suggestion.secondary, locationQuery)}
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            );
+          })
+        )}
+      </div>
+    ) : null;
+
+  const mapProps = {
+    listings: mapListings,
+    shouldFitBounds: hasLocationOrZipSearch || hasUrlFilters,
+    center: activeSearchCenter,
+    radiusKm: hasLocationOrZipSearch ? radiusKm : null,
+    highlightedListingId: mapHighlightedListingId,
+    onListingMarkerClick: handleListingMarkerClick,
+  };
+
+  const resultsContent = error ? (
+    <div className="rounded-xl border border-[#fecaca] bg-[#fff1f2] p-6 text-sm text-[#d64c3b]">{error}</div>
+  ) : loading ? (
+    <div className="space-y-3">
+      {[...Array(4)].map((_, idx) => (
+        <div key={`kajplats-skeleton-${idx}`} className="h-44 w-full animate-pulse rounded-xl bg-[#dce3ee]" />
+      ))}
+    </div>
+  ) : visibleListings.length === 0 ? (
+    <div className="rounded-xl border border-[#dce3ee] bg-white p-10 text-center shadow-[0_1px_4px_rgba(15,31,61,0.08)]">
+      {hasUrlFilters ? (
+        <>
+          <h2 className="text-xl font-bold text-[#0a1628]">Inga båtplatser matchar din sökning</h2>
+          <p className="mt-2 text-sm text-[#4a5568]">Prova att justera datum, område eller båtlängd.</p>
+          <button
+            type="button"
+            onClick={handleClearFilters}
+            className="mt-6 rounded-lg bg-[#0d9488] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6]"
+          >
+            Rensa filter
+          </button>
+        </>
+      ) : (
+        <>
+          <h2 className="text-xl font-bold text-[#0a1628]">Inga platser tillgängliga ännu.</h2>
+          <p className="mt-2 text-sm text-[#4a5568]">Bli första hamnägaren att lista platser!</p>
+          {geocodeError ? <p className="mt-2 text-sm text-[#d64c3b]">{geocodeError}</p> : null}
+          {hasLocationOrZipSearch ? (
+            <p className="mt-2 text-sm text-[#4a5568]">
+              Inga platser hittades inom {radiusKm} km från {searchQuery}. Prova att öka söksträckan eller sök på
+              stadsdel.
+            </p>
+          ) : null}
+        </>
+      )}
+    </div>
+  ) : (
+    <div className="grid gap-4 sm:grid-cols-2">
+      {visibleListings.map((listing) => (
+        <ListingCard
+          key={listing.id}
+          listing={listing}
+          isHighlighted={String(listing.id) === String(mapHighlightedListingId)}
+          onHover={setHoveredListingId}
+          onLeave={() => setHoveredListingId(null)}
+        />
+      ))}
+    </div>
+  );
+
+  const mobileMapOverlay =
+    mobileMapOpen && typeof document !== "undefined"
+      ? createPortal(
+          <div className="fixed inset-0 z-[80] flex flex-col bg-[#0a1628] lg:hidden">
+            <div className="flex items-center justify-between border-b border-white/10 px-4 py-3 text-white">
+              <p className="text-sm font-semibold">Karta</p>
+              <button
+                type="button"
+                onClick={() => setMobileMapOpen(false)}
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-sm font-semibold text-white/80 hover:bg-white/10"
+              >
+                Stäng
+              </button>
+            </div>
+            <div className="min-h-0 flex-1">
+              <BerthMap height="100%" borderless className="h-full" {...mapProps} />
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
-    <main className="min-h-screen bg-[#f5f0e8] text-[#0f1f3d]">
+    <main className="min-h-screen bg-brand-cream text-[#0a1628]">
       <AuthNavbar currentPage="search" />
 
-      <section className="bg-gradient-to-br from-[#0f1f3d] via-[#0d2252] to-[#0d9488] px-6 py-12 text-white">
-        <div className="mx-auto w-full max-w-[1280px]">
-          <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">Båtplatser</p>
-          <h1 className="mt-2 text-[2rem] font-extrabold leading-tight">Alla tillgängliga båtplatser</h1>
-          <p className="mt-2 text-sm text-white/80">
-            {loading ? "Laddar..." : `${listings.length} ${listings.length === 1 ? "plats" : "platser"}`}
-          </p>
-        </div>
-      </section>
+      <section className="overflow-visible bg-brand-cream px-4 pb-4 pt-24 md:px-6">
+        <div className="mx-auto w-full max-w-[900px] overflow-visible">
+          <div className="mb-6 text-center">
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.14em] text-brand-teal">Båtplatser</p>
+            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-[#0a1628] md:text-3xl">
+              Hitta din båtplats
+            </h1>
+          </div>
 
-      <section className="px-6 py-10">
-        <div className="mx-auto w-full max-w-[1280px]">
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div className="w-full max-w-md">
-              {!userLocation && !locationRequested ? (
-                <button
-                  type="button"
-                  onClick={requestUserLocation}
-                  className="mb-3 rounded-lg border border-[#0d9488]/30 bg-[#f0fdfa] px-3 py-2 text-xs font-semibold text-[#0d9488]"
-                >
-                  Tillåt platsåtkomst för att se avstånd till hamnar
-                </button>
-              ) : null}
-              <label className="block">
-                <span className="mb-1 block text-[0.75rem] font-semibold uppercase tracking-[0.4px] text-[#0f1f3d]">
-                  Område
-                </span>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={locationInput}
-                    onChange={(e) => setLocationInput(e.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        handleLocationSearch();
-                      }
-                    }}
-                    placeholder="Sök på hamn, stad, område eller postnummer"
-                    className="w-full rounded-lg border border-[#dce3ee] bg-white px-3 py-2 pr-10 text-sm text-[#0f1f3d] outline-none transition placeholder:text-[#8a96a8] focus:border-[#0d9488]"
-                  />
-                  {locationInput ? (
-                    <button
-                      type="button"
-                      onClick={() => setLocationInput("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-[#8a96a8] transition hover:text-[#0f1f3d]"
-                      aria-label="Rensa platsfilter"
-                    >
-                      ✕
-                    </button>
-                  ) : null}
-                </div>
-              </label>
-              <div
-                className={`mt-3 overflow-hidden rounded-xl border border-[#dce3ee] bg-white px-4 py-3 transition-all duration-300 ${
-                  hasLocationOrZipSearch
-                    ? "max-h-32 translate-y-0 opacity-100"
-                    : "pointer-events-none max-h-0 -translate-y-1 opacity-0"
-                }`}
-              >
-                <p className="mb-2 text-[0.83rem] font-medium leading-none text-[#4a5568]">
-                  Sök inom: <span className="font-semibold text-[#0d9488]">{radiusInputKm}</span>{" "}
-                  <span className="text-[#0d9488]">km</span> från postnummer
-                </p>
-                <input
-                  type="range"
-                  min={1}
-                  max={15}
-                  step={1}
-                  value={radiusInputKm}
-                  onChange={(event) => setRadiusInputKm(Number(event.target.value))}
-                  className="brand-radius-slider"
-                  style={
-                    {
-                      "--range-progress": `${((radiusInputKm - 1) / (15 - 1)) * 100}%`,
-                    } as React.CSSProperties
-                  }
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <select
-                value={sortBy}
-                onChange={(event) => setSortBy(event.target.value as "default" | "nearest")}
-                className="rounded-lg border border-[#dce3ee] bg-white px-3 py-2 text-sm font-semibold text-[#0f1f3d]"
-              >
-                <option value="default">Standard</option>
-                <option value="nearest">Närmast</option>
-              </select>
+          {!userLocation && !locationRequested ? (
+            <div className="mb-4 text-center">
               <button
                 type="button"
-                onClick={handleLocationSearch}
-                className="rounded-lg bg-[#0d9488] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#14b8a6]"
+                onClick={requestUserLocation}
+                className="text-sm font-medium text-[#0d9488] underline-offset-2 hover:underline"
               >
-                Sök
+                Tillåt platsåtkomst för att se avstånd till hamnar
               </button>
+            </div>
+          ) : null}
+
+          <ListingSearchBar
+            location={locationInput}
+            onLocationChange={(value) => {
+              setLocationInput(value);
+              setLocationQuery(value);
+              setShowLocationSuggestions(true);
+            }}
+            onLocationFocus={() => setShowLocationSuggestions(true)}
+            onLocationBlur={() => {
+              setTimeout(() => setShowLocationSuggestions(false), 120);
+            }}
+            onLocationKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                handleSearch();
+              }
+            }}
+            locationSuggestions={locationSuggestionsDropdown}
+            isLocationLoading={isLocationLoading}
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={(value) => {
+              setStartDate(value);
+              setDateError("");
+            }}
+            onEndDateChange={(value) => {
+              setEndDate(value);
+              setDateError("");
+            }}
+            onDateError={(message) => setDateError(message ?? "")}
+            dateError={dateError}
+            boatLength={lengthInput}
+            onBoatLengthChange={setLengthInput}
+            onSearch={handleSearch}
+          />
+
+          <div className="mt-3 flex items-center justify-center gap-4">
+            {(hasUrlFilters || locationInput.trim()) && (
               <button
                 type="button"
-                onClick={handleResetSearch}
-                className="rounded-lg border border-[#dce3ee] bg-white px-4 py-2 text-sm font-semibold text-[#0f1f3d] transition hover:bg-[#f5f0e8]"
+                onClick={handleClearFilters}
+                className="text-sm font-medium text-[#0d9488] underline-offset-2 hover:underline"
               >
                 Rensa
               </button>
-              <button
-                type="button"
-                onClick={() => setShowMap((current) => !current)}
-                className="rounded-lg bg-[#0f1f3d] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0d2252]"
-              >
-                {showMap ? "Dölj karta" : "Visa karta"}
-              </button>
-            </div>
+            )}
           </div>
 
-          {showMap ? (
-            <BerthMap
-              height="360px"
-              listings={mapListings}
-              shouldFitBounds={hasLocationOrZipSearch || hasBoatLengthFilter || hasDateFilter}
-              center={activeSearchCenter}
-              radiusKm={hasLocationOrZipSearch ? radiusKm : null}
-            />
+          {showRadiusControl ? (
+            <div className="mx-auto mt-4 max-w-md rounded-xl border border-[#dce3ee] bg-white px-4 py-3 shadow-sm">
+              <p className="mb-2 text-sm font-medium text-[#4a5568]">
+                Sök inom: <span className="font-semibold text-[#0d9488]">{radiusInputKm} km</span>
+              </p>
+              <input
+                type="range"
+                min={1}
+                max={15}
+                step={1}
+                value={radiusInputKm}
+                onChange={(event) => setRadiusInputKm(Number(event.target.value))}
+                className="brand-radius-slider min-h-[44px] w-full"
+                style={
+                  {
+                    "--range-progress": `${((radiusInputKm - 1) / (15 - 1)) * 100}%`,
+                  } as React.CSSProperties
+                }
+              />
+            </div>
           ) : null}
-
-          {error ? (
-            <div className="mt-5 rounded-xl border border-[#fecaca] bg-[#fff1f2] p-6 text-sm text-[#d64c3b]">
-              {error}
-            </div>
-          ) : loading ? (
-            <div className="mt-5 space-y-3">
-              {[...Array(4)].map((_, idx) => (
-                <div key={`kajplats-skeleton-${idx}`} className="h-20 w-full animate-pulse rounded bg-gray-200" />
-              ))}
-            </div>
-          ) : visibleListings.length === 0 ? (
-            <div className="mt-5 rounded-xl border border-[#dce3ee] bg-white p-10 text-center shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]">
-              <h2 className="text-xl font-bold text-[#0f1f3d]">Inga platser tillgängliga ännu.</h2>
-              <p className="mt-2 text-sm text-[#4a5568]">Bli första hamnägaren att lista platser!</p>
-              {geocodeError ? <p className="mt-2 text-sm text-[#d64c3b]">{geocodeError}</p> : null}
-              {hasLocationOrZipSearch ? (
-                <p className="mt-2 text-sm text-[#4a5568]">
-                  Inga platser hittades inom {radiusKm} km från {searchQuery}.
-                  Prova att öka söksträckan eller sök på stadsdel.
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="sm:col-span-2 lg:col-span-3">
-                <p className="text-sm font-semibold text-[#0f1f3d]">
-                  {searchActive
-                    ? `Visar ${visibleListings.length} ${visibleListings.length === 1 ? "plats" : "platser"} inom ${radiusKm} km`
-                    : `${visibleListings.length} ${visibleListings.length === 1 ? "plats" : "platser"}`}
-                  {searchActive ? ` från ${searchQuery}` : ""}
-                </p>
-              </div>
-              {visibleListings.map((listing) => (
-                <ListingCard key={listing.id} listing={listing} />
-              ))}
-            </div>
-          )}
         </div>
       </section>
+
+      <section className="bg-brand-cream px-4 pb-10 pt-2 md:px-6">
+        <div className="mx-auto w-full max-w-[1400px]">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-base font-semibold text-[#0a1628]">
+              {loading
+                ? "Laddar..."
+                : `${visibleListings.length} ${visibleListings.length === 1 ? "plats" : "platser"}`}
+            </p>
+            <SortSelect
+              compact
+              value={sortBy}
+              onChange={(value) => setSortBy(value as "default" | "nearest")}
+            />
+          </div>
+
+          <div className="lg:grid lg:grid-cols-[58%_42%] lg:items-start lg:gap-6">
+            <div className="min-w-0">{resultsContent}</div>
+            <div className="sticky top-20 hidden h-[calc(100vh-6rem)] min-h-[480px] lg:block">
+              <BerthMap height="100%" borderless className="h-full rounded-xl border border-[#dce3ee]" {...mapProps} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <button
+        type="button"
+        onClick={() => setMobileMapOpen(true)}
+        className="fixed bottom-6 left-1/2 z-50 inline-flex min-h-[44px] -translate-x-1/2 items-center gap-2 rounded-full bg-[#0a1628] px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(10,22,40,0.35)] lg:hidden"
+      >
+        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A2 2 0 013 16.382V6.618a2 2 0 011.553-1.947L9 2m0 18l6-3m-6 3V2m6 15l5.447 2.724A2 2 0 0021 16.382V6.618a2 2 0 00-1.553-1.947L15 2m0 18V2" />
+        </svg>
+        Visa karta
+      </button>
+
+      {mobileMapOverlay}
 
       <Footer />
       <style jsx>{`
@@ -1014,7 +1455,7 @@ export default function KajplatserPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-[#f5f0e8] text-[#0f1f3d]">
+        <main className="flex min-h-screen items-center justify-center bg-brand-cream text-[#0a1628]">
           <p className="text-sm font-medium text-[#8a96a8]">Laddar...</p>
         </main>
       }

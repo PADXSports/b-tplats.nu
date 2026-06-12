@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Building2, LayoutDashboard, Sailboat, Star, Users, Wallet, type LucideIcon } from "lucide-react";
 import { FormEvent, useState } from "react";
 
 import { AuthOAuthDivider, GoogleOAuthButton } from "@/components/google-oauth-button";
@@ -13,12 +14,25 @@ const TEAL = "#0d9488";
 const inputClass =
   "w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-teal-500 transition bg-white text-gray-900 placeholder-gray-400";
 
-const BENEFITS = [
-  { icon: "👥", text: "Nå tusentals båtägare varje säsong" },
-  { icon: "💰", text: "Säker betalning direkt till ditt konto" },
-  { icon: "📱", text: "Hantera allt enkelt i din dashboard" },
-  { icon: "⭐", text: "Bygg förtroende med omdömen" },
-] as const;
+const BENEFITS: { icon: LucideIcon; text: string }[] = [
+  { icon: Users, text: "Nå tusentals båtägare varje säsong" },
+  { icon: Wallet, text: "Säker betalning direkt till ditt konto" },
+  { icon: LayoutDashboard, text: "Hantera allt enkelt i din dashboard" },
+  { icon: Star, text: "Bygg förtroende med omdömen" },
+];
+
+const ROLE_CARD_SELECTED =
+  "rounded-xl border-2 border-[#0d9488] bg-[rgba(13,148,136,0.08)] p-4 text-left transition-all";
+const ROLE_CARD_UNSELECTED =
+  "rounded-xl border-2 border-gray-200 bg-white p-4 text-left transition-all hover:border-[#0d9488]/50 hover:bg-[rgba(13,148,136,0.04)]";
+
+function RoleIconBox({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-[rgba(13,148,136,0.10)] text-[#0d9488]">
+      {children}
+    </div>
+  );
+}
 
 export default function HarbourLoginPage() {
   const router = useRouter();
@@ -108,23 +122,23 @@ export default function HarbourLoginPage() {
           <p className="mb-10 text-lg text-gray-400">Logga in och hantera dina hamnar och bokningar.</p>
 
           <div className="space-y-5">
-            {BENEFITS.map((benefit, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-xl">
-                  {benefit.icon}
+            {BENEFITS.map((benefit, i) => {
+              const Icon = benefit.icon;
+              return (
+                <div key={i} className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-[#14b8a6]">
+                    <Icon className="h-5 w-5" aria-hidden />
+                  </div>
+                  <p className="text-gray-300">{benefit.text}</p>
                 </div>
-                <p className="text-gray-300">{benefit.text}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        <div className="rounded-2xl bg-white/5 p-5">
-          <p className="mb-3 text-sm italic text-gray-300">
-            &ldquo;Vi fyllde alla våra platser inom första veckan på Båtplats.nu!&rdquo;
-          </p>
-          <p className="text-sm font-medium text-teal-400">— Bockholmens Marina</p>
-        </div>
+        <p className="text-sm text-gray-400">
+          Sveriges marknadsplats för hamnar och båtägare · Säker betalning via Stripe
+        </p>
       </div>
 
       <div className="flex flex-1 flex-col justify-center bg-white px-6 py-12 lg:px-16">
@@ -137,9 +151,11 @@ export default function HarbourLoginPage() {
           <div className="mb-8 grid grid-cols-2 gap-3">
             <button
               type="button"
-              className="rounded-xl border-2 border-teal-500 bg-teal-50 p-4 text-left transition-all"
+              className={ROLE_CARD_SELECTED}
             >
-              <span className="mb-2 block text-2xl">🏗️</span>
+              <RoleIconBox>
+                <Building2 className="h-5 w-5" aria-hidden />
+              </RoleIconBox>
               <p className="text-sm font-semibold" style={{ color: NAVY }}>
                 Hamnägare
               </p>
@@ -149,9 +165,11 @@ export default function HarbourLoginPage() {
             <button
               type="button"
               onClick={() => router.push("/hyr-ut")}
-              className="rounded-xl border-2 border-gray-200 bg-white p-4 text-left transition-all hover:border-teal-500"
+              className={ROLE_CARD_UNSELECTED}
             >
-              <span className="mb-2 block text-2xl">🚤</span>
+              <RoleIconBox>
+                <Sailboat className="h-5 w-5" aria-hidden />
+              </RoleIconBox>
               <p className="text-sm font-semibold" style={{ color: NAVY }}>
                 Privatperson
               </p>

@@ -20,6 +20,7 @@ import {
   HostToast,
   type HostNavKey,
 } from "@/components/host-dashboard-shell";
+import { isBookedBookingStatus } from "@/lib/booking-status";
 import { createClient } from "@/lib/supabase/client";
 
 type Harbour = {
@@ -77,7 +78,7 @@ const getStatusMeta = (status: string) => {
   if (status === "pending") {
     return { label: "Väntande", classes: "bg-yellow-100 text-yellow-700" };
   }
-  if (status === "confirmed") {
+  if (isBookedBookingStatus(status)) {
     return { label: "Bekräftad", classes: "bg-green-100 text-green-700" };
   }
   if (status === "declined") {
@@ -85,6 +86,131 @@ const getStatusMeta = (status: string) => {
   }
   return { label: status, classes: "bg-gray-100 text-gray-600" };
 };
+
+function mapBookingRows(
+  bookingRows: Array<Record<string, unknown>>,
+  listings: Listing[],
+  profileById: Map<string, { full_name: string | null }>,
+): Booking[] {
+  const listingMap = new Map(listings.map((listing) => [String(listing.id), listing]));
+
+  return bookingRows.map((row) => {
+    const listing = listingMap.get(String(row.listing_id));
+    const renterId = (row.renter_id as string | null) ?? null;
+    const renterProfile = renterId ? profileById.get(renterId) : null;
+
+    return {
+      id: row.id as string | number,
+      listing_id: row.listing_id as string | number,
+      created_at: (row.created_at as string | null) ?? null,
+      renter_id: renterId,
+      guest_email: (row.guest_email as string | null) ?? null,
+      start_date: (row.start_date as string | null) ?? null,
+      end_date: (row.end_date as string | null) ?? null,
+      status: (row.status as string) ?? "pending",
+      listings: listing
+        ? {
+            id: listing.id,
+            harbour_id: listing.harbour_id,
+            title: listing.title,
+            price_per_season: listing.price_per_season,
+          }
+        : null,
+      renter: renterProfile
+        ? {
+            full_name: renterProfile.full_name,
+            email: null,
+          }
+        : null,
+    };
+  });
+}
+
+async function fetchHostBookings(
+  supabase: ReturnType<typeof createClient>,
+  listings: Listing[],
+): Promise<Booking[]> {
+  const listingIds = listings.map((listing) => listing.id);
+  if (listingIds.length === 0) return [];
+
+  const { data: bookingRows, error } = await supabase
+    .from("bookings")
+    .select("id, listing_id, created_at, status, renter_id, guest_email, start_date, end_date")
+    .in("listing_id", listingIds)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Failed to fetch host bookings:", error);
+    return [];
+  }
+
+  const renterIds = [
+    ...new Set(
+      ((bookingRows ?? []) as Array<{ renter_id: string | null }>)
+        .map((row) => row.renter_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const profileById = new Map<string, { full_name: string | null }>();
+  if (renterIds.length > 0) {
+    const { data: profiles, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", renterIds);
+
+    if (profileError) {
+      console.error("Failed to fetch renter profiles for bookings:", profileError);
+    } else {
+      for (const profile of profiles ?? []) {
+        profileById.set(String(profile.id), {
+          full_name: (profile.full_name as string | null) ?? null,
+        });
+      }
+    }
+  }
+
+  return mapBookingRows((bookingRows ?? []) as Array<Record<string, unknown>>, listings, profileById);
+}
+
+async function fetchHostListings(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  harbourIds: Array<string | number>,
+): Promise<Listing[]> {
+  const listingSelect = "id, title, image_url, price_per_season, is_available, harbour_id";
+  const listingMap = new Map<string, Listing>();
+
+  const { data: ownerListings, error: ownerListingsError } = await supabase
+    .from("listings")
+    .select(listingSelect)
+    .eq("owner_id", userId);
+
+  if (ownerListingsError) {
+    console.error("Failed to fetch listings by owner_id:", ownerListingsError);
+  } else {
+    for (const listing of (ownerListings ?? []) as Listing[]) {
+      listingMap.set(String(listing.id), listing);
+    }
+  }
+
+  if (harbourIds.length > 0) {
+    const { data: harbourListings, error: harbourListingsError } = await supabase
+      .from("listings")
+      .select(listingSelect)
+      .in("harbour_id", harbourIds);
+
+    if (harbourListingsError) {
+      console.error("Failed to fetch listings by harbour_id:", harbourListingsError);
+    } else {
+      for (const listing of (harbourListings ?? []) as Listing[]) {
+        listingMap.set(String(listing.id), listing);
+      }
+    }
+  }
+
+  return Array.from(listingMap.values());
+}
 
 function HostDashboardContent() {
   const router = useRouter();
@@ -131,51 +257,12 @@ function HostDashboardContent() {
       setHarbours(ownerHarbours);
 
       const harbourIds = ownerHarbours.map((h) => h.id);
-      if (harbourIds.length > 0) {
-        const { data: listingRows } = await supabase
-          .from("listings")
-          .select("id, title, image_url, price_per_season, is_available, harbour_id")
-          .in("harbour_id", harbourIds);
-        const nextListings = (listingRows ?? []) as Listing[];
-        setListings(nextListings);
+      const nextListings = await fetchHostListings(supabase, user.id, harbourIds);
+      setListings(nextListings);
 
-        if (nextListings.length > 0) {
-          const listingIds = nextListings.map((l) => l.id);
-          const { data: bookingRows } = await supabase
-            .from("bookings")
-            .select(
-              "id, listing_id, created_at, status, renter_id, guest_email, start_date, end_date, renter:profiles!bookings_renter_id_fkey(full_name, email)",
-            )
-            .in("listing_id", listingIds)
-            .order("created_at", { ascending: false });
-
-          const listingMap = new Map(nextListings.map((l) => [String(l.id), l]));
-          setBookings(
-            ((bookingRows ?? []) as Array<Record<string, unknown>>).map((b) => {
-              const m = listingMap.get(String(b.listing_id));
-              const renterRelation = Array.isArray(b.renter)
-                ? (b.renter[0] as Record<string, unknown> | undefined)
-                : (b.renter as Record<string, unknown> | null | undefined);
-              return {
-                id: b.id as string | number,
-                listing_id: b.listing_id as string | number,
-                created_at: (b.created_at as string | null) ?? null,
-                renter_id: (b.renter_id as string | null) ?? null,
-                guest_email: (b.guest_email as string | null) ?? null,
-                start_date: (b.start_date as string | null) ?? null,
-                end_date: (b.end_date as string | null) ?? null,
-                status: (b.status as string) ?? "pending",
-                listings: m ? { id: m.id, harbour_id: m.harbour_id, title: m.title, price_per_season: m.price_per_season } : null,
-                renter: renterRelation
-                  ? {
-                      full_name: (renterRelation.full_name as string | null) ?? null,
-                      email: (renterRelation.email as string | null) ?? null,
-                    }
-                  : null,
-              };
-            }),
-          );
-        }
+      if (nextListings.length > 0) {
+        const nextBookings = await fetchHostBookings(supabase, nextListings);
+        setBookings(nextBookings);
       }
 
       setLoading(false);
@@ -193,42 +280,12 @@ function HostDashboardContent() {
     : bookings.filter((b) => String(b.listings?.harbour_id ?? "") === selectedHarbourId);
 
   const refreshBookings = async () => {
-    const listingIds = listings.map((l) => l.id);
-    if (listingIds.length === 0) {
+    if (listings.length === 0) {
       setBookings([]);
       return;
     }
-    const { data: bookingRows } = await supabase
-      .from("bookings")
-      .select("id, listing_id, created_at, status, renter_id, guest_email, start_date, end_date, renter:profiles!bookings_renter_id_fkey(full_name, email)")
-      .in("listing_id", listingIds)
-      .order("created_at", { ascending: false });
-    const listingMap = new Map(listings.map((l) => [String(l.id), l]));
-    setBookings(
-      ((bookingRows ?? []) as Array<Record<string, unknown>>).map((b) => {
-        const m = listingMap.get(String(b.listing_id));
-        const renterRelation = Array.isArray(b.renter)
-          ? (b.renter[0] as Record<string, unknown> | undefined)
-          : (b.renter as Record<string, unknown> | null | undefined);
-        return {
-          id: b.id as string | number,
-          listing_id: b.listing_id as string | number,
-          created_at: (b.created_at as string | null) ?? null,
-          renter_id: (b.renter_id as string | null) ?? null,
-          guest_email: (b.guest_email as string | null) ?? null,
-          start_date: (b.start_date as string | null) ?? null,
-          end_date: (b.end_date as string | null) ?? null,
-          status: (b.status as string) ?? "pending",
-          listings: m ? { id: m.id, harbour_id: m.harbour_id, title: m.title, price_per_season: m.price_per_season } : null,
-          renter: renterRelation
-            ? {
-                full_name: (renterRelation.full_name as string | null) ?? null,
-                email: (renterRelation.email as string | null) ?? null,
-              }
-            : null,
-        };
-      }),
-    );
+    const nextBookings = await fetchHostBookings(supabase, listings);
+    setBookings(nextBookings);
   };
 
   const updateBookingStatus = async (bookingId: string | number, status: "confirmed" | "declined") => {
@@ -263,7 +320,7 @@ function HostDashboardContent() {
     setDeletingListingId(null);
   };
 
-  const bookedCount = filteredBookings.filter((b) => b.status === "confirmed").length;
+  const bookedCount = filteredBookings.filter((b) => isBookedBookingStatus(b.status)).length;
   const occupancy = filteredListings.length ? Math.round((bookedCount / filteredListings.length) * 100) : 0;
   const harbourById = useMemo(
     () => new Map(harbours.map((harbour) => [String(harbour.id), harbour])),
@@ -277,7 +334,9 @@ function HostDashboardContent() {
     : [];
   const overviewConfirmedBookings = overviewHarbourId
     ? bookings.filter(
-        (booking) => booking.status === "confirmed" && String(booking.listings?.harbour_id ?? "") === overviewHarbourId,
+        (booking) =>
+          isBookedBookingStatus(booking.status) &&
+          String(booking.listings?.harbour_id ?? "") === overviewHarbourId,
       )
     : [];
   const overviewBookedCount = overviewConfirmedBookings.length;
@@ -306,7 +365,7 @@ function HostDashboardContent() {
   });
   const maxMonthlyCount = Math.max(...monthlyCounts.map((bucket) => bucket.count), 1);
   const filteredSeasonRevenue = filteredBookings
-    .filter((b) => b.status === "confirmed")
+    .filter((b) => isBookedBookingStatus(b.status))
     .reduce((sum, booking) => {
       const startDate = booking.start_date ? new Date(booking.start_date) : null;
       if (!startDate || Number.isNaN(startDate.getTime()) || startDate.getFullYear() !== currentYear) {

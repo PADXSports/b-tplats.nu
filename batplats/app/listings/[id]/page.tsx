@@ -3,6 +3,9 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 import AuthNavbar from "@/components/auth-navbar";
 import BookBerthButton from "@/components/book-berth-button";
+import RentalTypeBadge from "@/components/RentalTypeBadge";
+import { BOOKED_BOOKING_STATUSES } from "@/lib/booking-status";
+import { isSeasonPeriodBooked, normalizeRentalType } from "@/lib/rental-type";
 import Footer from "@/components/footer";
 import ListingGallery from "@/components/listing-gallery";
 import ListingLocationMap from "@/components/listing-location-map";
@@ -32,6 +35,7 @@ type ListingRecord = {
   price_per_season: number;
   season_start: string | null;
   season_end: string | null;
+  rental_type?: string | null;
   is_available: boolean;
   lat?: number | null;
   lng?: number | null;
@@ -68,7 +72,7 @@ const formatBookingRangeLine = (start: string | null, end: string | null) => {
   const a = formatDate(start);
   const b = formatDate(end);
   if (a === "-" && b === "-") return null;
-  return `${a} — ${b} (Bokad)`;
+  return `${a} till ${b} (Bokad)`;
 };
 
 export default async function ListingPage({ params }: ListingPageProps) {
@@ -153,7 +157,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
     .from("bookings")
     .select("start_date, end_date")
     .eq("listing_id", id)
-    .eq("status", "confirmed");
+    .in("status", [...BOOKED_BOOKING_STATUSES]);
 
   const normalizedBookedRanges = (bookedRanges ?? []) as BookingRange[];
   const serializedBookedRanges = (normalizedBookedRanges ?? []).map((range) => ({
@@ -187,6 +191,10 @@ export default async function ListingPage({ params }: ListingPageProps) {
   const isOwner = user?.id === resolvedListing.owner_id;
   const ownerDashboardHref =
     resolvedListing.listing_type === "private" ? "/mitt-konto" : "/dashboard/host";
+  const rentalType = normalizeRentalType(resolvedListing.rental_type);
+  const seasonBooked =
+    rentalType === "season" &&
+    isSeasonPeriodBooked(resolvedListing.season_start, resolvedListing.season_end, normalizedBookedRanges);
 
   const bookBerthButtonClass =
     "w-full rounded-lg bg-[#0d9488] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#14b8a6] disabled:cursor-not-allowed disabled:bg-[#8a96a8]";
@@ -209,6 +217,10 @@ export default async function ListingPage({ params }: ListingPageProps) {
       harbourName={resolvedListing.harbours?.name ?? "Hamn"}
       pricePerSeason={resolvedListing.price_per_season}
       bookedRanges={serializedBookedRanges}
+      rentalType={rentalType}
+      seasonStart={resolvedListing.season_start}
+      seasonEnd={resolvedListing.season_end}
+      seasonBooked={seasonBooked}
       isAvailable
       className={`mt-5 ${bookBerthButtonClass}`}
     />
@@ -238,7 +250,10 @@ export default async function ListingPage({ params }: ListingPageProps) {
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
             {resolvedListing.harbours?.name ?? "Hamn"}
           </p>
-          <h1 className="mt-2 text-[2rem] font-extrabold leading-tight">{resolvedListing.title}</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <h1 className="text-[2rem] font-extrabold leading-tight">{resolvedListing.title}</h1>
+            <RentalTypeBadge rentalType={rentalType} className="bg-white/10 backdrop-blur" />
+          </div>
           <p className="mt-2 text-sm text-white/80">{resolvedListing.harbours?.city ?? "Okänd stad"}</p>
           {!resolvedListing.is_available ? (
             <p className="mt-4 inline-flex rounded-lg border border-[#fca5a5] bg-[#7f1d1d]/60 px-4 py-2 text-sm font-semibold text-white">
@@ -387,6 +402,10 @@ export default async function ListingPage({ params }: ListingPageProps) {
               harbourName={resolvedListing.harbours?.name ?? "Hamn"}
               pricePerSeason={resolvedListing.price_per_season}
               bookedRanges={serializedBookedRanges}
+              rentalType={rentalType}
+              seasonStart={resolvedListing.season_start}
+              seasonEnd={resolvedListing.season_end}
+              seasonBooked={seasonBooked}
               isAvailable
               className={bookBerthButtonClass}
             />
