@@ -1220,7 +1220,7 @@ function HyrUtContent() {
         className="flex items-center justify-between px-6 py-4"
       >
         <Link href="/" className="transition hover:opacity-90">
-          <img src="/logo.svg" alt="Båtplats.nu" className="h-8" />
+          <Image src="/logo.svg" alt="Båtplats.nu" width={196} height={36} className="h-8 w-auto" />
         </Link>
         {step > 1 ? (
           <button

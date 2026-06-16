@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -376,7 +377,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
             href="/"
             className="flex items-center gap-2.5 font-bold text-white transition hover:opacity-90"
           >
-            <img src="/logo.svg" alt="Båtplats.nu" className="h-8" />
+            <Image src="/logo.svg" alt="Båtplats.nu" width={196} height={36} className="h-8 w-auto" />
           </Link>
         </div>
 
