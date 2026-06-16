@@ -94,8 +94,8 @@ export function HostDashboardShell({
       <nav className="sticky top-0 z-10 border-b border-gray-100 bg-white px-6 py-4">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <div className="flex items-center gap-8">
-            <Link href="/" className="text-xl font-bold" style={{ color: DASHBOARD_NAVY }}>
-              Båtplats.nu
+            <Link href="/" className="transition hover:opacity-90">
+              <img src="/logo.svg" alt="Båtplats.nu" className="h-8" />
             </Link>
             <div className="hidden gap-1 md:flex">
               {NAV_ITEMS.map((item) => (

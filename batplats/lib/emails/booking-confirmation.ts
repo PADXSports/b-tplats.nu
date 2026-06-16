@@ -1,5 +1,6 @@
-const defaultAppUrl = () =>
-  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://b-tplats-nu.vercel.app";
+import { getBaseUrl } from "@/lib/app-url";
+
+const defaultAppUrl = () => getBaseUrl();
 
 export type RenterConfirmationParams = {
   renterName: string;

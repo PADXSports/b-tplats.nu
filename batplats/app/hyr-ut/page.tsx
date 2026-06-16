@@ -1219,8 +1219,8 @@ function HyrUtContent() {
         style={{ background: NAVY }}
         className="flex items-center justify-between px-6 py-4"
       >
-        <Link href="/" className="text-xl font-bold text-white">
-          Båtplats.nu
+        <Link href="/" className="transition hover:opacity-90">
+          <img src="/logo.svg" alt="Båtplats.nu" className="h-8" />
         </Link>
         {step > 1 ? (
           <button

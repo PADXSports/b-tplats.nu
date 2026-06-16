@@ -376,14 +376,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
             href="/"
             className="flex items-center gap-2.5 font-bold text-white transition hover:opacity-90"
           >
-            <div
-              className="flex h-9 w-9 items-center justify-center gap-0.5 rounded-md bg-[#0d2252]/50 ring-1 ring-[#0d9488]/30"
-              aria-hidden
-            >
-              <span className="h-5 w-1 rounded-sm bg-[#0d9488]" />
-              <span className="h-5 w-1 rounded-sm bg-[#0d9488]/50" />
-            </div>
-            <span className="text-lg font-extrabold tracking-[-0.04em] sm:text-xl">Båtplats.nu</span>
+            <img src="/logo.svg" alt="Båtplats.nu" className="h-8" />
           </Link>
         </div>
 
