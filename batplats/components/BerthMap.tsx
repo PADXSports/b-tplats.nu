@@ -1,24 +1,32 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
+import { loadGoogleMaps } from "@/lib/google-maps-loader";
+import { extendBoundsFromAreaBounds, extendBoundsFromGeoJson, simplifyGeoJsonGeometry, type AreaPolygonOverlay, type AreaTag, type GeoJsonGeometry } from "@/lib/area-search";
 
 type MarkerOverlay = {
   setMap: (map: unknown) => void;
   map?: unknown;
   listingIds: Array<string | number>;
   setHighlighted: (highlightedListingId: string | number | null) => void;
+  setHovered: (hoveredListingId: string | number | null) => void;
+  updateAreaStyles: () => void;
 };
 
 type BerthMapProps = {
   height?: string;
   listings?: MapListing[];
+  filteredListings?: MapListing[];
   shouldFitBounds?: boolean;
   center?: { lat: number; lng: number } | null;
   radiusKm?: number | null;
+  areaPolygons?: AreaPolygonOverlay[];
+  areaTags?: AreaTag[];
   defaultZoom?: number;
   groupByHarbour?: boolean;
+  hoveredListingId?: string | number | null;
   highlightedListingId?: string | number | null;
   onListingMarkerClick?: (listingId: string | number) => void;
   className?: string;
@@ -50,6 +58,41 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+function isDrawableAreaGeometry(geometry: GeoJsonGeometry | null | undefined): geometry is GeoJsonGeometry {
+  return Boolean(geometry && (geometry.type === "Polygon" || geometry.type === "MultiPolygon"));
+}
+
+function addTagPolygonToMapData(
+  dataLayer: { addGeoJson: (geoJson: object) => void },
+  geometry: GeoJsonGeometry,
+  properties: Record<string, unknown>,
+) {
+  if (!isDrawableAreaGeometry(geometry)) {
+    console.warn("Skipping non-area geometry for map polygon");
+    return;
+  }
+
+  const simplifiedGeometry = simplifyGeoJsonGeometry(geometry);
+
+  if (simplifiedGeometry.type === "MultiPolygon") {
+    for (const polygonCoords of simplifiedGeometry.coordinates) {
+      if (!Array.isArray(polygonCoords)) continue;
+      dataLayer.addGeoJson({
+        type: "Feature",
+        properties,
+        geometry: { type: "Polygon", coordinates: polygonCoords },
+      });
+    }
+    return;
+  }
+
+  dataLayer.addGeoJson({
+    type: "Feature",
+    properties,
+    geometry: simplifiedGeometry,
+  });
+}
+
 function formatBoatDimensions(listing: MapListing): string {
   const parts: string[] = [];
   if (listing.max_boat_length != null) parts.push(`Max ${listing.max_boat_length} m längd`);
@@ -58,9 +101,12 @@ function formatBoatDimensions(listing: MapListing): string {
   return parts.join(" · ");
 }
 
-function buildSingleListingPreviewHtml(listing: MapListing): string {
+function buildSingleListingPreviewHtml(listing: MapListing, options?: { outsideArea?: boolean }): string {
   const harbourLabel = `${listing.harbour_name ?? "Hamn"} · ${listing.city ?? "Okänd stad"}`;
   const priceLabel = `${(listing.price_per_season ?? 0).toLocaleString("sv-SE")} SEK` + " / säsong";
+  const outsideNote = options?.outsideArea
+    ? '<div style="font-size:12px;color:#94a3b8;margin-top:8px;font-style:italic;">Denna plats ligger utanför ditt valda område</div>'
+    : "";
   const imageBlock = listing.image_url
     ? [
         '<img src="',
@@ -88,6 +134,7 @@ function buildSingleListingPreviewHtml(listing: MapListing): string {
     '<div style="font-size:12px;color:#8a96a8;">',
     escapeHtml(formatBoatDimensions(listing)),
     "</div>",
+    outsideNote,
     "</div>",
     "</div>",
   ].join("");
@@ -214,11 +261,15 @@ declare global {
 export default function BerthMap({
   height = "480px",
   listings: providedListings,
+  filteredListings,
   shouldFitBounds = false,
   center = null,
   radiusKm = null,
+  areaPolygons = [],
+  areaTags = [],
   defaultZoom = 11,
   groupByHarbour = false,
+  hoveredListingId = null,
   highlightedListingId = null,
   onListingMarkerClick,
   className = "",
@@ -229,11 +280,25 @@ export default function BerthMap({
   const initializedRef = useRef(false);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<MarkerOverlay[]>([]);
+  const markersByListingIdRef = useRef<Map<string, MarkerOverlay>>(new Map());
   const activeInfoWindowRef = useRef<any>(null);
   const mapPreviewCleanupRef = useRef<(() => void) | null>(null);
   const suppressMapPreviewCloseRef = useRef(false);
   const onListingMarkerClickRef = useRef(onListingMarkerClick);
   const highlightedListingIdRef = useRef(highlightedListingId);
+  const hoveredListingIdRef = useRef(hoveredListingId);
+  const filteredListingIdsRef = useRef<Set<string>>(new Set());
+  const areaFilterActiveRef = useRef(false);
+
+  useEffect(() => {
+    areaFilterActiveRef.current = filteredListings != null;
+    filteredListingIdsRef.current = new Set(
+      (filteredListings ?? []).map((listing) => String(listing.id)),
+    );
+    markersRef.current.forEach((marker) => {
+      marker.updateAreaStyles();
+    });
+  }, [filteredListings]);
 
   useEffect(() => {
     onListingMarkerClickRef.current = onListingMarkerClick;
@@ -245,14 +310,30 @@ export default function BerthMap({
       marker.setHighlighted(highlightedListingId);
     });
   }, [highlightedListingId]);
+
+  useEffect(() => {
+    hoveredListingIdRef.current = hoveredListingId;
+    markersRef.current.forEach((marker) => {
+      marker.setHovered(hoveredListingId);
+    });
+  }, [hoveredListingId]);
+
   const radiusCircleRef = useRef<any>(null);
+  const areaTagMarkersRef = useRef<any[]>([]);
   const [mapReady, setMapReady] = useState(false);
   const [internalListings, setInternalListings] = useState<MapListing[]>([]);
   const [hydratedProvidedListings, setHydratedProvidedListings] = useState<MapListing[]>([]);
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const listings = providedListings ? hydratedProvidedListings : internalListings;
-  console.log("🗺️ BerthMap received listings:", listings?.length ?? 0);
-  console.log("📍 Sample listing:", listings?.[0] ?? null);
+
+  useEffect(() => {
+    if (!hoveredListingId || !mapRef.current || !mapReady) return;
+
+    const listing = listings.find((item) => String(item.id) === String(hoveredListingId));
+    if (listing?.lat == null || listing?.lng == null) return;
+
+    mapRef.current.panTo({ lat: Number(listing.lat), lng: Number(listing.lng) });
+  }, [hoveredListingId, listings, mapReady]);
 
   useEffect(() => {
     if (providedListings) return;
@@ -416,6 +497,7 @@ export default function BerthMap({
 
   useEffect(() => {
     if (!apiKey) return;
+
     const initMap = () => {
       if (!mapElementRef.current) {
         console.log("Map container not ready");
@@ -449,49 +531,154 @@ export default function BerthMap({
       }
     };
 
-    if (window.google?.maps?.Map) {
-      console.log("Google Maps already loaded, initializing...");
-      initMap();
-      return;
-    }
-
-    const existingScript = document.querySelector<HTMLScriptElement>('script[src*="maps.googleapis.com"]');
-    if (existingScript) {
-      console.log("Google Maps script already loading, waiting...");
-      existingScript.addEventListener(
-        "load",
-        () => {
-          console.log("Google Maps loaded via existing script");
-          initMap();
-        },
-        { once: true },
-      );
-      return;
-    }
-
-    console.log("Loading Google Maps script...");
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      console.log("Google Maps script loaded successfully");
-      setTimeout(() => {
-        if (window.google?.maps?.Map) {
-          initMap();
-        } else {
-          console.error("Google Maps loaded but Map constructor not available");
-        }
-      }, 100);
-    };
-    script.onerror = () => {
-      console.error("Failed to load Google Maps script");
-    };
-    document.head.appendChild(script);
+    void loadGoogleMaps()
+      .then(() => {
+        initMap();
+      })
+      .catch((error) => {
+        console.error("Failed to load Google Maps for BerthMap:", error);
+      });
   }, [apiKey, defaultZoom]);
 
+  const drawAllPolygons = useCallback(() => {
+    if (!mapReady || !mapRef.current || !window.google) return;
+
+    const map = mapRef.current;
+    const googleMaps = window.google.maps;
+
+    console.log(
+      "Drawing polygons for tags:",
+      areaTags.map((tag) => ({ name: tag.name, hasPolygon: Boolean(tag.polygon) })),
+    );
+
+    map.data.forEach((feature: { getGeometry: () => unknown }) => map.data.remove(feature));
+
+    areaTagMarkersRef.current.forEach((marker) => marker.setMap(null));
+    areaTagMarkersRef.current = [];
+
+    const bounds = new googleMaps.LatLngBounds();
+    let hasBounds = false;
+
+    if (areaTags.length > 0) {
+      for (const tag of areaTags) {
+        console.log("Tag isCity value:", tag.isCity, typeof tag.isCity);
+        if (tag.polygon && isDrawableAreaGeometry(tag.polygon)) {
+          addTagPolygonToMapData(map.data, tag.polygon, { isCity: tag.isCity === true });
+          extendBoundsFromGeoJson(bounds, tag.polygon);
+          hasBounds = true;
+        } else if (tag.viewport) {
+          extendBoundsFromAreaBounds(bounds, tag.viewport);
+          hasBounds = true;
+        } else if (tag.lat != null && tag.lng != null) {
+          bounds.extend({ lat: tag.lat, lng: tag.lng });
+          hasBounds = true;
+        }
+
+        if (tag.isCity) continue;
+
+        if (!tag.polygon && tag.lat != null && tag.lng != null) {
+          const marker = new googleMaps.Marker({
+            position: { lat: tag.lat, lng: tag.lng },
+            map,
+            icon: {
+              path: googleMaps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: "#0d9488",
+              fillOpacity: 1,
+              strokeColor: "#ffffff",
+              strokeWeight: 2,
+            },
+          });
+          areaTagMarkersRef.current.push(marker);
+        }
+      }
+
+      map.data.setStyle((feature: { getProperty: (key: string) => unknown }) => {
+        const isCity = feature.getProperty("isCity") === true;
+        return {
+          fillColor: "#0d9488",
+          fillOpacity: isCity ? 0.12 : 0.05,
+          strokeColor: "#0d9488",
+          strokeWeight: isCity ? 1.5 : 2.5,
+          strokeOpacity: 0.85,
+          zIndex: 1,
+        };
+      });
+
+      if (hasBounds) {
+        map.fitBounds(bounds);
+        googleMaps.event.addListenerOnce(map, "bounds_changed", () => {
+          if (map.getZoom() > 14) map.setZoom(14);
+        });
+      }
+      return;
+    }
+
+    areaPolygons.forEach((overlay) => {
+      const shouldDraw = overlay.drawPolygon === true && Boolean(overlay.geojson);
+      const featureProperties = {
+        name: overlay.name ?? "",
+        isCity: overlay.isMunicipality === true,
+      };
+
+      if (shouldDraw && isDrawableAreaGeometry(overlay.geojson as GeoJsonGeometry)) {
+        addTagPolygonToMapData(map.data, overlay.geojson as GeoJsonGeometry, featureProperties);
+      }
+
+      if (overlay.bounds) {
+        extendBoundsFromAreaBounds(bounds, overlay.bounds);
+        hasBounds = true;
+        return;
+      }
+
+      if (overlay.geojson && isDrawableAreaGeometry(overlay.geojson)) {
+        extendBoundsFromGeoJson(bounds, overlay.geojson);
+        hasBounds = true;
+        return;
+      }
+
+      if (!overlay.paths?.length) return;
+      const ring = overlay.paths.map((point) => [point.lng, point.lat]);
+      ring.push(ring[0]);
+      const geometry = simplifyGeoJsonGeometry({
+        type: "Polygon",
+        coordinates: [ring],
+      });
+      if (shouldDraw) {
+        addTagPolygonToMapData(map.data, geometry, featureProperties);
+      }
+      overlay.paths.forEach((point) => {
+        bounds.extend(point);
+        hasBounds = true;
+      });
+    });
+
+    map.data.setStyle((feature: { getProperty: (key: string) => unknown }) => {
+      const isCity = feature.getProperty("isCity") === true;
+      return {
+        fillColor: "#0d9488",
+        fillOpacity: isCity ? 0.12 : 0.05,
+        strokeColor: "#0d9488",
+        strokeWeight: isCity ? 1.5 : 2.5,
+        strokeOpacity: 0.85,
+        zIndex: 1,
+      };
+    });
+
+    if (hasBounds && markersRef.current.length === 0) {
+      map.fitBounds(bounds);
+      googleMaps.event.addListenerOnce(map, "bounds_changed", () => {
+        if (map.getZoom() > 14) map.setZoom(14);
+      });
+    }
+  }, [areaTags, areaPolygons, mapReady]);
+
   useEffect(() => {
-    if (!mapReady || !mapRef.current || !window.google || !listings?.length) {
+    drawAllPolygons();
+  }, [drawAllPolygons, areaTags]);
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !window.google) {
       console.log("Waiting for map or listings:", {
         map: Boolean(mapReady && mapRef.current && window.google),
         listingsCount: listings?.length ?? 0,
@@ -510,6 +697,7 @@ export default function BerthMap({
       }
     });
     markersRef.current = [];
+    markersByListingIdRef.current.clear();
 
     const closeMapPreview = () => {
       if (activeInfoWindowRef.current) {
@@ -535,14 +723,16 @@ export default function BerthMap({
         currentIndex: number;
         listingIds: Array<string | number>;
         mapInstance: any;
+        isInsideArea: boolean;
 
-        constructor(position: any, listingsAtLocation: MapListing[], mapInstance: any) {
+        constructor(position: any, listingsAtLocation: MapListing[], mapInstance: any, isInsideArea: boolean) {
           super();
           this.position = position;
           this.listingsAtLocation = listingsAtLocation;
           this.listingIds = listingsAtLocation.map((listing) => listing.id);
           this.currentIndex = 0;
           this.mapInstance = mapInstance;
+          this.isInsideArea = isInsideArea;
           this.containerDiv = document.createElement("div");
           this.containerDiv.className = "price-marker";
           const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches;
@@ -558,7 +748,7 @@ export default function BerthMap({
               box-shadow: 0 2px 8px rgba(0,0,0,0.15);
               white-space: nowrap;
               cursor: pointer;
-              transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+              transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease, opacity 0.2s ease;
               border: 1px solid rgba(15,31,61,0.08);
             " class="price-label">
               ${escapeHtml(pinLabel)}
@@ -567,15 +757,17 @@ export default function BerthMap({
           this.containerDiv.addEventListener("mouseenter", () => {
             const label = this.containerDiv.querySelector(".price-label") as HTMLElement | null;
             if (!label) return;
-            label.style.transform = "scale(1.08)";
+            if (this.isInsideArea || !areaFilterActiveRef.current) {
+              label.style.transform = "scale(1.08)";
+            }
             label.style.zIndex = "1000";
           });
           this.containerDiv.addEventListener("mouseleave", () => {
             const label = this.containerDiv.querySelector(".price-label") as HTMLElement | null;
             if (!label) return;
-            label.style.transform = "scale(1)";
-            label.style.zIndex = "auto";
+            this.applyAreaStyle();
             this.applyHighlight(highlightedListingIdRef.current);
+            this.applyHover(hoveredListingIdRef.current);
           });
           this.containerDiv.addEventListener("click", (event) => {
             event.stopPropagation();
@@ -585,11 +777,58 @@ export default function BerthMap({
               suppressMapPreviewCloseRef.current = false;
             }, 0);
           });
+          this.applyAreaStyle();
           this.applyHighlight(highlightedListingIdRef.current);
+          this.applyHover(hoveredListingIdRef.current);
+        }
+
+        isListingInsideArea(listingId: string | number): boolean {
+          if (!areaFilterActiveRef.current) return true;
+          return filteredListingIdsRef.current.has(String(listingId));
+        }
+
+        recalculateInsideArea() {
+          this.isInsideArea =
+            !areaFilterActiveRef.current ||
+            this.listingIds.some((listingId) => filteredListingIdsRef.current.has(String(listingId)));
+        }
+
+        applyAreaStyle() {
+          const label = this.containerDiv.querySelector(".price-label") as HTMLElement | null;
+          if (!label) return;
+
+          if (!areaFilterActiveRef.current) {
+            label.style.background = "#0d9488";
+            label.style.color = "#ffffff";
+            label.style.borderColor = "#0d9488";
+            label.style.opacity = "1";
+            label.style.transform = "scale(1)";
+            this.containerDiv.style.zIndex = "2";
+            return;
+          }
+
+          if (this.isInsideArea) {
+            label.style.background = "#0d9488";
+            label.style.color = "#ffffff";
+            label.style.borderColor = "#0d9488";
+            label.style.opacity = "1";
+            label.style.transform = "scale(1)";
+            this.containerDiv.style.zIndex = "2";
+            return;
+          }
+
+          label.style.background = "#94a3b8";
+          label.style.color = "#ffffff";
+          label.style.borderColor = "#94a3b8";
+          label.style.opacity = "0.5";
+          label.style.transform = "scale(0.95)";
+          this.containerDiv.style.zIndex = "1";
         }
 
         buildSingleListingContent(listing: MapListing): string {
-          return buildSingleListingPreviewHtml(listing);
+          return buildSingleListingPreviewHtml(listing, {
+            outsideArea: areaFilterActiveRef.current && !this.isListingInsideArea(listing.id),
+          });
         }
 
         buildMultipleListingsContent(locationListings: MapListing[]): string {
@@ -654,15 +893,61 @@ export default function BerthMap({
             label.style.background = "#0d9488";
             label.style.color = "#ffffff";
             label.style.borderColor = "#0d9488";
-          } else {
-            label.style.background = "#ffffff";
-            label.style.color = "#0a1628";
-            label.style.borderColor = "rgba(15,31,61,0.08)";
+            label.style.opacity = "1";
+            label.style.transform = "scale(1.4)";
+            this.containerDiv.style.zIndex = "10";
+            return;
           }
+          this.applyHover(hoveredListingIdRef.current);
+        }
+
+        applyHover(hoveredListingId: string | number | null) {
+          const label = this.containerDiv.querySelector(".price-label") as HTMLElement | null;
+          if (!label) return;
+
+          const isHovered =
+            hoveredListingId != null &&
+            this.listingIds.some((id) => String(id) === String(hoveredListingId));
+
+          if (isHovered) {
+            label.style.background = "#0d9488";
+            label.style.color = "#ffffff";
+            label.style.borderColor = "#0d9488";
+            label.style.opacity = "1";
+            label.style.transform = "scale(1.4)";
+            this.containerDiv.style.zIndex = "10";
+            return;
+          }
+
+          this.applyAreaStyle();
         }
 
         setHighlighted(highlightedListingId: string | number | null) {
           this.applyHighlight(highlightedListingId);
+        }
+
+        setHovered(hoveredListingId: string | number | null) {
+          this.applyHover(hoveredListingId);
+        }
+
+        updateAreaStyles() {
+          this.recalculateInsideArea();
+          const highlighted =
+            highlightedListingIdRef.current != null &&
+            this.listingIds.some((id) => String(id) === String(highlightedListingIdRef.current));
+          const hovered =
+            hoveredListingIdRef.current != null &&
+            this.listingIds.some((id) => String(id) === String(hoveredListingIdRef.current));
+
+          if (highlighted) {
+            this.applyHighlight(highlightedListingIdRef.current);
+            return;
+          }
+          if (hovered) {
+            this.applyHover(hoveredListingIdRef.current);
+            return;
+          }
+          this.applyAreaStyle();
         }
 
         formatDate(dateValue: string | null | undefined) {
@@ -698,15 +983,27 @@ export default function BerthMap({
         }
       }
       const listingsByLocation = groupListingsByLocation(listings);
+      const locationEntries = [...listingsByLocation.entries()].sort(([, aListings], [, bListings]) => {
+        const aInside =
+          !areaFilterActiveRef.current ||
+          aListings.some((listing) => filteredListingIdsRef.current.has(String(listing.id)));
+        const bInside =
+          !areaFilterActiveRef.current ||
+          bListings.some((listing) => filteredListingIdsRef.current.has(String(listing.id)));
+        return Number(aInside) - Number(bInside);
+      });
 
-      listingsByLocation.forEach((locationListings, coords) => {
-        locationListings.forEach((listing) => {
-          console.log("Listing data:", listing);
-        });
+      locationEntries.forEach(([coords, locationListings]) => {
         const [lat, lng] = coords.split(",").map(Number);
+        const isInsideArea =
+          !areaFilterActiveRef.current ||
+          locationListings.some((listing) => filteredListingIdsRef.current.has(String(listing.id)));
         const position = new googleMaps.LatLng(lat, lng);
-        const marker = new PriceMarker(position, locationListings, map);
+        const marker = new PriceMarker(position, locationListings, map, isInsideArea);
         marker.setMap(map);
+        locationListings.forEach((listing) => {
+          markersByListingIdRef.current.set(String(listing.id), marker as unknown as MarkerOverlay);
+        });
         bounds.extend({ lat, lng });
         markersRef.current.push(marker as unknown as MarkerOverlay);
       });
@@ -733,7 +1030,35 @@ export default function BerthMap({
         });
       }
 
-      if (markersRef.current.length > 0) {
+      if (areaTags.length > 0) {
+        areaTags.forEach((tag) => {
+          if (tag.viewport) {
+            extendBoundsFromAreaBounds(bounds, tag.viewport);
+            return;
+          }
+          if (tag.polygon && isDrawableAreaGeometry(tag.polygon)) {
+            extendBoundsFromGeoJson(bounds, tag.polygon);
+            return;
+          }
+          if (tag.lat != null && tag.lng != null) {
+            bounds.extend({ lat: tag.lat, lng: tag.lng });
+          }
+        });
+      } else {
+        areaPolygons.forEach((overlay) => {
+          if (overlay.bounds) {
+            extendBoundsFromAreaBounds(bounds, overlay.bounds);
+            return;
+          }
+          if (overlay.geojson) {
+            extendBoundsFromGeoJson(bounds, overlay.geojson);
+            return;
+          }
+          overlay.paths?.forEach((point) => bounds.extend(point));
+        });
+      }
+
+      if (markersRef.current.length > 0 || areaTags.length > 0 || areaPolygons.length > 0) {
         map.fitBounds(bounds);
         googleMaps.event.addListenerOnce(map, "bounds_changed", () => {
           if (map.getZoom() > 15) map.setZoom(15);
@@ -746,7 +1071,7 @@ export default function BerthMap({
             map.fitBounds(bounds);
           }
         }
-      } else {
+      } else if (areaTags.length === 0 && areaPolygons.length === 0) {
         map.setCenter(center ?? STOCKHOLM_CENTER);
         map.setZoom(radiusKm ? 12 : defaultZoom);
       }
@@ -757,7 +1082,7 @@ export default function BerthMap({
       mounted = false;
       closeMapPreview();
     };
-  }, [listings, shouldFitBounds, center, radiusKm, defaultZoom, groupByHarbour, mapReady, highlightedListingId]);
+  }, [listings, filteredListings, hoveredListingId, shouldFitBounds, center, radiusKm, areaPolygons, areaTags, defaultZoom, groupByHarbour, mapReady, highlightedListingId]);
 
   if (!apiKey) {
     return (

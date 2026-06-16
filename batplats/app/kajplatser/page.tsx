@@ -10,12 +10,27 @@ import AuthNavbar from "@/components/auth-navbar";
 import BerthMap, { type MapListing } from "@/components/BerthMap";
 import Footer from "@/components/footer";
 import ListingSearchBar from "@/components/ListingSearchBar";
+import {
+  areaTagsToParam,
+  formatAreaNamesList,
+  formatAreaResultCount,
+  listingMatchesAreaTags,
+  parseAreaTagsParam,
+  type AreaTag,
+  type GeoJsonGeometry,
+} from "@/lib/area-search";
 import SortSelect from "@/components/SortSelect";
 import { getListingImageSrc } from "@/lib/listing-image";
 import RentalTypeBadge from "@/components/RentalTypeBadge";
 import { BOOKED_BOOKING_STATUSES } from "@/lib/booking-status";
 import { hasValidDateRange } from "@/lib/date-range";
-import { listingMatchesDateSearch } from "@/lib/rental-type";
+import {
+  isSeasonalListing,
+  isShortTermListing,
+  listingMatchesSeasonYear,
+  listingMatchesShortTermDateSearch,
+  type RentalPeriodMode,
+} from "@/lib/rental-type";
 import { createClient } from "@/lib/supabase/client";
 
 type KajplatsListing = {
@@ -26,6 +41,7 @@ type KajplatsListing = {
   price_per_season: number | null;
   max_boat_length: number | null;
   max_boat_width: number | null;
+  max_boat_depth: number | null;
   season_start: string | null;
   season_end: string | null;
   rental_type?: string | null;
@@ -62,6 +78,7 @@ type ListingRow = {
   price_per_season: number | null;
   max_boat_length: number | null;
   max_boat_width: number | null;
+  max_boat_depth: number | null;
   season_start: string | null;
   season_end: string | null;
   rental_type?: string | null;
@@ -229,13 +246,11 @@ const renderHighlightedText = (text: string, query: string) => {
 function ListingCard({
   listing,
   isHighlighted = false,
-  onHover,
-  onLeave,
+  onHoverListing,
 }: {
   listing: KajplatsListing;
   isHighlighted?: boolean;
-  onHover?: (listingId: string | number) => void;
-  onLeave?: () => void;
+  onHoverListing?: (listingId: string | number | null) => void;
 }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isHovering, setIsHovering] = useState(false);
@@ -266,10 +281,12 @@ function ListingCard({
     <Link
       id={`listing-card-${listing.id}`}
       href={`/listings/${listing.id}`}
-      onMouseEnter={() => onHover?.(listing.id)}
-      onMouseLeave={() => onLeave?.()}
-      className={`group block cursor-pointer overflow-hidden rounded-xl border bg-white shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)] transition hover:-translate-y-0.5 hover:shadow-lg ${
-        isHighlighted ? "border-[#0d9488] ring-2 ring-[#0d9488]/40" : "border-[#dce3ee]"
+      onMouseEnter={() => onHoverListing?.(listing.id)}
+      onMouseLeave={() => onHoverListing?.(null)}
+      className={`group block cursor-pointer overflow-hidden rounded-xl border bg-white transition-all duration-200 ease-in-out hover:-translate-y-0.5 ${
+        isHighlighted
+          ? "border-[#0d9488] shadow-[0_4px_20px_rgba(13,148,136,0.3)]"
+          : "border-[#dce3ee] shadow-[0_1px_4px_rgba(15,31,61,0.08),0_1px_2px_rgba(15,31,61,0.05)]"
       }`}
     >
       <div
@@ -424,12 +441,17 @@ function KajplatserContent() {
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const [locationInput, setLocationInput] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
+  const [selectedAreas, setSelectedAreas] = useState<AreaTag[]>([]);
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [rentalPeriod, setRentalPeriod] = useState<RentalPeriodMode>("all");
+  const [seasonYear, setSeasonYear] = useState("2026");
   const [lengthInput, setLengthInput] = useState("");
+  const [widthInput, setWidthInput] = useState("");
+  const [depthInput, setDepthInput] = useState("");
   const [dateError, setDateError] = useState("");
   const [hoveredListingId, setHoveredListingId] = useState<string | number | null>(null);
   const [focusedListingId, setFocusedListingId] = useState<string | number | null>(null);
@@ -439,7 +461,11 @@ function KajplatserContent() {
   const [cityQuery, setCityQuery] = useState("");
   const [startQuery, setStartQuery] = useState("");
   const [endQuery, setEndQuery] = useState("");
+  const [rentalQuery, setRentalQuery] = useState<RentalPeriodMode>("all");
+  const [seasonYearQuery, setSeasonYearQuery] = useState("2026");
   const [lengthQuery, setLengthQuery] = useState("");
+  const [widthQuery, setWidthQuery] = useState("");
+  const [depthQuery, setDepthQuery] = useState("");
   const [zipQuery, setZipQuery] = useState("");
   const [radiusInputKm, setRadiusInputKm] = useState(10);
   const [radiusKm, setRadiusKm] = useState(10);
@@ -455,29 +481,99 @@ function KajplatserContent() {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
+    const areaParam = searchParams.get("areas") ?? "";
     const cityParam = searchParams.get("city") ?? searchParams.get("location") ?? "";
+    const locationParam = cityParam;
     const startParam = searchParams.get("start") ?? "";
     const endParam = searchParams.get("end") ?? "";
+    const rentalParam = searchParams.get("rental") ?? "";
+    const seasonParam = searchParams.get("season") ?? "2026";
+    const resolvedRentalPeriod: RentalPeriodMode =
+      rentalParam === "seasonal" || rentalParam === "short_term"
+        ? rentalParam
+        : startParam && endParam
+          ? "short_term"
+          : "all";
     const lengthParam = searchParams.get("length") ?? searchParams.get("boat_length") ?? "";
+    const widthParam = searchParams.get("width") ?? searchParams.get("boat_width") ?? "";
+    const depthParam = searchParams.get("depth") ?? searchParams.get("boat_depth") ?? "";
     const zipParam = searchParams.get("zip") ?? "";
     const shouldShowMap = searchParams.get("view") === "map";
 
-    setCityQuery(cityParam);
+    setCityQuery(locationParam);
     setStartQuery(startParam);
     setEndQuery(endParam);
+    setRentalQuery(resolvedRentalPeriod);
+    setSeasonYearQuery(seasonParam);
     setLengthQuery(lengthParam);
-    setLocationInput(cityParam);
-    setLocationQuery(cityParam);
+    setWidthQuery(widthParam);
+    setDepthQuery(depthParam);
+    setLocationInput(locationParam);
+    setLocationQuery(locationParam);
     setStartDate(startParam);
     setEndDate(endParam);
+    setRentalPeriod(resolvedRentalPeriod);
+    setSeasonYear(seasonParam);
     setLengthInput(lengthParam);
-    setActiveLocationQuery(cityParam);
-    setIsLocationSearchActive(Boolean(cityParam.trim()));
-    setSearchActive(Boolean(cityParam.trim() || startParam || endParam || lengthParam));
+    setWidthInput(widthParam);
+    setDepthInput(depthParam);
+    setActiveLocationQuery(locationParam);
+    setIsLocationSearchActive(Boolean(locationParam.trim()));
+    setSearchActive(
+      Boolean(
+        locationParam.trim() ||
+          startParam ||
+          endParam ||
+          lengthParam ||
+          widthParam ||
+          depthParam ||
+          areaParam ||
+          resolvedRentalPeriod !== "all",
+      ),
+    );
     setZipQuery(zipParam);
     if (shouldShowMap) {
       setMobileMapOpen(true);
     }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const areasParam = searchParams.get("areas");
+    const parsed = parseAreaTagsParam(areasParam);
+    if (!parsed.length) {
+      setSelectedAreas([]);
+      return;
+    }
+
+    setSelectedAreas(parsed);
+    setSearchActive(true);
+
+    let cancelled = false;
+    const hydratePolygons = async () => {
+      const hydrated = await Promise.all(
+        parsed.map(async (tag) => {
+          try {
+            const response = await fetch(`/api/area-polygon?name=${encodeURIComponent(tag.name)}`);
+            const data = (await response.json()) as { geojson?: GeoJsonGeometry | null };
+            if (
+              data.geojson &&
+              (data.geojson.type === "Polygon" || data.geojson.type === "MultiPolygon")
+            ) {
+              return { ...tag, polygon: data.geojson };
+            }
+          } catch {
+            // Keep tag without polygon — viewport fallback still works
+          }
+          return tag;
+        }),
+      );
+      if (!cancelled) setSelectedAreas(hydrated);
+    };
+
+    void hydratePolygons();
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]);
 
   useEffect(() => {
@@ -658,12 +754,10 @@ function KajplatserContent() {
     const loadListings = async () => {
       setLoading(true);
       try {
-        const hasDateFilter = Boolean(startQuery && endQuery && hasValidDateRange(startQuery, endQuery));
-
         let listingQuery = supabase
           .from("listings")
           .select(
-            "id, owner_id, title, description, price_per_season, max_boat_length, max_boat_width, season_start, season_end, rental_type, city, harbour_name, image_url, listing_type, is_available, lat, lng, created_at, harbour_id, harbours!inner(id, name, city, address, area, zip_code, lat, lng, owner_id), listing_images(id, image_url, display_order)",
+            "id, owner_id, title, description, price_per_season, max_boat_length, max_boat_width, max_boat_depth, season_start, season_end, rental_type, city, harbour_name, image_url, listing_type, is_available, lat, lng, created_at, harbour_id, harbours!inner(id, name, city, address, area, zip_code, lat, lng, owner_id), listing_images(id, image_url, display_order)",
           )
           .eq("is_available", true)
           .not("owner_id", "is", null)
@@ -673,12 +767,24 @@ function KajplatserContent() {
         const trimmedCity = cityQuery.trim();
         if (trimmedCity) {
           const pattern = `%${trimmedCity}%`;
-          listingQuery = listingQuery.or(`city.ilike.${pattern},harbour_name.ilike.${pattern}`);
+          listingQuery = listingQuery.or(
+            `city.ilike.${pattern},harbour_name.ilike.${pattern},harbours.area.ilike.${pattern}`,
+          );
         }
 
         const parsedLength = Number(lengthQuery);
         if (lengthQuery.trim() !== "" && Number.isFinite(parsedLength)) {
           listingQuery = listingQuery.gte("max_boat_length", parsedLength);
+        }
+
+        const parsedWidth = Number(widthQuery);
+        if (widthQuery.trim() !== "" && Number.isFinite(parsedWidth)) {
+          listingQuery = listingQuery.gte("max_boat_width", parsedWidth);
+        }
+
+        const parsedDepth = Number(depthQuery);
+        if (depthQuery.trim() !== "" && Number.isFinite(parsedDepth)) {
+          listingQuery = listingQuery.gte("max_boat_depth", parsedDepth);
         }
 
         if (selectedHarbourId) {
@@ -706,53 +812,68 @@ function KajplatserContent() {
         console.log("Sample:", listingsWithCoords[0] ?? null);
 
         let listingsData = (data ?? []) as ListingRow[];
-        if (hasDateFilter && startQuery && endQuery && listingsData.length > 0) {
-          const listingIds = listingsData.map((listing) => listing.id);
-          const bookingsByListing = new Map<
-            string,
-            Array<{ start_date: string | null; end_date: string | null; status?: string | null }>
-          >();
 
-          const { data: bookedRows, error: bookingsError } = await supabase
-            .from("bookings")
-            .select("listing_id, start_date, end_date, status")
-            .in("status", [...BOOKED_BOOKING_STATUSES])
-            .in("listing_id", listingIds);
-
-          if (bookingsError) {
-            console.error("Failed to fetch bookings for date filter:", bookingsError);
-          } else {
-            for (const row of bookedRows ?? []) {
-              if (row.listing_id == null || row.listing_id === "") continue;
-              const key = String(row.listing_id);
-              const existing = bookingsByListing.get(key) ?? [];
-              existing.push({
-                start_date: row.start_date,
-                end_date: row.end_date,
-                status: row.status,
-              });
-              bookingsByListing.set(key, existing);
-            }
+        if (rentalQuery === "seasonal") {
+          listingsData = listingsData.filter((listing) => isSeasonalListing(listing));
+          const parsedSeasonYear = Number(seasonYearQuery);
+          if (Number.isFinite(parsedSeasonYear)) {
+            listingsData = listingsData.filter((listing) =>
+              listingMatchesSeasonYear(listing, parsedSeasonYear),
+            );
           }
+        } else if (rentalQuery === "short_term") {
+          listingsData = listingsData.filter((listing) => isShortTermListing(listing));
 
-          listingsData = listingsData.filter((listing) =>
-            listingMatchesDateSearch(
-              listing,
-              startQuery,
-              endQuery,
-              (bookingsByListing.get(String(listing.id)) ?? []).map((booking) => ({
-                listing_id: listing.id,
-                ...booking,
-              })),
-            ),
+          const hasShortTermDateFilter = Boolean(
+            startQuery && endQuery && hasValidDateRange(startQuery, endQuery),
           );
+          if (hasShortTermDateFilter && listingsData.length > 0) {
+            const listingIds = listingsData.map((listing) => listing.id);
+            const bookingsByListing = new Map<
+              string,
+              Array<{ start_date: string | null; end_date: string | null; status?: string | null }>
+            >();
+
+            const { data: bookedRows, error: bookingsError } = await supabase
+              .from("bookings")
+              .select("listing_id, start_date, end_date, status")
+              .in("status", [...BOOKED_BOOKING_STATUSES])
+              .in("listing_id", listingIds);
+
+            if (bookingsError) {
+              console.error("Failed to fetch bookings for short-term date filter:", bookingsError);
+            } else {
+              for (const row of bookedRows ?? []) {
+                if (row.listing_id == null || row.listing_id === "") continue;
+                const key = String(row.listing_id);
+                const existing = bookingsByListing.get(key) ?? [];
+                existing.push({
+                  start_date: row.start_date,
+                  end_date: row.end_date,
+                  status: row.status,
+                });
+                bookingsByListing.set(key, existing);
+              }
+            }
+
+            listingsData = listingsData.filter((listing) =>
+              listingMatchesShortTermDateSearch(
+                startQuery,
+                endQuery,
+                (bookingsByListing.get(String(listing.id)) ?? []).map((booking) => ({
+                  listing_id: listing.id,
+                  ...booking,
+                })),
+              ),
+            );
+          }
         }
 
         if (trimmedCity) {
           const cityNeedle = trimmedCity.toLowerCase();
           listingsData = listingsData.filter((row) => {
             const harbour = Array.isArray(row.harbours) ? (row.harbours[0] ?? null) : row.harbours;
-            return [row.city, row.harbour_name, harbour?.city, harbour?.name].some(
+            return [row.city, row.harbour_name, harbour?.city, harbour?.name, harbour?.area].some(
               (field) => field && field.toLowerCase().includes(cityNeedle),
             );
           });
@@ -793,6 +914,7 @@ function KajplatserContent() {
             price_per_season: row.price_per_season,
             max_boat_length: row.max_boat_length,
             max_boat_width: row.max_boat_width,
+            max_boat_depth: row.max_boat_depth ?? null,
             season_start: row.season_start,
             season_end: row.season_end,
             rental_type: row.rental_type ?? "season",
@@ -822,7 +944,7 @@ function KajplatserContent() {
     };
 
     void loadListings();
-  }, [selectedHarbourId, supabase, cityQuery, startQuery, endQuery, lengthQuery]);
+  }, [selectedHarbourId, supabase, cityQuery, startQuery, endQuery, rentalQuery, seasonYearQuery, lengthQuery, widthQuery, depthQuery]);
 
   const trimmedLocationInput = locationInput.trim();
   const trimmedLocationQuery = activeLocationQuery.trim();
@@ -835,8 +957,26 @@ function KajplatserContent() {
   const activeSearchCenter = geocodedCenter;
   const parsedLength = Number(lengthQuery);
   const hasLengthFilter = lengthQuery.trim() !== "" && Number.isFinite(parsedLength);
-  const hasDateFilter = startQuery.trim() !== "" && endQuery.trim() !== "";
-  const hasUrlFilters = Boolean(cityQuery.trim() || hasDateFilter || hasLengthFilter || selectedHarbourId);
+  const parsedWidth = Number(widthQuery);
+  const hasWidthFilter = widthQuery.trim() !== "" && Number.isFinite(parsedWidth);
+  const parsedDepth = Number(depthQuery);
+  const hasDepthFilter = depthQuery.trim() !== "" && Number.isFinite(parsedDepth);
+  const hasShortTermDateFilter =
+    rentalQuery === "short_term" &&
+    startQuery.trim() !== "" &&
+    endQuery.trim() !== "" &&
+    hasValidDateRange(startQuery, endQuery);
+  const hasRentalFilter = rentalQuery !== "all";
+  const hasUrlFilters = Boolean(
+    cityQuery.trim() ||
+      selectedAreas.length > 0 ||
+      hasShortTermDateFilter ||
+      hasRentalFilter ||
+      hasLengthFilter ||
+      hasWidthFilter ||
+      hasDepthFilter ||
+      selectedHarbourId,
+  );
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -923,34 +1063,84 @@ function KajplatserContent() {
     setSearchActive(Boolean(nextQuery));
   };
 
+  const handleAddTag = useCallback((tag: AreaTag) => {
+    setSelectedAreas((prev) => {
+      if (prev.some((item) => item.name.toLowerCase() === tag.name.toLowerCase())) return prev;
+      return [...prev, tag];
+    });
+    setSearchActive(true);
+  }, []);
+
+  const handleUpdateTagPolygon = useCallback((tagId: string, polygon: GeoJsonGeometry) => {
+    console.log("handleUpdateTagPolygon called for tag:", tagId);
+    console.log("Polygon received:", polygon?.type);
+    setSelectedAreas((prev) =>
+      prev.map((tag) => (tag.id === tagId ? { ...tag, polygon } : tag)),
+    );
+  }, []);
+
+  const handleRemoveTag = useCallback((tagId: string) => {
+    setSelectedAreas((prev) => prev.filter((tag) => tag.id !== tagId));
+  }, []);
+
   const handleSearch = () => {
     setDateError("");
-    if ((startDate && !endDate) || (!startDate && endDate)) {
-      setDateError("Välj både start- och slutdatum");
-      return;
-    }
-    if (startDate && endDate && !hasValidDateRange(startDate, endDate)) {
-      setDateError("Slutdatum måste vara efter startdatum");
-      return;
+    if (rentalPeriod === "short_term") {
+      if ((startDate && !endDate) || (!startDate && endDate)) {
+        setDateError("Välj både in- och utcheckning");
+        return;
+      }
+      if (startDate && endDate && !hasValidDateRange(startDate, endDate)) {
+        setDateError("Slutdatum måste vara efter startdatum");
+        return;
+      }
     }
 
     const params = new URLSearchParams();
-    const locationValue = locationInput.trim();
-    if (locationValue) params.set("city", locationValue);
-    if (isZipSearchValue(locationValue)) {
-      const normalizedZip = normalizeZipValue(locationValue);
-      if (normalizedZip) params.set("zip", formatSwedishZip(normalizedZip));
+    if (selectedAreas.length > 0) {
+      params.set("areas", areaTagsToParam(selectedAreas));
+    } else {
+      const locationValue = locationInput.trim();
+      if (locationValue) {
+        params.set("area", locationValue);
+        params.set("city", locationValue);
+      }
+      if (isZipSearchValue(locationValue)) {
+        const normalizedZip = normalizeZipValue(locationValue);
+        if (normalizedZip) params.set("zip", formatSwedishZip(normalizedZip));
+      }
     }
-    if (startDate) params.set("start", startDate);
-    if (endDate) params.set("end", endDate);
+    if (rentalPeriod !== "all") {
+      params.set("rental", rentalPeriod);
+    }
+    if (rentalPeriod === "seasonal") {
+      params.set("season", seasonYear);
+    }
+    if (rentalPeriod === "short_term") {
+      if (startDate) params.set("start", startDate);
+      if (endDate) params.set("end", endDate);
+    }
     if (lengthInput) params.set("length", lengthInput);
+    if (widthInput) params.set("width", widthInput);
+    if (depthInput) params.set("depth", depthInput);
     if (selectedHarbourId) params.set("harbour_id", selectedHarbourId);
 
     const queryString = params.toString();
     router.push(queryString ? `/kajplatser?${queryString}` : "/kajplatser");
-    setActiveLocationQuery(locationValue);
-    setIsLocationSearchActive(Boolean(locationValue));
-    setSearchActive(Boolean(locationValue || startDate || endDate || lengthInput));
+    setActiveLocationQuery(locationInput.trim());
+    setIsLocationSearchActive(Boolean(locationInput.trim()));
+    setSearchActive(
+      Boolean(
+        selectedAreas.length > 0 ||
+          locationInput.trim() ||
+          rentalPeriod !== "all" ||
+          startDate ||
+          endDate ||
+          lengthInput ||
+          widthInput ||
+          depthInput,
+      ),
+    );
   };
 
   const handleListingMarkerClick = useCallback((listingId: string | number) => {
@@ -964,7 +1154,12 @@ function KajplatserContent() {
     setLocationQuery("");
     setStartDate("");
     setEndDate("");
+    setRentalPeriod("all");
+    setSeasonYear("2026");
     setLengthInput("");
+    setWidthInput("");
+    setDepthInput("");
+    setSelectedAreas([]);
     setDateError("");
     setActiveLocationQuery("");
     setIsLocationSearchActive(false);
@@ -996,74 +1191,27 @@ function KajplatserContent() {
   }, [activeSearchCenter, listings]);
 
   const displayedListings = useMemo(() => {
-    console.log("Current radius km:", radiusKm);
-    const useLocalGeocodeSearch =
-      hasLocationOrZipSearch && activeLocationQuery.trim() !== cityQuery.trim();
-
-    if (!useLocalGeocodeSearch) {
-      const allListings = listings.map((listing) => ({
-        ...listing,
-        distance_km: null,
-        user_distance_km: travelMap[String(listing.id)]?.km ?? null,
-        user_drive_text: travelMap[String(listing.id)]?.driveText ?? null,
-      }));
-      if (effectiveSortBy === "nearest" && userLocation) {
-        return [...allListings].sort(
-          (a, b) => (a.user_distance_km ?? Number.POSITIVE_INFINITY) - (b.user_distance_km ?? Number.POSITIVE_INFINITY),
-        );
-      }
-      return allListings;
-    }
-
-    const withDistance = listings.map((listing) => {
-      const hasCoordinates = listing.lat != null && listing.lng != null;
-      const distanceKm =
-        activeSearchCenter && hasCoordinates
-          ? haversineDistanceKm(activeSearchCenter.lat, activeSearchCenter.lng, Number(listing.lat), Number(listing.lng))
-          : null;
-      return {
-        ...listing,
-        distance_km: distanceKm,
-      } satisfies KajplatsListing;
-    });
-
-    const results = withDistance.filter((listing) => {
-      const harbourName = listing.harbour_name ?? "";
-      const city = listing.city ?? "";
-      const area = listing.area ?? "";
-      const matchesRadius =
-        !activeSearchCenter || (listing.distance_km != null && listing.distance_km <= radiusKm);
-      const matchesLocationText = [harbourName, city, area].some((field) =>
-        normalizeValue(field).includes(normalizedLocationQuery),
-      );
-      const shouldUseRadiusOnly = activeSearchCenter != null;
-      return shouldUseRadiusOnly ? matchesRadius : matchesLocationText;
-    });
-
-    const mapped = results.map((listing) => ({
+    const base = listings.map((listing) => ({
       ...listing,
+      distance_km: null,
       user_distance_km: travelMap[String(listing.id)]?.km ?? null,
       user_drive_text: travelMap[String(listing.id)]?.driveText ?? null,
     }));
 
+    const areaFiltered =
+      selectedAreas.length > 0
+        ? base.filter((listing) => listingMatchesAreaTags(listing, selectedAreas))
+        : base;
+
     if (effectiveSortBy === "nearest" && userLocation) {
-      return [...mapped].sort(
-        (a, b) => (a.user_distance_km ?? Number.POSITIVE_INFINITY) - (b.user_distance_km ?? Number.POSITIVE_INFINITY),
+      return [...areaFiltered].sort(
+        (a, b) =>
+          (a.user_distance_km ?? Number.POSITIVE_INFINITY) - (b.user_distance_km ?? Number.POSITIVE_INFINITY),
       );
     }
-    return [...mapped].sort((a, b) => (a.distance_km ?? Number.POSITIVE_INFINITY) - (b.distance_km ?? Number.POSITIVE_INFINITY));
-  }, [
-    listings,
-    normalizedLocationQuery,
-    activeSearchCenter,
-    radiusKm,
-    hasLocationOrZipSearch,
-    activeLocationQuery,
-    cityQuery,
-    effectiveSortBy,
-    travelMap,
-    userLocation,
-  ]);
+    return areaFiltered;
+  }, [listings, selectedAreas, effectiveSortBy, travelMap, userLocation]);
+
   const visibleListings = displayedListings;
 
   useEffect(() => {
@@ -1093,6 +1241,29 @@ function KajplatserContent() {
     [visibleListings],
   );
 
+  const allMapListings = useMemo<MapListing[]>(
+    () =>
+      listings
+        .map((listing) => ({
+          id: listing.id,
+          harbour_id: listing.harbour_id ?? null,
+          title: listing.title,
+          harbour_name: listing.harbour_name,
+          city: listing.city,
+          price_per_season: listing.price_per_season,
+          max_boat_length: listing.max_boat_length,
+          max_boat_width: listing.max_boat_width,
+          is_available: listing.is_available,
+          image_url: listing.listing_images[0]?.image_url ?? listing.image_url ?? null,
+          season_start: listing.season_start,
+          season_end: listing.season_end,
+          lat: listing.lat != null ? Number(listing.lat) : null,
+          lng: listing.lng != null ? Number(listing.lng) : null,
+        }))
+        .filter((listing) => listing.lat != null && listing.lng != null),
+    [listings],
+  );
+
   useEffect(() => {
     console.log("Listings for grid:", visibleListings);
     console.log("Listings for map:", mapListings);
@@ -1110,8 +1281,6 @@ function KajplatserContent() {
   }
   const orderedSuggestionTypes: LocationSuggestionType[] = ["harbour", "area", "city", "zip"];
   const showRadiusControl = Boolean(locationInput.trim());
-  const mapHighlightedListingId = hoveredListingId ?? focusedListingId;
-
   const locationSuggestionsDropdown =
     showLocationSuggestions && locationQuery.trim() ? (
       <div className="absolute left-0 right-0 z-40 mt-3 max-h-72 overflow-y-auto rounded-2xl border border-[#dce3ee] bg-white p-2 shadow-[0_12px_30px_rgba(15,31,61,0.16)]">
@@ -1159,12 +1328,17 @@ function KajplatserContent() {
       </div>
     ) : null;
 
+  const resultCountLabel = loading ? "Laddar..." : formatAreaResultCount(visibleListings.length, selectedAreas);
+
   const mapProps = {
-    listings: mapListings,
-    shouldFitBounds: hasLocationOrZipSearch || hasUrlFilters,
-    center: activeSearchCenter,
-    radiusKm: hasLocationOrZipSearch ? radiusKm : null,
-    highlightedListingId: mapHighlightedListingId,
+    listings: selectedAreas.length > 0 ? allMapListings : mapListings,
+    filteredListings: selectedAreas.length > 0 ? mapListings : undefined,
+    shouldFitBounds: selectedAreas.length > 0 || hasUrlFilters,
+    center: null,
+    radiusKm: null,
+    areaTags: selectedAreas,
+    hoveredListingId,
+    highlightedListingId: focusedListingId,
     onListingMarkerClick: handleListingMarkerClick,
   };
 
@@ -1181,7 +1355,7 @@ function KajplatserContent() {
       {hasUrlFilters ? (
         <>
           <h2 className="text-xl font-bold text-[#0a1628]">Inga båtplatser matchar din sökning</h2>
-          <p className="mt-2 text-sm text-[#4a5568]">Prova att justera datum, område eller båtlängd.</p>
+          <p className="mt-2 text-sm text-[#4a5568]">Prova att justera datum, område eller båtstorlek.</p>
           <button
             type="button"
             onClick={handleClearFilters}
@@ -1194,11 +1368,10 @@ function KajplatserContent() {
         <>
           <h2 className="text-xl font-bold text-[#0a1628]">Inga platser tillgängliga ännu.</h2>
           <p className="mt-2 text-sm text-[#4a5568]">Bli första hamnägaren att lista platser!</p>
-          {geocodeError ? <p className="mt-2 text-sm text-[#d64c3b]">{geocodeError}</p> : null}
-          {hasLocationOrZipSearch ? (
+          {selectedAreas.length > 0 ? (
             <p className="mt-2 text-sm text-[#4a5568]">
-              Inga platser hittades inom {radiusKm} km från {searchQuery}. Prova att öka söksträckan eller sök på
-              stadsdel.
+              Inga båtplatser hittades i {formatAreaNamesList(selectedAreas)}. Prova att lägga till ett annat område
+              eller justera filtren.
             </p>
           ) : null}
         </>
@@ -1210,9 +1383,8 @@ function KajplatserContent() {
         <ListingCard
           key={listing.id}
           listing={listing}
-          isHighlighted={String(listing.id) === String(mapHighlightedListingId)}
-          onHover={setHoveredListingId}
-          onLeave={() => setHoveredListingId(null)}
+          isHighlighted={String(listing.id) === String(hoveredListingId)}
+          onHoverListing={setHoveredListingId}
         />
       ))}
     </div>
@@ -1266,24 +1438,14 @@ function KajplatserContent() {
           ) : null}
 
           <ListingSearchBar
-            location={locationInput}
-            onLocationChange={(value) => {
-              setLocationInput(value);
-              setLocationQuery(value);
-              setShowLocationSuggestions(true);
-            }}
-            onLocationFocus={() => setShowLocationSuggestions(true)}
-            onLocationBlur={() => {
-              setTimeout(() => setShowLocationSuggestions(false), 120);
-            }}
-            onLocationKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                handleSearch();
-              }
-            }}
-            locationSuggestions={locationSuggestionsDropdown}
-            isLocationLoading={isLocationLoading}
+            selectedAreas={selectedAreas}
+            onAddTag={handleAddTag}
+            onUpdateTagPolygon={handleUpdateTagPolygon}
+            onRemoveTag={handleRemoveTag}
+            rentalPeriod={rentalPeriod}
+            seasonYear={seasonYear}
+            onRentalPeriodChange={setRentalPeriod}
+            onSeasonYearChange={setSeasonYear}
             startDate={startDate}
             endDate={endDate}
             onStartDateChange={(value) => {
@@ -1298,11 +1460,15 @@ function KajplatserContent() {
             dateError={dateError}
             boatLength={lengthInput}
             onBoatLengthChange={setLengthInput}
+            boatWidth={widthInput}
+            onBoatWidthChange={setWidthInput}
+            boatDepth={depthInput}
+            onBoatDepthChange={setDepthInput}
             onSearch={handleSearch}
           />
 
           <div className="mt-3 flex items-center justify-center gap-4">
-            {(hasUrlFilters || locationInput.trim()) && (
+            {(hasUrlFilters || selectedAreas.length > 0) && (
               <button
                 type="button"
                 onClick={handleClearFilters}
@@ -1312,39 +1478,13 @@ function KajplatserContent() {
               </button>
             )}
           </div>
-
-          {showRadiusControl ? (
-            <div className="mx-auto mt-4 max-w-md rounded-xl border border-[#dce3ee] bg-white px-4 py-3 shadow-sm">
-              <p className="mb-2 text-sm font-medium text-[#4a5568]">
-                Sök inom: <span className="font-semibold text-[#0d9488]">{radiusInputKm} km</span>
-              </p>
-              <input
-                type="range"
-                min={1}
-                max={15}
-                step={1}
-                value={radiusInputKm}
-                onChange={(event) => setRadiusInputKm(Number(event.target.value))}
-                className="brand-radius-slider min-h-[44px] w-full"
-                style={
-                  {
-                    "--range-progress": `${((radiusInputKm - 1) / (15 - 1)) * 100}%`,
-                  } as React.CSSProperties
-                }
-              />
-            </div>
-          ) : null}
         </div>
       </section>
 
       <section className="bg-brand-cream px-4 pb-10 pt-2 md:px-6">
         <div className="mx-auto w-full max-w-[1400px]">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-base font-semibold text-[#0a1628]">
-              {loading
-                ? "Laddar..."
-                : `${visibleListings.length} ${visibleListings.length === 1 ? "plats" : "platser"}`}
-            </p>
+            <p className="text-base font-semibold text-[#0a1628]">{resultCountLabel}</p>
             <SortSelect
               compact
               value={sortBy}

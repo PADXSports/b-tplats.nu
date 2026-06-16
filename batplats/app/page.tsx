@@ -3,17 +3,23 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import AuthNavbar from "@/components/auth-navbar";
 import BerthMap from "@/components/BerthMap";
 import Footer from "@/components/footer";
-import BoatLengthSelect from "@/components/BoatLengthSelect";
-import DateRangePicker from "@/components/DateRangePicker";
+import ListingSearchBar from "@/components/ListingSearchBar";
 import RentalTypeBadge from "@/components/RentalTypeBadge";
 import LandingHeroWave from "@/components/landing-hero-wave";
 import { hasValidDateRange } from "@/lib/date-range";
+import type { RentalPeriodMode } from "@/lib/rental-type";
 import RevealOnView from "@/components/reveal-on-view";
 import { getListingImageSrc } from "@/lib/listing-image";
+import {
+  areaTagsToParam,
+  simplifyGeoJsonGeometry,
+  type AreaTag,
+  type GeoJsonGeometry,
+} from "@/lib/area-search";
 import { createClient } from "@/lib/supabase/client";
 import type { MapListing } from "@/components/BerthMap";
 
@@ -307,15 +313,14 @@ function FeaturedListingCard({ listing }: { listing: FeaturedListing }) {
 function HomeContent() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
-  const [location, setLocation] = useState("");
-  const [locationQuery, setLocationQuery] = useState("");
-  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
-  const [isLocationLoading, setIsLocationLoading] = useState(false);
-  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
-  const [selectedLocationSuggestion, setSelectedLocationSuggestion] = useState<LocationSuggestion | null>(null);
+  const [selectedAreas, setSelectedAreas] = useState<AreaTag[]>([]);
   const [boatLength, setBoatLength] = useState("");
+  const [boatWidth, setBoatWidth] = useState("");
+  const [boatDepth, setBoatDepth] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [rentalPeriod, setRentalPeriod] = useState<RentalPeriodMode>("all");
+  const [seasonYear, setSeasonYear] = useState("2026");
   const [dateError, setDateError] = useState("");
   const [featuredListings, setFeaturedListings] = useState<FeaturedListing[]>([]);
   const [mapListings, setMapListings] = useState<MapListing[]>([]);
@@ -329,101 +334,56 @@ function HomeContent() {
 
   const handleSearch = () => {
     setDateError("");
-    if ((startDate && !endDate) || (!startDate && endDate)) {
-      setDateError("Välj både start- och slutdatum");
-      return;
-    }
-    if (startDate && endDate && !hasValidDateRange(startDate, endDate)) {
-      setDateError("Slutdatum måste vara efter startdatum");
-      return;
+    if (rentalPeriod === "short_term") {
+      if ((startDate && !endDate) || (!startDate && endDate)) {
+        setDateError("Välj både in- och utcheckning");
+        return;
+      }
+      if (startDate && endDate && !hasValidDateRange(startDate, endDate)) {
+        setDateError("Slutdatum måste vara efter startdatum");
+        return;
+      }
     }
 
     const params = new URLSearchParams();
-    const locationValue = location.trim();
-    if (locationValue) params.set("city", locationValue);
-    const zipSearchValue =
-      selectedLocationSuggestion?.type === "zip" ? selectedLocationSuggestion.value : locationValue;
-    if (isZipSearchValue(zipSearchValue)) {
-      const normalizedZip = normalizeZipValue(zipSearchValue);
-      if (normalizedZip) params.set("zip", formatSwedishZip(normalizedZip));
+    if (selectedAreas.length > 0) {
+      params.set("areas", areaTagsToParam(selectedAreas));
     }
-    if (selectedLocationSuggestion) {
-      params.set("locationType", selectedLocationSuggestion.type);
-      if (selectedLocationSuggestion.harbourId != null) {
-        params.set("harbour_id", String(selectedLocationSuggestion.harbourId));
-      }
-      if (selectedLocationSuggestion.lat != null) params.set("lat", String(selectedLocationSuggestion.lat));
-      if (selectedLocationSuggestion.lng != null) params.set("lng", String(selectedLocationSuggestion.lng));
+    if (rentalPeriod !== "all") {
+      params.set("rental", rentalPeriod);
     }
-    if (startDate) params.set("start", startDate);
-    if (endDate) params.set("end", endDate);
+    if (rentalPeriod === "seasonal") {
+      params.set("season", seasonYear);
+    }
+    if (rentalPeriod === "short_term") {
+      if (startDate) params.set("start", startDate);
+      if (endDate) params.set("end", endDate);
+    }
     if (boatLength) params.set("length", boatLength);
+    if (boatWidth) params.set("width", boatWidth);
+    if (boatDepth) params.set("depth", boatDepth);
     const queryString = params.toString();
     router.push(queryString ? `/kajplatser?${queryString}` : "/kajplatser");
   };
 
-  useEffect(() => {
-    const query = normalizeSearchValue(locationQuery);
-    const zipQuery = normalizeZipValue(locationQuery);
-    const formattedZipQuery = zipQuery.length >= 4 ? `${zipQuery.slice(0, 3)} ${zipQuery.slice(3)}` : zipQuery;
-    const zipOrClause = zipQuery ? `,zip_code.ilike.%${formattedZipQuery}%` : "";
-    if (!query) {
-      setLocationSuggestions([]);
-      setIsLocationLoading(false);
-      return;
-    }
+  const handleAddTag = useCallback((tag: AreaTag) => {
+    setSelectedAreas((prev) => {
+      if (prev.some((item) => item.name.toLowerCase() === tag.name.toLowerCase())) return prev;
+      return [...prev, tag];
+    });
+  }, []);
 
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      setIsLocationLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from("harbours")
-          .select("id, name, city, zip_code, area, lat, lng, owner_id")
-          .not("owner_id", "is", null)
-          .or(`name.ilike.%${query}%,city.ilike.%${query}%,zip_code.ilike.%${query}%${zipOrClause},area.ilike.%${query}%`)
-          .limit(8);
+  const handleUpdateTagPolygon = useCallback((tagId: string, polygon: GeoJsonGeometry) => {
+    console.log("handleUpdateTagPolygon called for tag:", tagId);
+    console.log("Polygon received:", polygon?.type);
+    setSelectedAreas((prev) =>
+      prev.map((tag) => (tag.id === tagId ? { ...tag, polygon } : tag)),
+    );
+  }, []);
 
-        if (error) {
-          console.error("Failed to fetch location suggestions:", error);
-          if (!cancelled) setLocationSuggestions([]);
-          return;
-        }
-
-        const rows = ((data ?? []) as HarbourSuggestionRow[]).slice(0, 8);
-        const suggestions: LocationSuggestion[] = [];
-        const keys = new Set<string>();
-
-        const addSuggestion = (type: LocationSuggestionType, row: HarbourSuggestionRow) => {
-          const formatted = formatLocationSuggestion(type, row);
-          if (!formatted || keys.has(formatted.key)) return;
-          keys.add(formatted.key);
-          suggestions.push(formatted);
-        };
-
-        for (const row of rows) {
-          if (includesMatch(row.name, query)) addSuggestion("harbour", row);
-          if (includesMatch(row.area, query)) addSuggestion("area", row);
-          if (includesMatch(row.city, query)) addSuggestion("city", row);
-          if (includesZipMatch(row.zip_code, locationQuery) || includesMatch(row.zip_code, query)) addSuggestion("zip", row);
-        }
-
-        if (!cancelled) {
-          setLocationSuggestions(suggestions.slice(0, 8));
-        }
-      } catch (error) {
-        console.error("Unexpected location suggestion error:", error);
-        if (!cancelled) setLocationSuggestions([]);
-      } finally {
-        if (!cancelled) setIsLocationLoading(false);
-      }
-    }, 300);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [locationQuery, supabase]);
+  const handleRemoveTag = useCallback((tagId: string) => {
+    setSelectedAreas((prev) => prev.filter((tag) => tag.id !== tagId));
+  }, []);
 
   useEffect(() => {
     const loadMapListings = async () => {
@@ -651,19 +611,6 @@ function HomeContent() {
     },
   ];
 
-  const groupedSuggestions: Record<LocationSuggestionType, LocationSuggestion[]> = {
-    harbour: [],
-    area: [],
-    city: [],
-    zip: [],
-  };
-
-  for (const suggestion of locationSuggestions) {
-    groupedSuggestions[suggestion.type].push(suggestion);
-  }
-
-  const orderedSuggestionTypes: LocationSuggestionType[] = ["harbour", "area", "city", "zip"];
-
   return (
     <main className="min-h-screen bg-[#fafcff] text-[#0f1f3d]">
       <AuthNavbar currentPage="home" />
@@ -689,149 +636,41 @@ function HomeContent() {
           <p className="mx-auto mt-6 max-w-[520px] text-base font-normal leading-relaxed text-white/60 sm:text-lg">
             Sveriges marketplace för båtplatser. Boka direkt från hamnar och privatpersoner i hela Sverige.
           </p>
+        </div>
 
-          <div
-            id="search-hero"
-            className="relative z-30 mx-auto mt-10 w-full max-w-[700px] overflow-visible rounded-[2.25rem] bg-white p-2 shadow-[0_8px_40px_rgba(0,0,0,0.3)] ring-1 ring-white/10 md:p-1.5"
-          >
-            <div className="flex flex-col gap-2 overflow-visible md:flex-row md:items-stretch md:gap-0 md:pr-1">
-              <label className="search-field group flex w-full flex-1 cursor-text flex-col rounded-[2rem] px-4 py-3 transition-colors hover:bg-[#f5f0e8] md:px-5 md:py-2.5">
-                <span className="text-left text-[10px] font-bold uppercase tracking-[0.1em] text-[#0a1628]">
-                  Område
-                </span>
-                <div className="relative mt-0.5">
-                  <input
-                    type="text"
-                    placeholder="Stockholm, Östermalm eller 115 21"
-                    value={location}
-                    onChange={(e) => {
-                      const nextValue = e.target.value;
-                      setLocation(nextValue);
-                      setLocationQuery(nextValue);
-                      setSelectedLocationSuggestion(null);
-                      setShowLocationSuggestions(true);
-                    }}
-                    onFocus={() => setShowLocationSuggestions(true)}
-                    onBlur={() => {
-                      setTimeout(() => setShowLocationSuggestions(false), 120);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleSearch();
-                      }
-                    }}
-                    className="min-h-[44px] w-full bg-transparent pr-6 text-base text-[#4a5568] outline-none placeholder:text-[#8a96a8] md:min-h-0 md:text-sm"
-                  />
-                  {isLocationLoading ? (
-                    <span className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-[#0d9488]" aria-hidden>
-                      <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24">
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          fill="none"
-                        />
-                        <path
-                          className="opacity-80"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                        />
-                      </svg>
-                    </span>
-                  ) : null}
-                  {showLocationSuggestions && locationQuery.trim() ? (
-                    <div className="absolute left-0 right-0 z-40 mt-3 max-h-72 overflow-y-auto rounded-2xl border border-[#dce3ee] bg-white p-2 shadow-[0_12px_30px_rgba(15,31,61,0.16)]">
-                      {locationSuggestions.length === 0 && !isLocationLoading ? (
-                        <p className="px-3 py-3 text-sm text-[#8a96a8]">Inga resultat</p>
-                      ) : (
-                        orderedSuggestionTypes.map((type) => {
-                          const items = groupedSuggestions[type];
-                          if (items.length === 0) return null;
+        <ListingSearchBar
+          variant="hero"
+          className="relative z-30 mx-auto mt-10 w-full max-w-[900px] px-4 sm:px-6 md:px-12"
+          selectedAreas={selectedAreas}
+          onAddTag={handleAddTag}
+          onUpdateTagPolygon={handleUpdateTagPolygon}
+          onRemoveTag={handleRemoveTag}
+          rentalPeriod={rentalPeriod}
+          seasonYear={seasonYear}
+          onRentalPeriodChange={setRentalPeriod}
+          onSeasonYearChange={setSeasonYear}
+          startDate={startDate}
+          endDate={endDate}
+            onStartDateChange={(value) => {
+              setStartDate(value);
+              setDateError("");
+            }}
+            onEndDateChange={(value) => {
+              setEndDate(value);
+              setDateError("");
+            }}
+            onDateError={(message) => setDateError(message ?? "")}
+            dateError={dateError}
+            boatLength={boatLength}
+            onBoatLengthChange={setBoatLength}
+            boatWidth={boatWidth}
+            onBoatWidthChange={setBoatWidth}
+            boatDepth={boatDepth}
+            onBoatDepthChange={setBoatDepth}
+          onSearch={handleSearch}
+        />
 
-                          return (
-                            <div key={type} className="mb-1 last:mb-0">
-                              <p className="px-3 py-1 text-[11px] font-bold uppercase tracking-[0.08em] text-[#8a96a8]">
-                                {LOCATION_TYPE_LABELS[type]}
-                              </p>
-                              {items.map((suggestion) => (
-                                <button
-                                  key={suggestion.key}
-                                  type="button"
-                                  onMouseDown={(e) => e.preventDefault()}
-                                  onClick={() => {
-                                    setLocation(suggestion.value);
-                                    setLocationQuery(suggestion.value);
-                                    setSelectedLocationSuggestion(suggestion);
-                                    setShowLocationSuggestions(false);
-                                  }}
-                                  className="flex w-full items-start gap-2 rounded-xl px-3 py-3 text-left transition hover:bg-[#f5f0e8]"
-                                >
-                                  <span className="mt-0.5 text-base leading-none text-[#0d9488]" aria-hidden>
-                                    📍
-                                  </span>
-                                  <span className="min-w-0 text-sm text-[#4a5568]">
-                                    <span className="block truncate">{renderHighlightedText(suggestion.label, locationQuery)}</span>
-                                    {suggestion.secondary ? (
-                                      <span className="block truncate text-xs text-[#8a96a8]">
-                                        {renderHighlightedText(suggestion.secondary, locationQuery)}
-                                      </span>
-                                    ) : null}
-                                  </span>
-                                </button>
-                              ))}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              </label>
-              <div className="hidden w-px shrink-0 self-center bg-[#dce3ee] md:block md:h-9" />
-              <div className="w-full flex-1 md:w-auto">
-                <DateRangePicker
-                  variant="field"
-                  fieldLabel="Datum"
-                  startDate={startDate}
-                  endDate={endDate}
-                  onStartDateChange={(value) => {
-                    setStartDate(value);
-                    setDateError("");
-                  }}
-                  onEndDateChange={(value) => {
-                    setEndDate(value);
-                    setDateError("");
-                  }}
-                  onDateError={(message) => setDateError(message ?? "")}
-                  showLegend={false}
-                  className="w-full"
-                />
-              </div>
-              <div className="hidden w-px shrink-0 self-center bg-[#dce3ee] md:block md:h-9" />
-              <div className="w-full flex-1 md:w-auto">
-                <BoatLengthSelect value={boatLength} onChange={setBoatLength} className="w-full" />
-              </div>
-              {dateError ? (
-                <p className="px-2 text-sm text-red-500 md:col-span-full">{dateError}</p>
-              ) : null}
-              <button
-                type="button"
-                onClick={handleSearch}
-                className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-2 rounded-full bg-[#0d9488] px-6 py-3.5 text-base font-semibold text-white shadow-[0_4px_20px_rgba(13,148,136,0.35)] transition hover:scale-[1.02] hover:bg-[#14b8a6] md:mt-0 md:ml-1 md:w-auto md:self-center md:text-[15px]"
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-                  <circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.8" />
-                  <line x1="11" y1="11" x2="14" y2="14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-                Sök platser
-              </button>
-            </div>
-          </div>
-
+        <div className="relative z-[2] mx-auto w-full max-w-[760px] overflow-visible text-center">
           <div className="mt-10 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[13px] text-white/50 sm:gap-x-7">
             <div className="flex items-center gap-2">
               <strong className="font-semibold text-white/85">{stats.listings}+</strong>
