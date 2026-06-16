@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
@@ -10,6 +9,7 @@ import {
   DASHBOARD_NAVY,
   dashboardCardClass,
 } from '@/components/dashboard-icons';
+import Logo from '@/components/Logo';
 import { createClient } from '@/lib/supabase/client';
 
 export const HOST_INPUT_CLASS =
@@ -96,7 +96,7 @@ export function HostDashboardShell({
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <div className="flex items-center gap-8">
             <Link href="/" className="transition hover:opacity-90">
-              <Image src="/logo.svg" alt="Båtplats.nu" width={196} height={36} className="h-8 w-auto" />
+              <Logo />
             </Link>
             <div className="hidden gap-1 md:flex">
               {NAV_ITEMS.map((item) => (

@@ -18,6 +18,7 @@ import type { User } from '@supabase/supabase-js';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import AuthNavbar from '@/components/auth-navbar';
+import Logo from '@/components/Logo';
 import DateRangePicker from '@/components/DateRangePicker';
 import Footer from '@/components/footer';
 import LandingHeroWave from '@/components/landing-hero-wave';
@@ -1220,7 +1221,7 @@ function HyrUtContent() {
         className="flex items-center justify-between px-6 py-4"
       >
         <Link href="/" className="transition hover:opacity-90">
-          <Image src="/logo.svg" alt="Båtplats.nu" width={196} height={36} className="h-8 w-auto" />
+          <Logo dark />
         </Link>
         {step > 1 ? (
           <button
