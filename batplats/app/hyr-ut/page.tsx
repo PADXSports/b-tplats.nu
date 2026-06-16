@@ -513,7 +513,7 @@ function HyrUtContent() {
       pricePerSeason?: number | string | null;
       amount?: number | string | null;
     });
-    const draftToStore: Omit<WizardData, 'images'> = {
+    const draftToStore: StoredWizardData = {
       ...nextData,
       price_per_season: resolvedPrice > 0 ? resolvedPrice : null,
       images: [],
