@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/providers/AuthProvider";
@@ -13,9 +13,8 @@ type AuthNavbarProps = {
 
 export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const { user, role, isPrivateHost, loading } = useAuth();
+  const { user, loading } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showLoginDropdown, setShowLoginDropdown] = useState(false);
   const mobileCloseButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -67,20 +66,11 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
 
   const isSearchActive =
     currentPage === "search" || pathname?.startsWith("/search") || pathname?.startsWith("/kajplatser");
-  const activeHostTab = searchParams.get("tab");
-  const isHost = (role === "host" || role === "owner") && Boolean(email);
-  const isMarinaHost = isHost && !isPrivateHost;
-  const isRenter = role === "renter" && Boolean(email);
-  const hostDashboardHref = isPrivateHost ? "/mitt-konto" : "/dashboard/host";
   const loginHref =
     pathname && pathname !== "/"
       ? `/login?redirect=${encodeURIComponent(pathname)}`
       : "/login";
-  const userDashboardHref = isPrivateHost
-    ? "/mitt-konto"
-    : isHost
-      ? "/dashboard/host"
-      : "/dashboard/renter";
+  const userDashboardHref = "/dashboard/renter";
 
   const guestLoginDropdown = (
     <div className="relative ml-2" ref={dropdownRef}>
@@ -256,29 +246,13 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
       </button>
 
       {showLoginDropdown ? (
-        <div className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
+        <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
           <div className="border-b border-gray-100 px-4 py-3">
             <p className="text-sm font-semibold" style={{ color: "#0a1628" }}>
               {user.email?.split("@")[0]}
             </p>
             <p className="text-xs text-gray-400">{user.email}</p>
           </div>
-
-          <Link
-            href={userDashboardHref}
-            onClick={() => setShowLoginDropdown(false)}
-            className="flex items-center gap-3 px-4 py-3 transition hover:bg-gray-50"
-          >
-            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-              />
-            </svg>
-            <span className="text-sm text-gray-700">Min sida</span>
-          </Link>
 
           <Link
             href="/kajplatser"
@@ -293,7 +267,70 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
-            <span className="text-sm text-gray-700">Sök båtplatser</span>
+            <span className="text-sm text-gray-700">🔍 Hitta båtplats</span>
+          </Link>
+
+          <Link
+            href={userDashboardHref}
+            onClick={() => setShowLoginDropdown(false)}
+            className="flex items-center gap-3 px-4 py-3 transition hover:bg-gray-50"
+          >
+            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2m0-4V7a2 2 0 00-2-2h-2m-6 7h6m-6 4h6m-6-8h3"
+              />
+            </svg>
+            <span className="text-sm text-gray-700">📋 Mina bokningar</span>
+          </Link>
+
+          <div className="border-t border-gray-100" />
+
+          <Link
+            href="/mitt-konto"
+            onClick={() => setShowLoginDropdown(false)}
+            className="flex items-center gap-3 px-4 py-3 transition hover:bg-gray-50"
+          >
+            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+              />
+            </svg>
+            <span className="text-sm text-gray-700">⚓ Mina annonser</span>
+          </Link>
+
+          <Link
+            href="/hyr-ut"
+            onClick={() => setShowLoginDropdown(false)}
+            className="flex items-center gap-3 px-4 py-3 transition hover:bg-gray-50"
+          >
+            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="text-sm text-gray-700">➕ Lägg till plats</span>
+          </Link>
+
+          <div className="border-t border-gray-100" />
+
+          <Link
+            href="/profil"
+            onClick={() => setShowLoginDropdown(false)}
+            className="flex items-center gap-3 px-4 py-3 transition hover:bg-gray-50"
+          >
+            <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5.121 17.804A10.937 10.937 0 0112 15c2.533 0 4.865.861 6.879 2.304M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+            <span className="text-sm text-gray-700">👤 Min profil</span>
           </Link>
 
           <div className="border-t border-gray-100">
@@ -313,7 +350,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                   d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                 />
               </svg>
-              <span className="text-sm text-red-600">Logga ut</span>
+              <span className="text-sm text-red-600">🚪 Logga ut</span>
             </button>
           </div>
         </div>
@@ -360,97 +397,7 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
         </button>
 
         <div className="ml-auto hidden items-center gap-2 md:flex">
-          {isHost ? (
-            <>
-              <div className="flex items-center gap-1">
-                {isPrivateHost ? (
-                  <>
-                    <Link
-                      href="/"
-                      className="rounded-lg px-3.5 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
-                    >
-                      Hem
-                    </Link>
-                    <Link
-                      href="/kajplatser"
-                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
-                        isSearchActive ? "text-white" : "text-white/80 hover:text-white"
-                      }`}
-                    >
-                      Båtplatser
-                    </Link>
-                    <Link
-                      href={hostDashboardHref}
-                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
-                        pathname?.startsWith("/mitt-konto")
-                          ? "text-white"
-                          : "text-white/80 hover:text-white"
-                      }`}
-                    >
-                      Min båtplats
-                    </Link>
-                  </>
-                ) : isMarinaHost ? (
-                  <>
-                    <Link
-                      href="/dashboard/host"
-                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
-                        pathname?.startsWith("/dashboard/host") && !activeHostTab
-                          ? "text-white"
-                          : "text-white/80 hover:text-white"
-                      }`}
-                    >
-                      Översikt
-                    </Link>
-                    <Link
-                      href="/dashboard/host/hamnar"
-                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
-                        pathname?.startsWith("/dashboard/host/hamnar")
-                          ? "text-white"
-                          : "text-white/80 hover:text-white"
-                      }`}
-                    >
-                      Mina Hamnar
-                    </Link>
-                    <Link
-                      href="/dashboard/host?tab=annonser"
-                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
-                        activeHostTab === "annonser" ? "text-white" : "text-white/80 hover:text-white"
-                      }`}
-                    >
-                      Mina Annonser
-                    </Link>
-                    <Link
-                      href="/dashboard/host?tab=bokningar"
-                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
-                        activeHostTab === "bokningar" ? "text-white" : "text-white/80 hover:text-white"
-                      }`}
-                    >
-                      Bokningar
-                    </Link>
-                    <Link
-                      href="/dashboard/host/profil"
-                      className={`rounded-lg px-3.5 py-2 text-sm font-medium transition hover:bg-white/10 ${
-                        pathname?.startsWith("/dashboard/host/profil")
-                          ? "text-white"
-                          : "text-white/80 hover:text-white"
-                      }`}
-                    >
-                      Profil
-                    </Link>
-                  </>
-                ) : (
-                  <Link
-                    href={hostDashboardHref}
-                    className="rounded-lg px-3.5 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
-                  >
-                    Min sida
-                  </Link>
-                )}
-              </div>
-              {authSlot}
-            </>
-          ) : isRenter ? (
+          {user ? (
             <>
               <div className="flex items-center gap-1">
                 <Link
@@ -466,12 +413,6 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
                   }`}
                 >
                   Båtplatser
-                </Link>
-                <Link
-                  href="/for-hamnar"
-                  className="rounded-lg px-3.5 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
-                >
-                  För hamnar
                 </Link>
                 <Link
                   href="/om-oss"
@@ -627,13 +568,15 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
               >
                 Båtplatser
               </Link>
-              <Link
-                href="/for-hamnar"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium transition active:bg-white/10"
-              >
-                För hamnar
-              </Link>
+              {!user ? (
+                <Link
+                  href="/for-hamnar"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium transition active:bg-white/10"
+                >
+                  För hamnar
+                </Link>
+              ) : null}
               <Link
                 href="/om-oss"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -648,49 +591,23 @@ export default function AuthNavbar({ currentPage = "home" }: AuthNavbarProps) {
               >
                 Hyr ut din plats
               </Link>
-              {isHost ? (
-                isPrivateHost ? (
+              {user ? (
+                <>
+                  <Link
+                    href="/dashboard/renter"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
+                  >
+                    Mina bokningar
+                  </Link>
                   <Link
                     href="/mitt-konto"
                     onClick={() => setIsMobileMenuOpen(false)}
                     className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
                   >
-                    Min båtplats
+                    Mina annonser
                   </Link>
-                ) : (
-                  <>
-                    <Link
-                      href="/dashboard/host"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
-                    >
-                      Host dashboard
-                    </Link>
-                    <Link
-                      href="/dashboard/host/hamnar"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
-                    >
-                      Mina Hamnar
-                    </Link>
-                    <Link
-                      href="/dashboard/host/profil"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
-                    >
-                      Profil
-                    </Link>
-                  </>
-                )
-              ) : null}
-              {isRenter ? (
-                <Link
-                  href="/dashboard/renter"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex min-h-12 items-center rounded-lg px-3 text-base font-medium text-[#14b8a6] transition active:bg-white/10"
-                >
-                  Min profil
-                </Link>
+                </>
               ) : null}
             </nav>
           </div>

@@ -6,6 +6,13 @@ import { createClient } from "@/lib/supabase/client";
 import { loadGoogleMaps } from "@/lib/google-maps-loader";
 import { extendBoundsFromAreaBounds, extendBoundsFromGeoJson, simplifyGeoJsonGeometry, type AreaPolygonOverlay, type AreaTag, type GeoJsonGeometry } from "@/lib/area-search";
 
+function clampZoomAfterFitBounds(map: { getZoom: () => number | undefined; setZoom: (zoom: number) => void }, maxZoom: number) {
+  const zoom = map.getZoom();
+  if (zoom == null) return;
+  if (zoom < 10) map.setZoom(11);
+  else if (zoom > maxZoom) map.setZoom(maxZoom);
+}
+
 type MarkerOverlay = {
   setMap: (map: unknown) => void;
   map?: unknown;
@@ -608,7 +615,7 @@ export default function BerthMap({
       if (hasBounds) {
         map.fitBounds(bounds);
         googleMaps.event.addListenerOnce(map, "bounds_changed", () => {
-          if (map.getZoom() > 14) map.setZoom(14);
+          clampZoomAfterFitBounds(map, 14);
         });
       }
       return;
@@ -668,7 +675,7 @@ export default function BerthMap({
     if (hasBounds && markersRef.current.length === 0) {
       map.fitBounds(bounds);
       googleMaps.event.addListenerOnce(map, "bounds_changed", () => {
-        if (map.getZoom() > 14) map.setZoom(14);
+        clampZoomAfterFitBounds(map, 14);
       });
     }
   }, [areaTags, areaPolygons, mapReady]);
@@ -1061,7 +1068,7 @@ export default function BerthMap({
       if (markersRef.current.length > 0 || areaTags.length > 0 || areaPolygons.length > 0) {
         map.fitBounds(bounds);
         googleMaps.event.addListenerOnce(map, "bounds_changed", () => {
-          if (map.getZoom() > 15) map.setZoom(15);
+          clampZoomAfterFitBounds(map, 15);
         });
         if (radiusCircleRef.current) {
           const circleBounds = radiusCircleRef.current.getBounds();

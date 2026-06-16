@@ -34,34 +34,11 @@ export async function GET(request: NextRequest) {
             (data.user.user_metadata?.name as string | undefined) ||
             "",
         });
-        let hostDefault = "/dashboard/host";
-        if (newProfileRole === "host") {
-          const { data: privateListing } = await supabase
-            .from("listings")
-            .select("id")
-            .eq("owner_id", data.user.id)
-            .eq("listing_type", "private")
-            .maybeSingle();
-          if (privateListing) hostDefault = "/mitt-konto";
-        }
-        const redirectTo =
-          safeRedirect ?? (newProfileRole === "host" ? hostDefault : "/dashboard/renter");
+        const redirectTo = safeRedirect ?? "/dashboard/renter";
         return NextResponse.redirect(new URL(redirectTo, origin));
       }
 
-      const r = profile.role as string | null;
-      const isHost = r === "host" || r === "owner";
-      let hostDefault = "/dashboard/host";
-      if (isHost) {
-        const { data: privateListing } = await supabase
-          .from("listings")
-          .select("id")
-          .eq("owner_id", data.user.id)
-          .eq("listing_type", "private")
-          .maybeSingle();
-        if (privateListing) hostDefault = "/mitt-konto";
-      }
-      const redirectTo = safeRedirect ?? (isHost ? hostDefault : "/dashboard/renter");
+      const redirectTo = safeRedirect ?? "/dashboard/renter";
       return NextResponse.redirect(new URL(redirectTo, origin));
     }
   }

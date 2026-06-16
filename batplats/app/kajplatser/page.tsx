@@ -14,6 +14,7 @@ import {
   areaTagsToParam,
   formatAreaNamesList,
   formatAreaResultCount,
+  getProximityFallbackTagIds,
   listingMatchesAreaTags,
   parseAreaTagsParam,
   type AreaTag,
@@ -47,6 +48,7 @@ type KajplatsListing = {
   rental_type?: string | null;
   city: string | null;
   harbour_name: string | null;
+  address: string | null;
   area: string | null;
   zip_code: string | null;
   image_url?: string | null;
@@ -101,6 +103,7 @@ type ListingRow = {
     | {
         name: string | null;
         city: string | null;
+        address: string | null;
         area: string | null;
         zip_code: string | null;
         lat: number | null;
@@ -109,6 +112,7 @@ type ListingRow = {
     | Array<{
         name: string | null;
         city: string | null;
+        address: string | null;
         area: string | null;
         zip_code: string | null;
         lat: number | null;
@@ -920,6 +924,7 @@ function KajplatserContent() {
             rental_type: row.rental_type ?? "season",
             city: row.city ?? harbour?.city ?? null,
             harbour_name: row.harbour_name ?? harbour?.name ?? null,
+            address: harbour?.address ?? null,
             listing_type: row.listing_type ?? null,
             area: harbour?.area ?? null,
             zip_code: harbour?.zip_code ?? null,
@@ -1190,6 +1195,13 @@ function KajplatserContent() {
     });
   }, [activeSearchCenter, listings]);
 
+  const proximityFallbackTagIds = useMemo(
+    () => (selectedAreas.length > 0 ? getProximityFallbackTagIds(listings, selectedAreas) : new Set<string>()),
+    [listings, selectedAreas],
+  );
+  const usesProximityFallback =
+    selectedAreas.length > 0 && selectedAreas.some((tag) => proximityFallbackTagIds.has(tag.id));
+
   const displayedListings = useMemo(() => {
     const base = listings.map((listing) => ({
       ...listing,
@@ -1200,7 +1212,9 @@ function KajplatserContent() {
 
     const areaFiltered =
       selectedAreas.length > 0
-        ? base.filter((listing) => listingMatchesAreaTags(listing, selectedAreas))
+        ? base.filter((listing) =>
+            listingMatchesAreaTags(listing, selectedAreas, { proximityFallbackTagIds }),
+          )
         : base;
 
     if (effectiveSortBy === "nearest" && userLocation) {
@@ -1210,7 +1224,7 @@ function KajplatserContent() {
       );
     }
     return areaFiltered;
-  }, [listings, selectedAreas, effectiveSortBy, travelMap, userLocation]);
+  }, [listings, selectedAreas, proximityFallbackTagIds, effectiveSortBy, travelMap, userLocation]);
 
   const visibleListings = displayedListings;
 
@@ -1328,7 +1342,11 @@ function KajplatserContent() {
       </div>
     ) : null;
 
-  const resultCountLabel = loading ? "Laddar..." : formatAreaResultCount(visibleListings.length, selectedAreas);
+  const resultCountLabel = loading
+    ? "Laddar..."
+    : formatAreaResultCount(visibleListings.length, selectedAreas, {
+        useProximityLabel: usesProximityFallback,
+      });
 
   const mapProps = {
     listings: selectedAreas.length > 0 ? allMapListings : mapListings,

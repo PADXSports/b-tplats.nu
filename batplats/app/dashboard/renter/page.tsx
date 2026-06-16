@@ -16,6 +16,17 @@ type Profile = {
   boat_width: number | null;
 };
 
+type HostSummary = {
+  listingCount: number;
+  bookingCount: number;
+  totalEarned: number;
+};
+
+const surfaceCardClass =
+  "rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.08)]";
+const inputClass =
+  "w-full rounded-lg border border-[#e8e8e8] bg-white px-4 py-3 text-[15px] text-[#222222] focus:border-[#222222] focus:outline-none";
+
 const toDate = (value: string | null) => {
   if (!value) return null;
   const date = new Date(value);
@@ -35,6 +46,11 @@ function RenterDashboardContent() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [cancellingBookingId, setCancellingBookingId] = useState<string | number | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [hostSummary, setHostSummary] = useState<HostSummary>({
+    listingCount: 0,
+    bookingCount: 0,
+    totalEarned: 0,
+  });
 
   const [profileForm, setProfileForm] = useState({
     full_name: "",
@@ -126,6 +142,42 @@ function RenterDashboardContent() {
     }
   };
 
+  const loadHostSummary = async (id: string) => {
+    const { data: listingsData, error: listingsError } = await supabase
+      .from("listings")
+      .select("id, price_per_season")
+      .eq("owner_id", id)
+      .eq("listing_type", "private");
+
+    if (listingsError) return;
+
+    const listings = (listingsData ?? []) as Array<{ id: string; price_per_season: number | null }>;
+    if (listings.length === 0) {
+      setHostSummary({ listingCount: 0, bookingCount: 0, totalEarned: 0 });
+      return;
+    }
+
+    const listingIds = listings.map((listing) => listing.id);
+    const priceMap = new Map(listings.map((listing) => [listing.id, listing.price_per_season ?? 0]));
+
+    const { data: hostBookings, error: bookingsError } = await supabase
+      .from("bookings")
+      .select("id, listing_id, status")
+      .in("listing_id", listingIds)
+      .eq("status", "confirmed");
+
+    if (bookingsError) return;
+
+    const normalizedBookings = (hostBookings ?? []) as Array<{ id: string; listing_id: string; status: string }>;
+    const totalEarned = normalizedBookings.reduce((sum, booking) => sum + (priceMap.get(booking.listing_id) ?? 0), 0);
+
+    setHostSummary({
+      listingCount: listings.length,
+      bookingCount: normalizedBookings.length,
+      totalEarned,
+    });
+  };
+
   useEffect(() => {
     const init = async () => {
       const {
@@ -138,7 +190,11 @@ function RenterDashboardContent() {
 
       setUserId(user.id);
       setEmail(user.email ?? "");
-      await Promise.all([loadBookings(user.id), loadProfile(user.id, user.email ?? "")]);
+      await Promise.all([
+        loadBookings(user.id),
+        loadProfile(user.id, user.email ?? ""),
+        loadHostSummary(user.id),
+      ]);
       setLoading(false);
     };
 
@@ -204,13 +260,14 @@ function RenterDashboardContent() {
   });
 
   return (
-    <main className="min-h-screen bg-[#0b1b3f] text-white">
+    <main className="min-h-screen bg-[#f7f7f7] text-[#222222]">
       <AuthNavbar currentPage="dashboard" />
-      <section className="mx-auto w-full max-w-[1280px] px-4 py-8 sm:px-6">
-        <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#14b8a6]">Renter dashboard</p>
-          <h1 className="text-2xl font-extrabold">Min dashboard</h1>
+      <section className="border-b border-[#e8e8e8] bg-white py-6">
+        <div className="mx-auto w-full max-w-[1280px] px-4 sm:px-6">
+          <h1 className="text-[26px] font-bold text-[#222222]">Mina bokningar</h1>
         </div>
+      </section>
+      <section className="mx-auto w-full max-w-[1280px] px-4 py-8 sm:px-6">
 
         {toast ? (
           <div
@@ -224,7 +281,7 @@ function RenterDashboardContent() {
           </div>
         ) : null}
 
-        <div className="mb-6 flex gap-2 rounded-xl bg-[#122a5d] p-1">
+        <div className="mb-8 flex gap-8 border-b border-[#e8e8e8]">
           {[
             ["bookings", "Mina Bokningar"],
             ["profile", "Min Profil"],
@@ -232,14 +289,18 @@ function RenterDashboardContent() {
             <button
               key={value}
               onClick={() => setActiveTab(value as Tab)}
-              className={`rounded-lg px-4 py-2 text-sm ${activeTab === value ? "bg-[#14b8a6] text-[#0b1b3f]" : "text-white/80"}`}
+              className={`border-b-2 pb-3 text-sm ${
+                activeTab === value
+                  ? "border-[#222222] font-semibold text-[#222222]"
+                  : "border-transparent font-medium text-[#717171]"
+              }`}
             >
               {label}
             </button>
           ))}
         </div>
 
-        {loading ? <div className="rounded-xl bg-[#122a5d] p-5 text-sm text-white/70">Laddar...</div> : null}
+        {loading ? <div className={surfaceCardClass}>Laddar...</div> : null}
 
         {!loading && activeTab === "bookings" ? (
           <div className="space-y-6">
@@ -247,7 +308,7 @@ function RenterDashboardContent() {
               <h2 className="mb-3 text-lg font-bold">Kommande bokningar</h2>
               <div className="space-y-3">
                 {upcomingBookings.length === 0 ? (
-                  <p className="rounded-xl bg-[#122a5d] p-4 text-sm text-white/70">Inga kommande bokningar.</p>
+                  <p className={surfaceCardClass}>Inga kommande bokningar.</p>
                 ) : (
                   upcomingBookings.map((booking) => <BookingCard key={booking.id} booking={booking} mode="renter" />)
                 )}
@@ -258,7 +319,7 @@ function RenterDashboardContent() {
               <h2 className="mb-3 text-lg font-bold">Väntande förfrågningar</h2>
               <div className="space-y-3">
                 {pendingBookings.length === 0 ? (
-                  <p className="rounded-xl bg-[#122a5d] p-4 text-sm text-white/70">Inga väntande förfrågningar.</p>
+                  <p className={surfaceCardClass}>Inga väntande förfrågningar.</p>
                 ) : (
                   pendingBookings.map((booking) => (
                     <BookingCard
@@ -277,7 +338,7 @@ function RenterDashboardContent() {
               <h2 className="mb-3 text-lg font-bold">Tidigare bokningar</h2>
               <div className="space-y-3">
                 {pastBookings.length === 0 ? (
-                  <p className="rounded-xl bg-[#122a5d] p-4 text-sm text-white/70">Ingen historik ännu.</p>
+                  <p className={surfaceCardClass}>Ingen historik ännu.</p>
                 ) : (
                   pastBookings.map((booking) => <BookingCard key={booking.id} booking={booking} mode="renter" />)
                 )}
@@ -287,51 +348,86 @@ function RenterDashboardContent() {
         ) : null}
 
         {!loading && activeTab === "profile" ? (
-          <div className="max-w-2xl rounded-xl bg-[#122a5d] p-5">
-            <h2 className="text-lg font-bold">Min Profil</h2>
+          <div className={`max-w-2xl ${surfaceCardClass}`}>
+            <h2 className="text-lg font-bold text-[#222222]">Min Profil</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <input
                 value={profileForm.full_name}
                 onChange={(e) => setProfileForm((prev) => ({ ...prev, full_name: e.target.value }))}
                 placeholder="Fullständigt namn"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={inputClass}
               />
               <input
                 value={email}
                 readOnly
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm text-white/70"
+                className={`${inputClass} text-[#717171]`}
               />
               <input
                 value={profileForm.boat_name}
                 onChange={(e) => setProfileForm((prev) => ({ ...prev, boat_name: e.target.value }))}
                 placeholder="Båtnamn (valfritt)"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={inputClass}
               />
               <input
                 value={profileForm.boat_length}
                 onChange={(e) => setProfileForm((prev) => ({ ...prev, boat_length: e.target.value }))}
                 type="number"
                 placeholder="Båtlängd (m)"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={inputClass}
               />
               <input
                 value={profileForm.boat_width}
                 onChange={(e) => setProfileForm((prev) => ({ ...prev, boat_width: e.target.value }))}
                 type="number"
                 placeholder="Båtbredd (m)"
-                className="rounded-lg border border-white/20 bg-[#0b1b3f] px-3 py-2 text-sm"
+                className={inputClass}
               />
             </div>
             <div className="mt-4 flex justify-end">
               <button
                 onClick={() => void saveProfile()}
                 disabled={savingProfile}
-                className="rounded-lg bg-[#14b8a6] px-4 py-2 text-sm font-semibold text-[#0b1b3f] disabled:opacity-50"
+                className="rounded-lg bg-[#0d9488] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
                 {savingProfile ? "Sparar..." : "Spara ändringar"}
               </button>
             </div>
           </div>
+        ) : null}
+
+        {!loading ? (
+          <section className="mt-8 rounded-2xl border border-[#e8e8e8] bg-[#f7f7f7] p-6">
+            {hostSummary.listingCount > 0 ? (
+              <>
+                <h2 className="text-lg font-semibold text-[#222222]">⚓ Du hyr ut platser</h2>
+                <p className="mt-2 text-sm text-[#717171]">
+                  {hostSummary.listingCount} annonser · {hostSummary.bookingCount} bokningar ·{" "}
+                  {hostSummary.totalEarned.toLocaleString("sv-SE")} kr intjänat
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push("/mitt-konto")}
+                  className="mt-4 rounded-lg bg-[#0d9488] px-4 py-2 text-sm font-semibold text-white"
+                >
+                  Hantera mina annonser →
+                </button>
+              </>
+            ) : (
+              <>
+                <h2 className="text-lg font-semibold text-[#222222]">💰 Har du en ledig båtplats?</h2>
+                <p className="mt-2 text-sm text-[#717171]">
+                  Tjäna pengar genom att hyra ut din plats på Båtplats.nu
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push("/hyr-ut")}
+                  className="mt-4 rounded-lg bg-[#0d9488] px-4 py-2 text-sm font-semibold text-white"
+                >
+                  Lägg till min plats
+                </button>
+              </>
+            )}
+          </section>
         ) : null}
       </section>
     </main>
@@ -342,8 +438,8 @@ export default function RenterDashboardPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-[#0b1b3f] flex items-center justify-center">
-          <p className="text-white">Laddar...</p>
+        <main className="flex min-h-screen items-center justify-center bg-[#f7f7f7]">
+          <p className="text-[#717171]">Laddar...</p>
         </main>
       }
     >

@@ -21,7 +21,6 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [roleMismatch, setRoleMismatch] = useState<"host" | null>(null);
 
   const oauthRedirectPath = useMemo(() => {
     const redirectTo = searchParams.get("redirect") ?? searchParams.get("redirect_to");
@@ -35,7 +34,6 @@ function LoginContent() {
     event.preventDefault();
     setLoading(true);
     setError(null);
-    setRoleMismatch(null);
     const timeoutId = setTimeout(() => {
       setLoading(false);
       setError("Inloggning tog för lång tid, försök igen");
@@ -58,20 +56,6 @@ function LoginContent() {
         return;
       }
 
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        setError(profileError.message);
-        return;
-      }
-
-      const normalizedRole: string =
-        profileData?.role === "host" || profileData?.role === "owner" ? "host" : "renter";
-
       const redirectTo =
         searchParams.get("redirect") ?? searchParams.get("redirect_to");
       const safeRedirect =
@@ -79,32 +63,8 @@ function LoginContent() {
           ? redirectTo
           : null;
 
-      if (normalizedRole === "host") {
-        const { data: privateListing } = await supabase
-          .from("listings")
-          .select("id")
-          .eq("owner_id", user.id)
-          .eq("listing_type", "private")
-          .maybeSingle();
-
-        if (!privateListing) {
-          await supabase.auth.signOut();
-          localStorage.removeItem("userEmail");
-          localStorage.removeItem("userRole");
-          setRoleMismatch("host");
-          setError("Du är registrerad som hamnägare. Vänligen logga in via hamnägarsidan.");
-          return;
-        }
-
-        localStorage.setItem("userEmail", user.email ?? "");
-        localStorage.setItem("userRole", "host");
-        router.push(safeRedirect ?? "/mitt-konto");
-        router.refresh();
-        return;
-      }
-
       localStorage.setItem("userEmail", user.email ?? "");
-      localStorage.setItem("userRole", normalizedRole);
+      localStorage.setItem("userRole", "renter");
 
       if (safeRedirect) {
         router.push(safeRedirect);
@@ -169,15 +129,6 @@ function LoginContent() {
             </div>
 
             {error ? <p className="mt-3 text-sm text-red-500">{error}</p> : null}
-            {roleMismatch === "host" ? (
-              <Link
-                href="/hamnar/logga-in"
-                className="mt-3 inline-flex w-full items-center justify-center rounded-xl border-2 border-teal-500 px-4 py-2.5 text-sm font-semibold text-teal-600 transition hover:bg-teal-50"
-              >
-                Gå till hamnägarsidan
-              </Link>
-            ) : null}
-
             <button
               type="submit"
               disabled={loading}

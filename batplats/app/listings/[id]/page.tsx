@@ -32,7 +32,7 @@ type ListingRecord = {
   image_url?: string | null;
   max_boat_length: number | null;
   max_boat_width: number | null;
-  price_per_season: number;
+  price_per_season: number | null;
   season_start: string | null;
   season_end: string | null;
   rental_type?: string | null;
@@ -73,6 +73,22 @@ const formatBookingRangeLine = (start: string | null, end: string | null) => {
   const b = formatDate(end);
   if (a === "-" && b === "-") return null;
   return `${a} till ${b} (Bokad)`;
+};
+
+const getListingPricePeriodText = (listing: { rental_type?: string | null; listing_type?: string | null }) => {
+  const rentalType = String(listing.rental_type ?? "").toLowerCase();
+  const listingType = String(listing.listing_type ?? "").toLowerCase();
+
+  if (rentalType === "seasonal" || rentalType === "season" || listingType === "säsongsplats") {
+    return "per säsong";
+  }
+  if (rentalType === "short_term" || listingType === "korttid") {
+    return "per natt";
+  }
+  if (rentalType === "flexible") {
+    return "per period";
+  }
+  return "per säsong";
 };
 
 export default async function ListingPage({ params }: ListingPageProps) {
@@ -147,6 +163,8 @@ export default async function ListingPage({ params }: ListingPageProps) {
   const mapCity = resolvedListing.harbours?.city ?? resolvedListing.city ?? "Okänd stad";
   const mapArea = resolvedListing.harbours?.area ?? null;
   const mapAddress = resolvedListing.harbours?.address ?? null;
+  const headerCity = (resolvedListing.city ?? resolvedListing.harbours?.city ?? "Okänd stad").toUpperCase();
+  const headerSubline = resolvedListing.harbours?.address ?? resolvedListing.city ?? mapCity;
 
   const supabasePublic = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -192,6 +210,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
   const ownerDashboardHref =
     resolvedListing.listing_type === "private" ? "/mitt-konto" : "/dashboard/host";
   const rentalType = normalizeRentalType(resolvedListing.rental_type);
+  const pricePeriodText = getListingPricePeriodText(resolvedListing);
   const seasonBooked =
     rentalType === "season" &&
     isSeasonPeriodBooked(resolvedListing.season_start, resolvedListing.season_end, normalizedBookedRanges);
@@ -215,7 +234,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
       listingId={id}
       listingTitle={resolvedListing.title}
       harbourName={resolvedListing.harbours?.name ?? "Hamn"}
-      pricePerSeason={resolvedListing.price_per_season}
+      pricePerSeason={resolvedListing.price_per_season ?? 0}
       bookedRanges={serializedBookedRanges}
       rentalType={rentalType}
       seasonStart={resolvedListing.season_start}
@@ -248,13 +267,13 @@ export default async function ListingPage({ params }: ListingPageProps) {
             Tillbaka till alla båtplatser
           </Link>
           <p className="text-[0.8rem] font-bold uppercase tracking-[1px] text-[#14b8a6]">
-            {resolvedListing.harbours?.name ?? "Hamn"}
+            PRIVAT PLATS · {headerCity}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <h1 className="text-[2rem] font-extrabold leading-tight">{resolvedListing.title}</h1>
             <RentalTypeBadge rentalType={rentalType} className="bg-white/10 backdrop-blur" />
           </div>
-          <p className="mt-2 text-sm text-white/80">{resolvedListing.harbours?.city ?? "Okänd stad"}</p>
+          <p className="mt-2 text-sm text-white/80">{headerSubline}</p>
           {!resolvedListing.is_available ? (
             <p className="mt-4 inline-flex rounded-lg border border-[#fca5a5] bg-[#7f1d1d]/60 px-4 py-2 text-sm font-semibold text-white">
               Denna båtplats är inte tillgänglig just nu
@@ -373,9 +392,11 @@ export default async function ListingPage({ params }: ListingPageProps) {
                 Pris
               </p>
               <p className="mt-1 text-[1.75rem] font-extrabold text-[#0f1f3d]">
-                {resolvedListing.price_per_season.toLocaleString("sv-SE")} SEK
+                {resolvedListing.price_per_season != null
+                  ? `${resolvedListing.price_per_season.toLocaleString("sv-SE")} SEK`
+                  : "Pris ej angivet"}
               </p>
-              <p className="text-sm text-[#8a96a8]">per säsong</p>
+              <p className="text-sm text-[#8a96a8]">{pricePeriodText}</p>
               {bookingAction}
             </div>
           </aside>
@@ -400,7 +421,7 @@ export default async function ListingPage({ params }: ListingPageProps) {
               listingId={id}
               listingTitle={resolvedListing.title}
               harbourName={resolvedListing.harbours?.name ?? "Hamn"}
-              pricePerSeason={resolvedListing.price_per_season}
+              pricePerSeason={resolvedListing.price_per_season ?? 0}
               bookedRanges={serializedBookedRanges}
               rentalType={rentalType}
               seasonStart={resolvedListing.season_start}

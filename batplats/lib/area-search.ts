@@ -100,6 +100,9 @@ const GOOGLE_BROAD_PLACE_TYPES = new Set([
   "administrative_area_level_2",
 ]);
 const LARGE_POLYGON_THRESHOLD_DEG = 0.1;
+const SMALL_POLYGON_THRESHOLD_DEG = 0.05;
+const CITY_PROXIMITY_FALLBACK_KM = 15;
+const SMALL_POLYGON_BUFFER_KM = 5;
 
 export type PolygonWithHoles = {
   outer: LatLng[];
@@ -525,6 +528,29 @@ export function isPolygonTooLargeForDrawing(
   return latSpan > thresholdDeg || lngSpan > thresholdDeg;
 }
 
+export function isSmallAreaPolygon(
+  geometry: GeoJsonGeometry,
+  thresholdDeg = SMALL_POLYGON_THRESHOLD_DEG,
+): boolean {
+  const { southwest, northeast } = geoJsonGeometryToBounds(geometry);
+  const latSpan = northeast.lat - southwest.lat;
+  const lngSpan = northeast.lng - southwest.lng;
+  return latSpan < thresholdDeg && lngSpan < thresholdDeg;
+}
+
+export function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export function normalizePlaceNameForMatch(name: string): string {
   return name
     .toLowerCase()
@@ -835,24 +861,74 @@ export function normalizeTagNameForMatch(name: string): string {
     .trim();
 }
 
+export type ListingForCityMatch = {
+  city?: string | null;
+  address?: string | null;
+  harbour_name?: string | null;
+  title?: string | null;
+};
+
+export type ListingForAreaMatch = ListingForCityMatch & {
+  lat: number | null;
+  lng: number | null;
+  city: string | null;
+};
+
+export type AreaTagMatchOptions = {
+  proximityFallbackTagIds?: Set<string>;
+  allListings?: ListingForAreaMatch[];
+};
+
+export function listingMatchesCityTag(listing: ListingForCityMatch, tagName: string): boolean {
+  const tag = normalizeTagNameForMatch(tagName);
+  if (!tag) return false;
+
+  const city = normalizeTagNameForMatch(listing.city || "");
+  const address = (listing.address || "").toLowerCase();
+  const harbour = (listing.harbour_name || "").toLowerCase();
+  const title = (listing.title || "").toLowerCase();
+
+  return (
+    (city.length > 0 && (city.includes(tag) || tag.includes(city))) ||
+    address.includes(tag) ||
+    harbour.includes(tag) ||
+    title.includes(tag)
+  );
+}
+
+export function getProximityFallbackTagIds(
+  allListings: ListingForAreaMatch[],
+  tags: AreaTag[],
+): Set<string> {
+  const ids = new Set<string>();
+  for (const tag of tags) {
+    if (!tag.isCity) continue;
+    const cityMatchCount = allListings.filter((listing) => listingMatchesCityTag(listing, tag.name)).length;
+    if (cityMatchCount === 0) {
+      ids.add(tag.id);
+    }
+  }
+  return ids;
+}
+
 export function listingMatchesAreaTag(
-  listing: {
-    lat: number | null;
-    lng: number | null;
-    city: string | null;
-    harbour_name?: string | null;
-  },
+  listing: ListingForAreaMatch,
   tag: AreaTag,
+  options?: AreaTagMatchOptions,
 ): boolean {
+  const proximityFallbackTagIds =
+    options?.proximityFallbackTagIds ??
+    (options?.allListings ? getProximityFallbackTagIds(options.allListings, [tag]) : new Set<string>());
+
   if (tag.isCity) {
-    const tagName = normalizeTagNameForMatch(tag.name);
-    const listingCity = (listing.city || "").toLowerCase().trim();
-    const harbourName = (listing.harbour_name || "").toLowerCase();
-    return (
-      listingCity.includes(tagName) ||
-      tagName.includes(listingCity) ||
-      harbourName.includes(tagName)
-    );
+    if (listingMatchesCityTag(listing, tag.name)) return true;
+    if (!proximityFallbackTagIds.has(tag.id)) return false;
+
+    const lat = Number(listing.lat);
+    const lng = Number(listing.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+    if (!Number.isFinite(tag.lat) || !Number.isFinite(tag.lng)) return false;
+    return haversineDistance(tag.lat, tag.lng, lat, lng) <= CITY_PROXIMITY_FALLBACK_KM;
   }
 
   const lat = Number(listing.lat);
@@ -860,7 +936,18 @@ export function listingMatchesAreaTag(
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
 
   if (tag.polygon) {
-    return pointInGeoJsonGeometry({ lat, lng }, tag.polygon);
+    const inPolygon = pointInGeoJsonGeometry({ lat, lng }, tag.polygon);
+    if (inPolygon) return true;
+
+    if (
+      isSmallAreaPolygon(tag.polygon) &&
+      Number.isFinite(tag.lat) &&
+      Number.isFinite(tag.lng)
+    ) {
+      return haversineDistance(tag.lat, tag.lng, lat, lng) <= SMALL_POLYGON_BUFFER_KM;
+    }
+
+    return false;
   }
 
   if (tag.viewport) {
@@ -874,16 +961,65 @@ export function listingMatchesAreaTag(
 export const listingMatchesTag = listingMatchesAreaTag;
 
 export function listingMatchesAreaTags(
-  listing: {
-    lat: number | null;
-    lng: number | null;
-    city: string | null;
-    harbour_name?: string | null;
-  },
+  listing: ListingForAreaMatch,
   tags: AreaTag[],
+  options?: AreaTagMatchOptions,
 ): boolean {
   if (tags.length === 0) return true;
-  return tags.some((tag) => listingMatchesAreaTag(listing, tag));
+
+  const proximityFallbackTagIds =
+    options?.proximityFallbackTagIds ??
+    (options?.allListings ? getProximityFallbackTagIds(options.allListings, tags) : new Set<string>());
+  const matchOptions: AreaTagMatchOptions = { proximityFallbackTagIds };
+
+  const matchesAnyArea = tags.some((tag) => listingMatchesAreaTag(listing, tag, matchOptions));
+  if (matchesAnyArea) return true;
+
+  // Multi-area fallback: include listings within combined selected-area bounds.
+  // This avoids dropping listings that are between adjacent selected stadsdelar.
+  if (tags.length < 2) return false;
+
+  const lat = Number(listing.lat);
+  const lng = Number(listing.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+
+  let minLat = Number.POSITIVE_INFINITY;
+  let maxLat = Number.NEGATIVE_INFINITY;
+  let minLng = Number.POSITIVE_INFINITY;
+  let maxLng = Number.NEGATIVE_INFINITY;
+  let hasAnyBounds = false;
+
+  tags.forEach((tag) => {
+    if (tag.viewport) {
+      minLat = Math.min(minLat, tag.viewport.southwest.lat);
+      maxLat = Math.max(maxLat, tag.viewport.northeast.lat);
+      minLng = Math.min(minLng, tag.viewport.southwest.lng);
+      maxLng = Math.max(maxLng, tag.viewport.northeast.lng);
+      hasAnyBounds = true;
+      return;
+    }
+
+    if (tag.polygon) {
+      const polygonBounds = geoJsonGeometryToBounds(tag.polygon);
+      minLat = Math.min(minLat, polygonBounds.southwest.lat);
+      maxLat = Math.max(maxLat, polygonBounds.northeast.lat);
+      minLng = Math.min(minLng, polygonBounds.southwest.lng);
+      maxLng = Math.max(maxLng, polygonBounds.northeast.lng);
+      hasAnyBounds = true;
+      return;
+    }
+
+    if (Number.isFinite(tag.lat) && Number.isFinite(tag.lng)) {
+      minLat = Math.min(minLat, tag.lat - 0.05);
+      maxLat = Math.max(maxLat, tag.lat + 0.05);
+      minLng = Math.min(minLng, tag.lng - 0.05);
+      maxLng = Math.max(maxLng, tag.lng + 0.05);
+      hasAnyBounds = true;
+    }
+  });
+
+  if (!hasAnyBounds) return false;
+  return lat >= minLat && lat <= maxLat && lng >= minLng && lng <= maxLng;
 }
 
 export function areaTagsToParam(tags: AreaTag[]): string {
@@ -944,10 +1080,17 @@ export function parseAreaTagsParam(value: string | null): AreaTag[] {
   }
 }
 
-export function formatAreaResultCount(count: number, areas: Array<{ name: string }>): string {
+export function formatAreaResultCount(
+  count: number,
+  areas: Array<{ name: string }>,
+  options?: { useProximityLabel?: boolean },
+): string {
   const label = count === 1 ? "båtplats" : "båtplatser";
   if (areas.length === 0) return `${count} ${label} tillgängliga`;
-  if (areas.length === 1) return `${count} ${label} i ${areas[0].name}`;
+  if (areas.length === 1) {
+    const prep = options?.useProximityLabel ? "nära" : "i";
+    return `${count} ${label} ${prep} ${areas[0].name}`;
+  }
   const names = areas.map((area) => area.name).join(", ");
   return `${count} ${label} i ${names}`;
 }

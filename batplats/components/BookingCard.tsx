@@ -38,22 +38,22 @@ const formatDate = (value: string | null) => {
 
 export default function BookingCard({ booking, mode, onAccept, onDecline, onCancel, busy = false }: BookingCardProps) {
   return (
-    <article className="rounded-xl bg-[#122a5d] p-4">
+    <article className="rounded-2xl border border-[#e8e8e8] bg-white p-6 shadow-[0_1px_4px_rgba(0,0,0,0.08)]">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="font-semibold">{booking.listings?.title ?? "Okänd plats"}</p>
-          <p className="text-xs text-white/70">
+          <p className="text-base font-semibold text-[#222222]">{booking.listings?.title ?? "Okänd plats"}</p>
+          <p className="text-sm text-[#717171]">
             {(booking.listings?.harbours?.name ?? "Okänd hamn")}
             {booking.listings?.harbours?.city ? `, ${booking.listings.harbours.city}` : ""}
           </p>
-          <p className="text-xs text-white/70">
+          <p className="text-sm text-[#717171]">
             {formatDate(booking.start_date)} - {formatDate(booking.end_date)}
           </p>
-          <p className="text-xs text-white/70">
+          <p className="text-sm text-[#717171]">
             {(booking.listings?.price_per_season ?? 0).toLocaleString("sv-SE")} SEK / säsong
           </p>
           {mode === "host" ? (
-            <p className="mt-1 text-xs text-white/70">
+            <p className="mt-1 text-xs text-[#717171]">
               Hyresgäst: {booking.renter?.full_name || "Okänd"} ({booking.renter?.email || booking.guest_email || "Ingen e-post"})
             </p>
           ) : null}
@@ -65,14 +65,14 @@ export default function BookingCard({ booking, mode, onAccept, onDecline, onCanc
               <button
                 onClick={onAccept}
                 disabled={busy}
-                className="rounded-lg bg-[#14b8a6] px-3 py-2 text-xs font-semibold text-[#0b1b3f] disabled:opacity-50"
+                className="rounded-lg bg-[#0d9488] px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
               >
                 Godkänn
               </button>
               <button
                 onClick={onDecline}
                 disabled={busy}
-                className="rounded-lg border border-[#d64c3b]/60 px-3 py-2 text-xs font-semibold text-[#fca5a5] disabled:opacity-50"
+                className="rounded-lg border border-[#e8e8e8] px-3 py-2 text-xs font-semibold text-[#222222] disabled:opacity-50"
               >
                 Avvisa
               </button>
@@ -82,7 +82,7 @@ export default function BookingCard({ booking, mode, onAccept, onDecline, onCanc
             <button
               onClick={onCancel}
               disabled={busy}
-              className="rounded-lg border border-[#d64c3b]/60 px-3 py-2 text-xs font-semibold text-[#fca5a5] disabled:opacity-50"
+              className="rounded-lg border border-[#e8e8e8] px-3 py-2 text-xs font-semibold text-[#222222] disabled:opacity-50"
             >
               Avboka
             </button>

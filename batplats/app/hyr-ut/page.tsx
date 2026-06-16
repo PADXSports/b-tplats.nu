@@ -18,13 +18,16 @@ import type { User } from '@supabase/supabase-js';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import AuthNavbar from '@/components/auth-navbar';
+import DateRangePicker from '@/components/DateRangePicker';
 import Footer from '@/components/footer';
 import LandingHeroWave from '@/components/landing-hero-wave';
 import RentalTypeChoice from '@/components/RentalTypeChoice';
+import { loadGoogleMaps } from '@/lib/google-maps-loader';
 import { createClient } from '@/lib/supabase/client';
 import type { RentalType } from '@/lib/rental-type';
 
 type WizardData = {
+  spotName: string;
   address: string;
   latitude: number | null;
   longitude: number | null;
@@ -40,6 +43,8 @@ type WizardData = {
   season_start: string;
   season_end: string;
 };
+
+type WizardDataUpdate = Partial<WizardData>;
 
 const AMENITY_OPTIONS = [
   { id: 'el', label: 'El' },
@@ -354,7 +359,7 @@ function HyrUtLanding({ onStartPrivate }: HyrUtLandingProps) {
 
 const STEP_COPY: Record<number, { title: string; subtext: string }> = {
   1: { title: 'Vad hyr du ut?', subtext: 'Välj det som stämmer bäst för dig' },
-  2: { title: 'Var ligger platsen?', subtext: 'Ange adressen eller hamnen där din båtplats finns' },
+  2: { title: 'Namn & plats', subtext: 'Döp din plats och ange var båtplatsen finns' },
   3: { title: 'Berätta om platsen', subtext: 'Hjälp båtägare förstå vad din plats erbjuder' },
   4: { title: 'Bilder & pris', subtext: 'Bra bilder ökar chansen att få bokningar' },
   5: { title: 'Granska & publicera', subtext: 'Kontrollera att allt ser bra ut innan du publicerar' },
@@ -366,6 +371,95 @@ const TEAL = '#0d9488';
 
 const inputClass =
   'w-full px-4 py-3.5 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-teal-500 focus:ring-0 bg-white text-gray-900 placeholder-gray-400 transition';
+
+const WIZARD_DRAFT_KEY = 'batplats.hyrut.draft';
+const OAUTH_PENDING_KEY = 'batplats.hyrut.oauth.pending';
+const LEGACY_WIZARD_KEY = 'wizardData';
+const OAUTH_WIZARD_KEY = 'hyrut_wizard_data';
+
+function getPricePeriodLabel(rentalType: RentalType): string {
+  if (rentalType === 'season') return '/ säsong';
+  if (rentalType === 'flexible') return '/ period';
+  return '/ period';
+}
+
+function resolveWizardPrice(
+  wizardData: WizardData & {
+    price?: number | string | null;
+    pricePerSeason?: number | string | null;
+    amount?: number | string | null;
+  },
+): number {
+  const candidates = [
+    wizardData.price_per_season,
+    wizardData.price,
+    wizardData.pricePerSeason,
+    wizardData.amount,
+  ];
+  for (const candidate of candidates) {
+    const parsed = Number.parseFloat(String(candidate ?? ""));
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  }
+  return 0;
+}
+
+function normalizeWizardData(input: Partial<WizardData> & Record<string, unknown>): Partial<WizardData> {
+  const priceCandidate = resolveWizardPrice(input as WizardData & {
+    price?: number | string | null;
+    pricePerSeason?: number | string | null;
+    amount?: number | string | null;
+  });
+  return {
+    ...input,
+    price_per_season: priceCandidate > 0 ? priceCandidate : null,
+  };
+}
+
+type StoredWizardData = Partial<WizardData> & {
+  savedAt?: number;
+  step?: number;
+};
+
+function hasWizardRealData(input: Partial<WizardData> & Record<string, unknown>): boolean {
+  const resolvedPrice = resolveWizardPrice(input as WizardData & {
+    price?: number | string | null;
+    pricePerSeason?: number | string | null;
+    amount?: number | string | null;
+  });
+  return Boolean(
+    resolvedPrice > 0 ||
+      String(input.address ?? "").trim() ||
+      String(input.description ?? "").trim() ||
+      (Array.isArray(input.imageUrls) && input.imageUrls.length > 0) ||
+      input.max_boat_length != null ||
+      input.max_boat_width != null ||
+      input.latitude != null ||
+      input.longitude != null,
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width={18} height={18} aria-hidden>
+      <path
+        fill="#FFC107"
+        d="M43.611 20.083H42V20H24v8h11.303C33.597 32.09 29.11 35 24 35c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C33.941 4.846 29.196 3 24 3 12.954 3 4 11.954 4 23s8.954 20 20 20 20-8.954 20-20c0-1.341-.132-2.633-.379-3.923z"
+      />
+      <path
+        fill="#FF3D00"
+        d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C33.941 4.846 29.196 3 24 3 16.318 3 9.656 7.337 6.306 14.691z"
+      />
+      <path
+        fill="#4CAF50"
+        d="M24 43c5.114 0 9.86-1.951 13.409-5.151l-6.191-5.238C29.211 35.091 26.715 36 24 36c-5.114 0-9.602-2.91-11.854-7.133l-6.521 5.019C9.505 39.556 16.227 43 24 43z"
+      />
+      <path
+        fill="#1976D2"
+        d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.132-2.633-.379-3.923z"
+      />
+    </svg>
+  );
+}
 
 function HyrUtContent() {
   const router = useRouter();
@@ -384,7 +478,12 @@ function HyrUtContent() {
   const [authError, setAuthError] = useState('');
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const publishTriggeredRef = useRef(false);
   const [data, setData] = useState<WizardData>({
+    spotName: '',
     address: '',
     latitude: null,
     longitude: null,
@@ -403,6 +502,99 @@ function HyrUtContent() {
 
   const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const stepMeta = STEP_COPY[step];
+  const shouldAutoPublishFromGoogle = searchParams.get('google') === '1';
+  const shouldAutoPublishFromQuery = searchParams.get('publish') === 'true';
+
+  const persistDraft = useCallback((nextData: WizardData) => {
+    if (typeof window === 'undefined') return;
+    if (!hasWizardRealData(nextData)) return;
+    const resolvedPrice = resolveWizardPrice(nextData as WizardData & {
+      price?: number | string | null;
+      pricePerSeason?: number | string | null;
+      amount?: number | string | null;
+    });
+    const draftToStore: Omit<WizardData, 'images'> = {
+      ...nextData,
+      price_per_season: resolvedPrice > 0 ? resolvedPrice : null,
+      images: [],
+    };
+    window.localStorage.setItem(WIZARD_DRAFT_KEY, JSON.stringify(draftToStore));
+    window.localStorage.setItem(
+      LEGACY_WIZARD_KEY,
+      JSON.stringify({
+        ...draftToStore,
+        price: resolvedPrice > 0 ? resolvedPrice : null,
+      }),
+    );
+    window.localStorage.setItem(
+      OAUTH_WIZARD_KEY,
+      JSON.stringify({
+        ...draftToStore,
+        price: resolvedPrice > 0 ? resolvedPrice : null,
+        savedAt: Date.now(),
+        step,
+      }),
+    );
+  }, [step]);
+
+  const updateWizardData = useCallback(
+    (patch: WizardDataUpdate) => {
+      setData((prev) => {
+        const next = { ...prev, ...patch };
+        if (hasWizardRealData(next)) {
+          persistDraft(next);
+          console.log('Saved to localStorage:', next);
+        }
+        return next;
+      });
+    },
+    [persistDraft],
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const savedDraft =
+      window.localStorage.getItem(WIZARD_DRAFT_KEY) ?? window.localStorage.getItem(LEGACY_WIZARD_KEY);
+    if (!savedDraft) return;
+    try {
+      const parsed = JSON.parse(savedDraft) as Partial<WizardData> & Record<string, unknown>;
+      const normalized = normalizeWizardData(parsed);
+      setData((prev) => ({ ...prev, ...normalized, images: prev.images }));
+      if (normalized.address) setAddressInput(normalized.address);
+    } catch {
+      // Ignore invalid localStorage payload
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = window.localStorage.getItem(OAUTH_WIZARD_KEY);
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved) as StoredWizardData & Record<string, unknown>;
+      if (typeof parsed.savedAt === 'number' && Date.now() - parsed.savedAt > 10 * 60 * 1000) {
+        window.localStorage.removeItem(OAUTH_WIZARD_KEY);
+        return;
+      }
+      if (!hasWizardRealData(parsed)) {
+        window.localStorage.removeItem(OAUTH_WIZARD_KEY);
+        return;
+      }
+      const normalized = normalizeWizardData(parsed);
+      console.log('Restored wizard data from localStorage:', normalized);
+      setData((prev) => ({ ...prev, ...normalized, images: prev.images }));
+      if (normalized.address) setAddressInput(normalized.address);
+      if (typeof parsed.step === 'number' && parsed.step >= 2 && parsed.step <= totalSteps) {
+        setStep(parsed.step);
+      }
+    } catch (restoreError) {
+      console.error('Failed to restore wizard data:', restoreError);
+    }
+  }, []);
+
+  useEffect(() => {
+    console.log('wizardData updated:', data);
+  }, [data]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -434,14 +626,14 @@ function HyrUtContent() {
       };
 
       if (result.lat != null && result.lng != null) {
-        setData((prev) => ({
-          ...prev,
-          address: result.formatted_address ?? addressInput.trim(),
+        const resolvedAddress = result.formatted_address ?? addressInput.trim();
+        updateWizardData({
+          address: resolvedAddress,
           latitude: result.lat ?? null,
           longitude: result.lng ?? null,
-          city: result.city || prev.city,
-        }));
-        setAddressInput(result.formatted_address ?? addressInput.trim());
+          city: result.city || '',
+        });
+        setAddressInput(resolvedAddress);
         setError('');
       } else {
         setError(result.error ?? 'Plats kunde inte hittas');
@@ -491,11 +683,15 @@ function HyrUtContent() {
       setError('Några bilder kunde inte laddas upp. De som lyckades har sparats.');
     }
 
-    setData((prev) => ({
-      ...prev,
-      images: [...prev.images, ...uploadedFiles],
-      imageUrls: [...prev.imageUrls, ...newUrls],
-    }));
+    setData((prev) => {
+      const next = {
+        ...prev,
+        images: [...prev.images, ...uploadedFiles],
+        imageUrls: [...prev.imageUrls, ...newUrls],
+      };
+      persistDraft(next);
+      return next;
+    });
     setUploading(false);
   };
 
@@ -516,20 +712,28 @@ function HyrUtContent() {
   };
 
   const removeImage = (index: number) => {
-    setData((prev) => ({
-      ...prev,
-      imageUrls: prev.imageUrls.filter((_, i) => i !== index),
-      images: prev.images.filter((_, i) => i !== index),
-    }));
+    setData((prev) => {
+      const next = {
+        ...prev,
+        imageUrls: prev.imageUrls.filter((_, i) => i !== index),
+        images: prev.images.filter((_, i) => i !== index),
+      };
+      persistDraft(next);
+      return next;
+    });
   };
 
   const toggleAmenity = (amenityId: string) => {
-    setData((prev) => ({
-      ...prev,
-      amenities: prev.amenities.includes(amenityId)
-        ? prev.amenities.filter((a) => a !== amenityId)
-        : [...prev.amenities, amenityId],
-    }));
+    setData((prev) => {
+      const next = {
+        ...prev,
+        amenities: prev.amenities.includes(amenityId)
+          ? prev.amenities.filter((a) => a !== amenityId)
+          : [...prev.amenities, amenityId],
+      };
+      persistDraft(next);
+      return next;
+    });
   };
 
   const buildDescription = () => {
@@ -544,22 +748,84 @@ function HyrUtContent() {
 
   const handlePublish = useCallback(
     async (publishUser?: User) => {
-      const userToUse = publishUser ?? user;
-
-      if (!userToUse) {
-        setError('Inget konto hittades');
-        return;
-      }
-
       setLoading(true);
       setError('');
 
       try {
-        const { data: profile } = await supabase
+        const {
+          data: { user: sessionUser },
+        } = await supabase.auth.getUser();
+        const userToUse = publishUser ?? sessionUser ?? user;
+
+        if (!userToUse?.id) {
+          throw new Error('Ingen inloggad användare hittades. Logga in igen och försök på nytt.');
+        }
+
+        const normalizedPrice = resolveWizardPrice(data as WizardData & {
+          price?: number | string | null;
+          pricePerSeason?: number | string | null;
+          amount?: number | string | null;
+        });
+        const normalizedLength =
+          data.max_boat_length != null ? Number.parseFloat(String(data.max_boat_length)) : null;
+        const normalizedWidth =
+          data.max_boat_width != null ? Number.parseFloat(String(data.max_boat_width)) : null;
+        const normalizedLat = data.latitude != null ? Number(data.latitude) : null;
+        const normalizedLng = data.longitude != null ? Number(data.longitude) : null;
+        const normalizedAddress = data.address?.trim() || addressInput.trim();
+        const inferredCity =
+          data.city?.trim() ||
+          normalizedAddress
+            .split(',')
+            .map((part) => part.trim())
+            .filter(Boolean)
+            .slice(-2)[0] ||
+          'Sverige';
+        const listingTitle =
+          data.spotName?.trim() || normalizedAddress.split(',')[0]?.trim() || 'Privat båtplats';
+        const listingDescription = buildDescription();
+        const listingTypeLabel = data.rental_type === 'season' ? 'Säsongsplats' : 'Korttid';
+
+        if (!listingTitle.trim()) {
+          throw new Error('Titel saknas.');
+        }
+        console.log('Price value:', data.price_per_season, 'type:', typeof data.price_per_season);
+        if (!normalizedPrice || Number.isNaN(normalizedPrice) || normalizedPrice <= 0) {
+          throw new Error('Pris saknas eller är ogiltigt.');
+        }
+        if (!normalizedLat || !normalizedLng || Number.isNaN(normalizedLat) || Number.isNaN(normalizedLng)) {
+          throw new Error('Plats saknas. Sök adress och placera nålen innan publicering.');
+        }
+        if (!normalizedAddress) {
+          throw new Error('Adress saknas. Ange en adress i plats-steget.');
+        }
+        if (!data.imageUrls.length) {
+          throw new Error('Minst en bild måste laddas upp innan publicering.');
+        }
+
+        console.log('=== PUBLISHING LISTING ===');
+        console.log('User:', userToUse.id, userToUse.email);
+        console.log('Wizard data:', JSON.stringify(data, null, 2));
+        console.log('Submitting listing with data:', {
+          title: listingTitle,
+          description: listingDescription,
+          price: normalizedPrice,
+          city: inferredCity,
+          address: normalizedAddress,
+          lat: normalizedLat,
+          lng: normalizedLng,
+          max_boat_length: normalizedLength,
+          max_boat_width: normalizedWidth,
+          listing_type: listingTypeLabel,
+          images: data.imageUrls,
+        });
+
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('id, role')
           .eq('id', userToUse.id)
           .maybeSingle();
+        if (profileError) throw profileError;
 
         const displayName =
           (userToUse.user_metadata?.full_name as string | undefined) ??
@@ -567,77 +833,125 @@ function HyrUtContent() {
           (authData.name || userToUse.email || 'Privat uthyrare');
 
         if (!profile) {
-          await supabase.from('profiles').upsert({
+          const { error: upsertProfileError } = await supabase.from('profiles').upsert({
             id: userToUse.id,
             role: 'host',
             full_name: displayName,
           });
+          if (upsertProfileError) throw upsertProfileError;
         } else if (profile.role !== 'host' && profile.role !== 'owner') {
-          await supabase.from('profiles').update({ role: 'host' }).eq('id', userToUse.id);
+          const { error: updateProfileError } = await supabase
+            .from('profiles')
+            .update({ role: 'host' })
+            .eq('id', userToUse.id);
+          if (updateProfileError) throw updateProfileError;
         }
 
-        const cityLabel = data.city.trim() || 'Sverige';
+        const harbourInsertPayload = {
+          name: `Privat plats · ${inferredCity}`,
+          city: inferredCity,
+          address: normalizedAddress,
+          lat: normalizedLat,
+          lng: normalizedLng,
+          owner_id: userToUse.id,
+          description: listingDescription,
+          is_active: true,
+        };
 
-        const { data: harbour, error: harbourError } = await supabase
+        let harbourId: number | string | null = null;
+        const harbourInsertResult = await supabase
           .from('harbours')
-          .insert({
-            name: `Privat plats · ${cityLabel}`,
-            city: cityLabel,
-            lat: data.latitude,
-            lng: data.longitude,
-            owner_id: userToUse.id,
-            description: buildDescription(),
-            is_active: true,
-          })
+          .insert(harbourInsertPayload)
           .select('id')
           .single();
+        if (harbourInsertResult.error) {
+          console.error('=== SUPABASE ERROR ===');
+          console.error('Message:', harbourInsertResult.error.message);
+          console.error('Code:', harbourInsertResult.error.code);
+          console.error('Details:', harbourInsertResult.error.details);
+          console.error('Hint:', harbourInsertResult.error.hint);
+          throw harbourInsertResult.error;
+        }
+        harbourId = harbourInsertResult.data.id;
 
-        if (harbourError) throw harbourError;
+        const listingPayload = {
+          title: listingTitle,
+          harbour_id: harbourId,
+          harbour_name: `Privat plats · ${inferredCity}`,
+          owner_id: userToUse.id,
+          price_per_season: normalizedPrice,
+          max_boat_length: Number.isFinite(normalizedLength ?? NaN) ? normalizedLength : null,
+          max_boat_width: Number.isFinite(normalizedWidth ?? NaN) ? normalizedWidth : null,
+          description: listingDescription,
+          rental_type: data.rental_type,
+          season_start: data.season_start,
+          season_end: data.season_end,
+          lat: normalizedLat,
+          lng: normalizedLng,
+          city: inferredCity,
+          image_url: data.imageUrls[0] || null,
+          is_available: true,
+          listing_type: 'private',
+        };
 
-        const { data: listing, error: listingError } = await supabase
+        const { data: listingInsertData, error: listingInsertError } = await supabase
           .from('listings')
-          .insert({
-            title: `Privat båtplats · ${cityLabel}`,
-            harbour_id: harbour.id,
-            harbour_name: `Privat plats · ${cityLabel}`,
-            owner_id: userToUse.id,
-            price_per_season: data.price_per_season,
-            max_boat_length: data.max_boat_length,
-            max_boat_width: data.max_boat_width,
-            description: buildDescription(),
-            rental_type: data.rental_type,
-            season_start: data.season_start,
-            season_end: data.season_end,
-            lat: data.latitude,
-            lng: data.longitude,
-            city: cityLabel,
-            image_url: data.imageUrls[0] || null,
-            is_available: true,
-            listing_type: 'private',
-          })
+          .insert(listingPayload)
           .select('id')
           .single();
 
-        if (listingError) throw listingError;
-
-        if (data.imageUrls.length > 0) {
-          await supabase.from('listing_images').insert(
-            data.imageUrls.map((url, index) => ({
-              listing_id: listing.id,
-              image_url: url,
-              display_order: index,
-            })),
-          );
+        if (listingInsertError) {
+          console.error('=== SUPABASE ERROR ===');
+          console.error('Message:', listingInsertError.message);
+          console.error('Code:', listingInsertError.code);
+          console.error('Details:', listingInsertError.details);
+          console.error('Hint:', listingInsertError.hint);
+          throw listingInsertError;
         }
 
+        const listingId = listingInsertData.id;
+        const imageRows = data.imageUrls.map((url, index) => ({
+          listing_id: listingId,
+          image_url: url,
+          display_order: index,
+        }));
+        if (imageRows.length > 0) {
+          const { error: imageInsertError } = await supabase.from('listing_images').insert(imageRows);
+          if (imageInsertError) {
+            console.error('=== SUPABASE ERROR ===');
+            console.error('Message:', imageInsertError.message);
+            console.error('Code:', imageInsertError.code);
+            console.error('Details:', imageInsertError.details);
+            console.error('Hint:', imageInsertError.hint);
+            throw imageInsertError;
+          }
+        }
+
+        console.log('=== SUCCESS ===', listingInsertData);
+
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem(WIZARD_DRAFT_KEY);
+          window.localStorage.removeItem(LEGACY_WIZARD_KEY);
+          window.localStorage.removeItem(OAUTH_WIZARD_KEY);
+          window.localStorage.removeItem(OAUTH_PENDING_KEY);
+        }
         router.push('/mitt-konto?published=true');
-      } catch (publishError) {
-        console.error('Publish error:', publishError);
-        setError('Något gick fel. Försök igen.');
+      } catch (err) {
+        console.error('=== CAUGHT ERROR ===', err);
+        const message =
+          err && typeof err === 'object'
+            ? // Supabase errors include message/details/hint
+              (err as { message?: string; details?: string; hint?: string }).message ||
+              (err as { message?: string; details?: string; hint?: string }).details ||
+              (err as { message?: string; details?: string; hint?: string }).hint ||
+              'Okänt fel'
+            : 'Okänt fel';
+        setError(`Fel: ${message}`);
+      } finally {
         setLoading(false);
       }
     },
-    [authData.name, data, router, supabase, user],
+    [addressInput, authData.name, data, router, supabase, user],
   );
 
   const handleAuth = async () => {
@@ -689,15 +1003,192 @@ function HyrUtContent() {
     setAuthSubmitting(false);
   };
 
+  const handleGoogleOAuth = async () => {
+    if (typeof window !== 'undefined') {
+      const dataToSave = {
+        ...data,
+        savedAt: Date.now(),
+        step,
+      };
+      console.log('=== WIZARD STATE AT SAVE TIME ===');
+      console.log('price:', data.price_per_season);
+      console.log('address:', data.address);
+        console.log('title:', data.spotName || data.address?.split(',')[0] || 'Privat båtplats');
+      console.log('images:', data.imageUrls?.length ?? 0);
+      console.log('max_boat_length:', data.max_boat_length);
+      if (hasWizardRealData(dataToSave)) {
+        window.localStorage.setItem(OAUTH_WIZARD_KEY, JSON.stringify(dataToSave));
+        console.log('=== SAVING BEFORE OAUTH ===', dataToSave);
+      } else {
+        console.warn('Skipping OAuth draft save because wizard data is still empty');
+      }
+      window.localStorage.setItem(OAUTH_PENDING_KEY, '1');
+    }
+
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/hyr-ut?publish=true` },
+    });
+    if (oauthError) {
+      setAuthError('Google-inloggning misslyckades. Försök igen.');
+    }
+  };
+
+  useEffect(() => {
+    if (!shouldAutoPublishFromGoogle || !user || publishTriggeredRef.current) return;
+    if (typeof window !== 'undefined' && window.localStorage.getItem(OAUTH_PENDING_KEY) !== '1') return;
+
+    publishTriggeredRef.current = true;
+    setStep(5);
+    void handlePublish(user).finally(() => {
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(OAUTH_PENDING_KEY);
+      }
+    });
+  }, [handlePublish, shouldAutoPublishFromGoogle, user]);
+
+  useEffect(() => {
+    if (!shouldAutoPublishFromQuery || publishTriggeredRef.current) return;
+    void supabase.auth.getUser().then(({ data: { user: oauthUser } }) => {
+      if (!oauthUser || publishTriggeredRef.current) return;
+      console.log('User authenticated after OAuth, auto-publishing...');
+      publishTriggeredRef.current = true;
+      window.setTimeout(() => {
+        void handlePublish(oauthUser);
+      }, 500);
+    });
+  }, [handlePublish, shouldAutoPublishFromQuery, supabase]);
+
+  useEffect(() => {
+    if (step !== 2 || data.latitude == null || data.longitude == null || !mapContainerRef.current) return;
+
+    let cancelled = false;
+    void loadGoogleMaps()
+      .then(() => {
+        if (cancelled || !mapContainerRef.current || !window.google?.maps) return;
+
+        const googleMaps = window.google.maps;
+        if (!mapRef.current) {
+          mapRef.current = new googleMaps.Map(mapContainerRef.current, {
+            center: { lat: data.latitude as number, lng: data.longitude as number },
+            zoom: 16,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+          });
+        } else {
+          mapRef.current.setCenter({ lat: data.latitude as number, lng: data.longitude as number });
+        }
+
+        if (markerRef.current) {
+          markerRef.current.setMap(null);
+        }
+
+        const marker = new googleMaps.Marker({
+          position: { lat: data.latitude as number, lng: data.longitude as number },
+          map: mapRef.current,
+          draggable: true,
+          title: 'Dra för att justera position',
+          icon: {
+            url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0d9488"><path d="M12 2C8.134 2 5 5.134 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.866-3.134-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"/></svg>',
+            )}`,
+            scaledSize: new googleMaps.Size(36, 36),
+            anchor: new googleMaps.Point(18, 36),
+          },
+        });
+
+        marker.addListener('dragend', (event: any) => {
+          const newLat = event?.latLng?.lat();
+          const newLng = event?.latLng?.lng();
+          if (typeof newLat !== 'number' || typeof newLng !== 'number') return;
+
+          updateWizardData({
+            latitude: newLat,
+            longitude: newLng,
+          });
+
+          const geocoder = new googleMaps.Geocoder();
+          geocoder.geocode({ location: { lat: newLat, lng: newLng } }, (results: any, status: string) => {
+            if (status === 'OK' && results?.[0]) {
+              const formatted = results[0].formatted_address as string;
+              const cityCandidate =
+                results[0]?.address_components?.find((c: any) =>
+                  Array.isArray(c.types) && c.types.includes('locality'),
+                )?.long_name ?? '';
+              updateWizardData({ address: formatted, city: cityCandidate });
+              setAddressInput(formatted);
+            }
+          });
+        });
+
+        markerRef.current = marker;
+      })
+      .catch(() => {
+        // Keep wizard usable without map JS
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data.latitude, data.longitude, step]);
+
   const isStepInvalid = () => {
-    if (step === 2) return data.latitude == null || data.longitude == null;
+    if (step === 2) {
+      return (
+        data.latitude == null ||
+        data.longitude == null ||
+        !Number.isFinite(data.latitude) ||
+        !Number.isFinite(data.longitude) ||
+        data.latitude === 0 ||
+        data.longitude === 0
+      );
+    }
     if (step === 3) return !data.max_boat_length || !data.max_boat_width;
-    if (step === 4) return !data.price_per_season || data.imageUrls.length === 0;
+    if (step === 4) return resolveWizardPrice(data as WizardData & { price?: number | string | null }) <= 0 || data.imageUrls.length === 0;
     return false;
   };
 
   const goNext = () => {
     setError('');
+    persistDraft(data);
+    if (step === 2 && isStepInvalid()) {
+      setError('Välj en giltig plats på kartan innan du fortsätter.');
+      return;
+    }
+    if (step === 2) {
+      console.log('Saved location to wizardData:', {
+        address: data.address,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        city: data.city,
+      });
+    }
+    if (step === 3) {
+      console.log('Saved dimensions to wizardData:', {
+        max_boat_length: data.max_boat_length,
+        max_boat_width: data.max_boat_width,
+      });
+    }
+    if (step === 4 && data.imageUrls.length === 0) {
+      setError('Ladda upp minst en bild innan du fortsätter.');
+      return;
+    }
+    if (step === 4) {
+      const currentPrice = resolveWizardPrice(data as WizardData & { price?: number | string | null });
+      if (currentPrice <= 0) {
+        setError('Ange ett giltigt pris innan du fortsätter.');
+        return;
+      }
+      updateWizardData({ price_per_season: currentPrice });
+      console.log('Saved price to wizardData:', currentPrice);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(
+          WIZARD_DRAFT_KEY,
+          JSON.stringify({ ...data, price_per_season: currentPrice, price: currentPrice, images: [] }),
+        );
+      }
+    }
     setStep(step + 1);
   };
 
@@ -759,6 +1250,22 @@ function HyrUtContent() {
 
         {step === 2 ? (
           <div>
+            <div className="mb-6">
+              <label className="mb-2 block text-sm font-medium text-gray-700">Vad heter din plats?</label>
+              <input
+                type="text"
+                value={data.spotName}
+                onChange={(e) => updateWizardData({ spotName: e.target.value.slice(0, 60) })}
+                placeholder="T.ex. Bryggan vid Strandvägen, Min kajplats i Nacka"
+                maxLength={60}
+                className={inputClass}
+              />
+              <p className="mt-2 text-sm text-gray-500">
+                Välj ett namn som hjälper båtägare att hitta din plats
+              </p>
+              <p className="mt-1 text-xs text-gray-400">{data.spotName.length}/60 tecken</p>
+            </div>
+
             <div className="mb-6 flex gap-3">
               <input
                 type="text"
@@ -786,15 +1293,14 @@ function HyrUtContent() {
             ) : null}
 
             {data.latitude != null && data.longitude != null && mapsApiKey ? (
-              <div className="mb-4 overflow-hidden rounded-xl border-2 border-gray-200" style={{ height: '300px' }}>
-                <iframe
-                  title="Kartförhandsvisning"
-                  width="100%"
-                  height="300"
-                  src={`https://www.google.com/maps/embed/v1/place?key=${mapsApiKey}&q=${data.latitude},${data.longitude}&zoom=15`}
-                  allowFullScreen
+              <>
+                <div
+                  ref={mapContainerRef}
+                  className="mb-3 overflow-hidden rounded-xl border-2 border-gray-200 shadow-[0_6px_20px_rgba(10,22,40,0.08)]"
+                  style={{ height: '320px' }}
                 />
-              </div>
+                <p className="mb-4 text-sm text-[#0d9488]">📍 Dra nålen för att justera till rätt brygga</p>
+              </>
             ) : null}
 
             {data.latitude != null ? (
@@ -821,10 +1327,9 @@ function HyrUtContent() {
                   type="number"
                   value={data.max_boat_length ?? ''}
                   onChange={(e) =>
-                    setData((prev) => ({
-                      ...prev,
-                      max_boat_length: e.target.value ? Number(e.target.value) : null,
-                    }))
+                    updateWizardData({
+                      max_boat_length: e.target.value ? Number.parseFloat(e.target.value) : null,
+                    })
                   }
                   placeholder="T.ex. 10"
                   className={inputClass}
@@ -836,10 +1341,9 @@ function HyrUtContent() {
                   type="number"
                   value={data.max_boat_width ?? ''}
                   onChange={(e) =>
-                    setData((prev) => ({
-                      ...prev,
-                      max_boat_width: e.target.value ? Number(e.target.value) : null,
-                    }))
+                    updateWizardData({
+                      max_boat_width: e.target.value ? Number.parseFloat(e.target.value) : null,
+                    })
                   }
                   placeholder="T.ex. 4"
                   className={inputClass}
@@ -851,7 +1355,7 @@ function HyrUtContent() {
               <label className="mb-2 block text-sm font-medium text-gray-700">Beskrivning</label>
               <textarea
                 value={data.description}
-                onChange={(e) => setData((prev) => ({ ...prev, description: e.target.value }))}
+                onChange={(e) => updateWizardData({ description: e.target.value })}
                 placeholder="Beskriv din plats: läge, omgivning, vad som ingår..."
                 rows={4}
                 className={`${inputClass} resize-none`}
@@ -974,10 +1478,9 @@ function HyrUtContent() {
                   type="number"
                   value={data.price_per_season ?? ''}
                   onChange={(e) =>
-                    setData((prev) => ({
-                      ...prev,
-                      price_per_season: e.target.value ? Number(e.target.value) : null,
-                    }))
+                    updateWizardData({
+                      price_per_season: Number.parseFloat(e.target.value) || 0,
+                    })
                   }
                   placeholder="T.ex. 8000"
                   className={`${inputClass} pr-16`}
@@ -991,29 +1494,20 @@ function HyrUtContent() {
               <label className="mb-2 block text-sm font-medium text-gray-700">Uthyrningstyp</label>
               <RentalTypeChoice
                 value={data.rental_type}
-                onChange={(rental_type) => setData((prev) => ({ ...prev, rental_type }))}
+                onChange={(rental_type) => updateWizardData({ rental_type })}
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Tillgänglig från</label>
-                <input
-                  type="date"
-                  value={data.season_start}
-                  onChange={(e) => setData((prev) => ({ ...prev, season_start: e.target.value }))}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">Tillgänglig till</label>
-                <input
-                  type="date"
-                  value={data.season_end}
-                  onChange={(e) => setData((prev) => ({ ...prev, season_end: e.target.value }))}
-                  className={inputClass}
-                />
-              </div>
+            <div className="rounded-xl border border-[#dce3ee] bg-white p-4 shadow-[0_8px_24px_rgba(10,22,40,0.06)]">
+              <label className="mb-2 block text-sm font-medium text-[#0a1628]">Tillgänglig period</label>
+              <DateRangePicker
+                variant="inline"
+                startDate={data.season_start}
+                endDate={data.season_end}
+                onStartDateChange={(value) => updateWizardData({ season_start: value })}
+                onEndDateChange={(value) => updateWizardData({ season_end: value })}
+                showLegend={false}
+              />
             </div>
           </div>
         ) : null}
@@ -1048,7 +1542,7 @@ function HyrUtContent() {
 
               <div className="p-5">
                 <h3 className="mb-1 text-lg font-bold" style={{ color: NAVY }}>
-                  Privat båtplats · {data.city || 'Sverige'}
+                  {data.spotName || data.address?.split(',')[0] || 'Privat båtplats'}
                 </h3>
                 <p className="mb-3 text-sm text-gray-500">{data.address}</p>
 
@@ -1086,7 +1580,7 @@ function HyrUtContent() {
                     <span className="text-xl font-bold" style={{ color: NAVY }}>
                       {data.price_per_season?.toLocaleString('sv-SE')} kr
                     </span>
-                    <span className="text-sm text-gray-500"> / säsong</span>
+                    <span className="text-sm text-gray-500"> {getPricePeriodLabel(data.rental_type)}</span>
                   </div>
                   <span className="flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1.5 text-xs font-medium text-green-600">
                     <span className="h-1.5 w-1.5 rounded-full bg-green-500" aria-hidden />
@@ -1146,6 +1640,21 @@ function HyrUtContent() {
                   >
                     Logga in
                   </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => void handleGoogleOAuth()}
+                  className="flex w-full items-center justify-center gap-3 rounded-xl border border-[#e2e8f0] bg-white px-4 py-3 text-sm font-semibold text-[#0a1628] transition hover:bg-[#f8fafc]"
+                >
+                  <GoogleIcon />
+                  Fortsätt med Google
+                </button>
+
+                <div className="my-4 flex items-center gap-3 text-[#8a96a8]">
+                  <div className="h-px flex-1 bg-[#e2e8f0]" />
+                  <span className="text-sm">eller</span>
+                  <div className="h-px flex-1 bg-[#e2e8f0]" />
                 </div>
 
                 <div className="space-y-3">

@@ -40,13 +40,11 @@ export default function HarbourLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [roleMismatch, setRoleMismatch] = useState<"renter" | null>(null);
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setLoading(true);
     setError(null);
-    setRoleMismatch(null);
     const timeoutId = setTimeout(() => {
       setLoading(false);
       setError("Inloggning tog för lång tid, försök igen");
@@ -70,36 +68,9 @@ export default function HarbourLoginPage() {
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      if (profileError) {
-        setError(profileError.message);
-        return;
-      }
-
-      if (profile?.role === "host" || profile?.role === "owner") {
-        const { data: privateListing } = await supabase
-          .from("listings")
-          .select("id")
-          .eq("owner_id", user.id)
-          .eq("listing_type", "private")
-          .maybeSingle();
-
-        localStorage.setItem("userEmail", user.email ?? "");
-        localStorage.setItem("userRole", "host");
-        router.push(privateListing ? "/mitt-konto" : "/dashboard/host");
-      } else {
-        await supabase.auth.signOut();
-        localStorage.removeItem("userEmail");
-        localStorage.removeItem("userRole");
-        setRoleMismatch("renter");
-        setError("Detta konto är inte registrerat som hamnägare. Vänligen använd vanliga inloggningen.");
-        return;
-      }
+      localStorage.setItem("userEmail", user.email ?? "");
+      localStorage.setItem("userRole", "renter");
+      router.push("/dashboard/renter");
       router.refresh();
     } finally {
       clearTimeout(timeoutId);
@@ -212,15 +183,6 @@ export default function HarbourLoginPage() {
             </div>
 
             {error ? <p className="text-sm text-red-600">{error}</p> : null}
-            {roleMismatch === "renter" ? (
-              <Link
-                href="/login"
-                className="inline-flex w-full items-center justify-center rounded-xl border-2 border-teal-500 px-4 py-2.5 text-sm font-semibold text-teal-600 transition hover:bg-teal-50"
-              >
-                Gå till vanlig inloggning
-              </Link>
-            ) : null}
-
             <button
               type="submit"
               disabled={loading}

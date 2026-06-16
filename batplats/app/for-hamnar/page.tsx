@@ -9,7 +9,6 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 
 import AuthNavbar from "@/components/auth-navbar";
 import Footer from "@/components/footer";
@@ -164,58 +163,15 @@ function HostDashboardMockup() {
 }
 
 function ForHamnarContent() {
-  const router = useRouter();
   const supabase = useMemo(() => {
     if (typeof window === "undefined") return null;
     return createClient();
   }, []);
-  const [checkingAuth, setCheckingAuth] = useState(true);
   const [stats, setStats] = useState<PlatformStats>({
     marinas: "0",
     listings: "0",
     cities: "0",
   });
-
-  useEffect(() => {
-    if (!supabase) {
-      setCheckingAuth(false);
-      return;
-    }
-    let mounted = true;
-
-    const checkRole = async () => {
-      try {
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
-
-        if (error || !user?.id) {
-          return;
-        }
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (profile?.role === "host" || profile?.role === "owner") {
-          router.replace("/dashboard/host");
-        }
-      } finally {
-        if (mounted) {
-          setCheckingAuth(false);
-        }
-      }
-    };
-
-    void checkRole();
-
-    return () => {
-      mounted = false;
-    };
-  }, [router, supabase]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -240,11 +196,6 @@ function ForHamnarContent() {
   return (
     <main className="min-h-screen bg-[#f5f0e8] text-[#0a1628]">
       <AuthNavbar currentPage="home" />
-      {checkingAuth ? (
-        <div className="fixed right-4 top-20 z-40 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 shadow-[0_2px_8px_rgba(0,0,0,0.12)]">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#c5d0de] border-t-[#0d9488]" />
-        </div>
-      ) : null}
 
       <section className="relative overflow-hidden bg-[#0a1628] px-4 pb-20 pt-28 sm:px-6 sm:pb-24 sm:pt-32 md:px-12">
         <LandingHeroWave />

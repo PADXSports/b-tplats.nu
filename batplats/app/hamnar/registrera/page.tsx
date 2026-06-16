@@ -90,7 +90,7 @@ function HarbourSignupContent() {
         }
       }
 
-      router.push("/dashboard/host");
+      router.push("/mitt-konto");
       router.refresh();
     } finally {
       clearTimeout(timeoutId);
